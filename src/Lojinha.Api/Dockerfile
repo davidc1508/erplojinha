@@ -15,7 +15,8 @@ RUN dotnet publish src/Lojinha.Api/Lojinha.Api.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
-RUN apt-get update \
+RUN find /etc/apt -name "*.list" -o -name "*.sources" | xargs sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g; s|http://security.ubuntu.com|https://security.ubuntu.com|g' \
+	&& apt-get update \
 	&& apt-get install -y --no-install-recommends curl libgssapi-krb5-2 \
 	&& rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/publish .
