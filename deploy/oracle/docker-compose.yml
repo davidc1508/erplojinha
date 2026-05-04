@@ -1,0 +1,108 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: lojinha-caddy
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - lojinha-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: lojinha-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lojinha
+      POSTGRES_USER: lojinha
+      POSTGRES_PASSWORD: lojinha123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - lojinha-net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lojinha -d lojinha']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: lojinha-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - lojinha-net
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: lojinha-api-oracle:20260422-fair-cota-v1
+    container_name: lojinha-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=lojinha;Username=lojinha;Password=lojinha123
+      ConnectionStrings__Redis: redis:6379,abortConnect=false
+      Jwt__Issuer: Lojinha.Api
+      Jwt__Audience: Lojinha.Web
+      Cors__AllowedOrigins__0: https://app.alojinhasemnome.com.br
+    networks:
+      - lojinha-net
+    secrets:
+      - jwt_key
+    healthcheck:
+      test: ['CMD-SHELL', 'curl --fail --silent http://localhost:8080/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    image: lojinha-web-oracle:20260422-fair-cota-v1
+    container_name: lojinha-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - lojinha-net
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://127.0.0.1 || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  caddy-data:
+  caddy-config:
+  postgres-data:
+  redis-data:
+
+networks:
+  lojinha-net:
+    driver: bridge
+
+secrets:
+  jwt_key:
+    file: ./jwt.key

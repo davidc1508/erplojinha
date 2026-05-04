@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+.vscode/
+node_modules/
+dist/
+.env
+.venv/
+postgres-data/
+docker/secrets/*.key
+*.tar
+*.dump
+backups/

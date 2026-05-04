@@ -1,0 +1,9 @@
+app.alojinhasemnome.com.br {
+    encode gzip zstd
+    reverse_proxy web:80
+}
+
+api.alojinhasemnome.com.br {
+    encode gzip zstd
+    reverse_proxy api:8080
+}

@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700&family=Nunito:wght@400;500;600;700&display=swap');
+
+:root {
+  color: #473328;
+  background:
+    radial-gradient(circle at top left, rgba(245, 178, 197, 0.55), transparent 32%),
+    radial-gradient(circle at top right, rgba(152, 217, 208, 0.45), transparent 30%),
+    linear-gradient(180deg, #fffaf6 0%, #fff3ef 100%);
+  font-family: 'Nunito', sans-serif;
+}
+
+html, body, #root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(circle at 10% 10%, rgba(255, 210, 223, 0.65), transparent 20%),
+    radial-gradient(circle at 90% 20%, rgba(186, 236, 228, 0.5), transparent 20%),
+    linear-gradient(180deg, #fffaf6 0%, #fff3ef 100%);
+}
+
+* {
+  box-sizing: border-box;
+}

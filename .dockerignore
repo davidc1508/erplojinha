@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv/
+**/bin/
+**/obj/
+**/node_modules/
+backups/
+deploy/
+deploy/oracle/backups/
+Logo/
+Planilhas/
+staging-publish/
+.vscode/
+*.log
+*.tar
