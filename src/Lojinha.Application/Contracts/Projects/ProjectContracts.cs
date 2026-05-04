@@ -79,4 +79,6 @@ public sealed record ProjectDto(
     decimal ProgressPercentage,
     IReadOnlyList<ProjectStepDto> Steps,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    decimal EstimatedMaterialCostBRL = 0m,
+    decimal EstimatedTotalCostBRL = 0m);

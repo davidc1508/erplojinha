@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Lojinha.Api.Entities;
 
 public sealed class Project : AuditableEntity
@@ -43,6 +45,8 @@ public sealed class ProjectStep : BaseEntity
     public decimal TimeEstimatedMinutes { get; set; }
     public decimal WeightEstimatedGrams { get; set; }
     public string? PrinterPlanned { get; set; }
+    [NotMapped]
+    public PrinterProfile? PrinterProfile { get; set; } // não mapeado no DB, populado em memória
     public ICollection<ProjectStepFilament> FilamentsPlanned { get; set; } = [];
     
     // Status atual da mesa

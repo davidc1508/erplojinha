@@ -404,4 +404,6 @@ export interface Project {
   steps: ProjectStep[];
   createdAtUtc: string;
   updatedAtUtc: string;
+  estimatedMaterialCostBRL: number;
+  estimatedTotalCostBRL: number;
 }

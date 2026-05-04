@@ -451,40 +451,39 @@ export function ProjectDetailPage() {
               </Grid>
             </Grid>
 
-            {selectedProduct && (
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
-                <Typography variant="subtitle2" gutterBottom>Estimativa financeira do projeto</Typography>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
-                  Baseado nos parâmetros atuais do produto (tarifa de luz, acabamento, markups e demais custos padrão do cadastro).
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="caption" color="text.secondary">Custo estimado total</Typography>
-                    <Typography variant="body1" fontWeight={600}>{formatMoney(estimatedCost)}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="caption" color="text.secondary">Receita potencial</Typography>
-                    <Typography variant="body1" fontWeight={600}>{formatMoney(estimatedRevenue)}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="caption" color="text.secondary">Margem estimada</Typography>
-                    <Typography variant="body1" fontWeight={600}>{estimatedMargin === null ? '-' : `${(estimatedMargin * 100).toFixed(1)}%`}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="caption" color="text.secondary">Custo realizado</Typography>
-                    <Typography variant="body2">{formatMoney(completedCost)}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="caption" color="text.secondary">Receita realizada</Typography>
-                    <Typography variant="body2">{formatMoney(completedRevenue)}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="caption" color="text.secondary">Preço unitário usado</Typography>
-                    <Typography variant="body2">{formatMoney(selectedProduct.salePrice)} por unidade estimada</Typography>
-                  </Grid>
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+              <Typography variant="subtitle2" gutterBottom>Estimativa financeira do projeto</Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+                Baseado nos filamentos e impressoras planejados nas mesas (tarifa padrão R$ 1,00/kWh). {!selectedProduct && 'Vincule um produto para estimar receita e margem.'}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="caption" color="text.secondary">Custo de material estimado</Typography>
+                  <Typography variant="body1" fontWeight={600}>{formatMoney(project.estimatedMaterialCostBRL)}</Typography>
                 </Grid>
-              </Paper>
-            )}
+                <Grid item xs={12} md={4}>
+                  <Typography variant="caption" color="text.secondary">Custo total estimado</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block">(material + energia + manutenção + falhas)</Typography>
+                  <Typography variant="body1" fontWeight={600}>{formatMoney(project.estimatedTotalCostBRL)}</Typography>
+                </Grid>
+                {selectedProduct && (
+                  <>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="caption" color="text.secondary">Margem estimada (via produto)</Typography>
+                      <Typography variant="body1" fontWeight={600}>{estimatedMargin === null ? '-' : `${(estimatedMargin * 100).toFixed(1)}%`}</Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="caption" color="text.secondary">Receita potencial (via produto)</Typography>
+                      <Typography variant="body2">{formatMoney(estimatedRevenue)}</Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="caption" color="text.secondary">Preço unitário (produto)</Typography>
+                      <Typography variant="body2">{formatMoney(selectedProduct.salePrice)} por unidade estimada</Typography>
+                    </Grid>
+                  </>
+                )}
+              </Grid>
+            </Paper>
 
             {project.description && (
               <>

@@ -36,6 +36,7 @@ public sealed class ProjectService(
     IRepository<ProjectStepFilament> stepFilamentRepository,
     IRepository<ProjectStepAttemptFilament> attemptFilamentRepository,
     IRepository<FilamentProfile> filamentRepository,
+    IRepository<PrinterProfile> printerProfileRepository,
     IRepository<AuditLog> auditRepository) : IProjectService
 {
 public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default)
@@ -658,6 +659,19 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             .Where(f => filamentIds.Contains(f.Id))
             .ToDictionary(f => f.Id, f => f);
 
+        var printerNames = steps
+            .Where(s => !string.IsNullOrEmpty(s.PrinterPlanned))
+            .Select(s => s.PrinterPlanned!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var printersByName = printerProfileRepository.Query()
+            .Where(p => printerNames.Contains(p.Name))
+            .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var step in steps)
+            step.PrinterProfile = printersByName.GetValueOrDefault(step.PrinterPlanned ?? string.Empty);
+
         foreach (var sf in stepFilaments)
         {
             if (filamentProfiles.TryGetValue(sf.FilamentProfileId, out var profile))
@@ -708,9 +722,40 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             ? query.Where(p => p.OwnerSupplierId == scopedSupplierId)
             : query.Where(p => p.OwnerSupplierId == null);
 
+    private const decimal DefaultTariffPerKwh = 1.0m;
+
+    private static decimal ComputeStepMaterialCost(ProjectStep step)
+        => step.FilamentsPlanned
+            .Where(f => f.FilamentProfile is not null && f.FilamentProfile.SpoolWeightKg > 0)
+            .Sum(f => (f.WeightGrams / (f.FilamentProfile!.SpoolWeightKg * 1000m)) * f.FilamentProfile!.CostBRL);
+
+    private static decimal ComputeStepTotalCost(ProjectStep step)
+    {
+        var materialCost = ComputeStepMaterialCost(step);
+        var printer = step.PrinterProfile;
+        var printHours = step.TimeEstimatedMinutes / 60m;
+        var wearLevel = GetWearLevel(printer?.UsageLevel);
+        var energyCost = printHours * (printer?.PowerKw ?? 0m) * DefaultTariffPerKwh;
+        var maintenanceCost = printer is null ? 0m
+            : ((printer.MachineCost * wearLevel) / Math.Max(1m, printer.WorkHoursPerDay * printer.WorkingDaysPerMonth * 12m)) * printHours;
+        var failureCost = materialCost * (printer?.FailureRate ?? 0m);
+        return materialCost + energyCost + maintenanceCost + failureCost;
+    }
+
+    private static decimal GetWearLevel(string? usageLevel)
+        => usageLevel?.Trim().ToLowerInvariant() switch
+        {
+            "basico" => 0.10m,
+            "medio" => 0.20m,
+            "profissional" => 0.30m,
+            _ => 0.45m
+        };
+
     private static ProjectDto Map(Project p)
     {
         var steps = p.Steps.ToList();
+        var estimatedMaterial = steps.Sum(ComputeStepMaterialCost);
+        var estimatedTotal = steps.Sum(ComputeStepTotalCost);
         return new ProjectDto(
             p.Id,
             p.Name,
@@ -729,7 +774,9 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             p.ProgressPercentage,
             steps.Select(MapStep).ToList(),
             p.CreatedAtUtc,
-            p.UpdatedAtUtc);
+            p.UpdatedAtUtc,
+            decimal.Round(estimatedMaterial, 2),
+            decimal.Round(estimatedTotal, 2));
     }
 
     private static ProjectStepDto MapStep(ProjectStep s)
