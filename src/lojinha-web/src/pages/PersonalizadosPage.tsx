@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { PageSection } from '../components/PageSection';
+import { useAuth } from '../hooks/useAuth';
 import { personalizadosApi, productsApi } from '../services/api';
 import { formatCurrency, paymentMethodLabel } from '../services/labels';
 import { PersonalizedPricingTier, PersonalizedProject } from '../services/types';
@@ -40,6 +41,8 @@ function stepDone(project: PersonalizedProject, name: string) {
 }
 
 export function PersonalizadosPage() {
+  const { session } = useAuth();
+  const isAdmin = session?.role === 'Admin';
   const queryClient = useQueryClient();
 
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -303,27 +306,27 @@ export function PersonalizadosPage() {
                 {effectivePricing.map((item, index) => (
                   <TableRow key={item.id || index}>
                     <TableCell>{item.order}</TableCell>
-                    <TableCell><TextField size="small" type="number" value={item.minSizeCm} onChange={(event) => {
+                    <TableCell><TextField size="small" type="number" value={item.minSizeCm} disabled={!isAdmin} onChange={(event) => {
                       const next = [...effectivePricing];
                       next[index] = { ...item, minSizeCm: Number(event.target.value) };
                       setPricingDraft(next as PersonalizedPricingTier[]);
                     }} /></TableCell>
-                    <TableCell><TextField size="small" type="number" value={item.maxSizeCm ?? ''} onChange={(event) => {
+                    <TableCell><TextField size="small" type="number" value={item.maxSizeCm ?? ''} disabled={!isAdmin} onChange={(event) => {
                       const next = [...effectivePricing];
                       next[index] = { ...item, maxSizeCm: event.target.value === '' ? undefined : Number(event.target.value) };
                       setPricingDraft(next as PersonalizedPricingTier[]);
                     }} placeholder="Sem limite" /></TableCell>
-                    <TableCell><TextField size="small" type="number" value={item.finishedPriceBRL} onChange={(event) => {
+                    <TableCell><TextField size="small" type="number" value={item.finishedPriceBRL} disabled={!isAdmin} onChange={(event) => {
                       const next = [...effectivePricing];
                       next[index] = { ...item, finishedPriceBRL: Number(event.target.value) };
                       setPricingDraft(next as PersonalizedPricingTier[]);
                     }} /></TableCell>
-                    <TableCell><TextField size="small" type="number" value={item.unpaintedPriceBRL} onChange={(event) => {
+                    <TableCell><TextField size="small" type="number" value={item.unpaintedPriceBRL} disabled={!isAdmin} onChange={(event) => {
                       const next = [...effectivePricing];
                       next[index] = { ...item, unpaintedPriceBRL: Number(event.target.value) };
                       setPricingDraft(next as PersonalizedPricingTier[]);
                     }} /></TableCell>
-                    <TableCell><Switch checked={item.isActive} onChange={(event) => {
+                    <TableCell><Switch checked={item.isActive} disabled={!isAdmin} onChange={(event) => {
                       const next = [...effectivePricing];
                       next[index] = { ...item, isActive: event.target.checked };
                       setPricingDraft(next as PersonalizedPricingTier[]);
@@ -334,7 +337,7 @@ export function PersonalizadosPage() {
             </Table>
           </Paper>
           <Stack direction="row" justifyContent="flex-end">
-            <Button variant="contained" onClick={() => savePricingMutation.mutate()} disabled={savePricingMutation.isLoading}>
+            <Button variant="contained" onClick={() => savePricingMutation.mutate()} disabled={!isAdmin || savePricingMutation.isLoading}>
               {savePricingMutation.isLoading ? 'Salvando...' : 'Salvar tabela'}
             </Button>
           </Stack>

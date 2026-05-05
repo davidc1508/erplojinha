@@ -32,7 +32,9 @@ public sealed class SalesService(
 
         if (scopedSupplierId.HasValue)
         {
-            sales = sales.Where(sale => authoredSaleIds.Contains(sale.Id)).ToList();
+            sales = sales
+                .Where(sale => sale.Items.Any(item => item.SupplierId == scopedSupplierId.Value))
+                .ToList();
         }
 
         return sales.Select(sale => Map(sale, !scopedSupplierId.HasValue || authoredSaleIds.Contains(sale.Id))).ToList();
