@@ -81,4 +81,10 @@ public sealed record ProjectDto(
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
     decimal EstimatedMaterialCostBRL = 0m,
-    decimal EstimatedTotalCostBRL = 0m);
+    decimal EstimatedTotalCostBRL = 0m,
+    bool IsPersonalized = false,
+    decimal? PersonalizedSizeCm = null,
+    bool? PersonalizedIsPainted = null,
+    decimal? PersonalizedQuotedPriceBRL = null,
+    Guid? PersonalizedGeneratedProductId = null,
+    Guid? PersonalizedSaleId = null);

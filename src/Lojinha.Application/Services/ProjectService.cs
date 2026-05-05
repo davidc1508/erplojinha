@@ -776,7 +776,13 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             p.CreatedAtUtc,
             p.UpdatedAtUtc,
             decimal.Round(estimatedMaterial, 2),
-            decimal.Round(estimatedTotal, 2));
+            decimal.Round(estimatedTotal, 2),
+            p.IsPersonalized,
+            p.PersonalizedSizeCm,
+            p.PersonalizedIsPainted,
+            p.PersonalizedQuotedPriceBRL,
+            p.PersonalizedGeneratedProductId,
+            p.PersonalizedSaleId);
     }
 
     private static ProjectStepDto MapStep(ProjectStep s)

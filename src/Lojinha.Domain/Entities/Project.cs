@@ -28,6 +28,14 @@ public sealed class Project : AuditableEntity
     
     // Percentual aproximado (calculado)
     public decimal ProgressPercentage { get; set; }
+
+    // Personalizados
+    public bool IsPersonalized { get; set; }
+    public decimal? PersonalizedSizeCm { get; set; }
+    public bool? PersonalizedIsPainted { get; set; }
+    public decimal? PersonalizedQuotedPriceBRL { get; set; }
+    public Guid? PersonalizedGeneratedProductId { get; set; }
+    public Guid? PersonalizedSaleId { get; set; }
     
     // Relacionamentos
     public ICollection<ProjectStep> Steps { get; set; } = [];

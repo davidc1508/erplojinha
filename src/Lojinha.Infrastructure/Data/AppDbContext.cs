@@ -27,6 +27,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<ProjectStep> ProjectSteps => Set<ProjectStep>();
     public DbSet<ProjectStepAttempt> ProjectStepAttempts => Set<ProjectStepAttempt>();
+    public DbSet<PersonalizedPricingTier> PersonalizedPricingTiers => Set<PersonalizedPricingTier>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<ProductFilament> ProductFilaments => Set<ProductFilament>();
         public DbSet<ProjectStepFilament> ProjectStepFilaments => Set<ProjectStepFilament>();
@@ -47,6 +48,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Product>().HasIndex(x => x.Sku).IsUnique();
         modelBuilder.Entity<Product>().HasIndex(x => x.NumericIdentifier).IsUnique();
         modelBuilder.Entity<Fair>().HasIndex(x => new { x.Name, x.EventDateUtc, x.EndDateUtc });
+        modelBuilder.Entity<PersonalizedPricingTier>().HasIndex(x => x.Order).IsUnique();
 
         modelBuilder.Entity<Product>()
             .Property(x => x.Sku)
@@ -67,6 +69,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<InventoryMovement>().Property(x => x.Type).HasConversion<string>();
         modelBuilder.Entity<Sale>().Property(x => x.PaymentMethod).HasConversion<string>();
         modelBuilder.Entity<Sale>().Property(x => x.Status).HasConversion<string>();
+        modelBuilder.Entity<Product>().Property(x => x.LifecycleStatus).HasConversion<string>();
         modelBuilder.Entity<FinancialEntry>().Property(x => x.Type).HasConversion<string>();
         modelBuilder.Entity<FinancialEntry>().Property(x => x.Classification).HasConversion<string>();
         modelBuilder.Entity<OperationalRestockItem>().Property(x => x.Priority).HasConversion<string>();

@@ -47,6 +47,12 @@ public enum SaleStatus
     Cancelled = 2
 }
 
+public enum ProductLifecycleStatus
+{
+    Disponivel = 1,
+    EmProducao = 2
+}
+
 public enum FairStatus
 {
     Awaiting = 1,

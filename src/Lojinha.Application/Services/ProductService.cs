@@ -466,7 +466,8 @@ public sealed class ProductService(
                     .ToList(),
             product.PrinterProfile?.Name,
             product.DefaultMarketplaceFee?.Name,
-            product.DefaultMarketplaceFeeId);
+            product.DefaultMarketplaceFeeId,
+            product.LifecycleStatus);
 
     private static PriceSuggestionDto Map(PricingSnapshot pricing)
         => new(

@@ -25,6 +25,7 @@ public sealed class Product : AuditableEntity
     public decimal TariffPerKwh { get; set; }
     public decimal FinishingPercentage { get; set; }
     public decimal CommissionPercentage { get; set; }
+    public ProductLifecycleStatus LifecycleStatus { get; set; } = ProductLifecycleStatus.Disponivel;
     public Guid? PrinterProfileId { get; set; }
     public PrinterProfile? PrinterProfile { get; set; }
     public Guid? DefaultMarketplaceFeeId { get; set; }

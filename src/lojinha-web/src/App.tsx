@@ -18,6 +18,7 @@ import { ProductFormPage } from './pages/ProductFormPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
+import { PersonalizadosPage } from './pages/PersonalizadosPage';
 import { SalesEntryFormPage } from './pages/SalesEntryFormPage';
 import { SalesPage } from './pages/SalesPage';
 import { SupplyFormPage } from './pages/SupplyFormPage';
@@ -56,6 +57,7 @@ function ProtectedApp() {
         <Route path="/listas-operacionais" element={<OperationalListsPage />} />
         <Route path="/projetos" element={<ProjectsPage />} />
         <Route path="/projetos/:id" element={<ProjectDetailPage />} />
+        <Route path="/personalizados" element={<PersonalizadosPage />} />
         <Route path="/minha-conta/senha" element={<ChangePasswordPage />} />
         {!isSupplier ? <Route path="/configuracoes/taxas" element={<CardFeeSettingsPage />} /> : null}
         {!isSupplier ? <Route path="/usuarios" element={<UsersPage />} /> : null}

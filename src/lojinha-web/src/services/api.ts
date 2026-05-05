@@ -19,6 +19,8 @@ import type {
   Project,
   ProjectStep,
   ProjectStepAttempt,
+  PersonalizedPricingTier,
+  PersonalizedProject,
   Sale,
   Supplier,
   Supply,
@@ -476,4 +478,55 @@ export const projectsApi = {
       const { data } = await api.put<ProjectStep>(`/projects/${projectId}/steps/${stepId}/fail`, payload);
       return data;
     }
+};
+
+export const personalizadosApi = {
+  getPricing: async () => {
+    const { data } = await api.get<PersonalizedPricingTier[]>('/personalizados/pricing');
+    return data;
+  },
+  savePricing: async (payload: Record<string, unknown>[]) => {
+    const { data } = await api.put<PersonalizedPricingTier[]>('/personalizados/pricing', payload);
+    return data;
+  },
+  getAll: async () => {
+    const { data } = await api.get<PersonalizedProject[]>('/personalizados');
+    return data;
+  },
+  create: async (payload: Record<string, unknown>) => {
+    const { data } = await api.post<PersonalizedProject>('/personalizados', payload);
+    return data;
+  },
+  updateBudget: async (projectId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.put<PersonalizedProject>(`/personalizados/${projectId}/orcamento`, payload);
+    return data;
+  },
+  advanceBudget: async (projectId: string) => {
+    const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/orcamento/avancar`);
+    return data;
+  },
+  advanceModeling: async (projectId: string) => {
+    const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/elaboracao/avancar`);
+    return data;
+  },
+  approve: async (projectId: string) => {
+    const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/aprovacao/aprovar`);
+    return data;
+  },
+  configurePrintProduct: async (projectId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.put<PersonalizedProject>(`/personalizados/${projectId}/impressao/produto`, payload);
+    return data;
+  },
+  completePrinting: async (projectId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/impressao/finalizar`, payload);
+    return data;
+  },
+  completeFinishing: async (projectId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/acabamento/finalizar`, payload);
+    return data;
+  },
+  finalize: async (projectId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/finalizar`, payload);
+    return data;
+  }
 };

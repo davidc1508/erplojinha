@@ -4,6 +4,7 @@ export type FinancialClassification = 'Fixed' | 'Variable';
 export type InventoryItemType = 'Product' | 'Supply';
 export type InventoryMovementType = 'Entry' | 'Exit' | 'Sale' | 'Adjustment';
 export type FairStatus = 'Awaiting' | 'Open' | 'Finalized' | 'Cancelled';
+export type ProductLifecycleStatus = 'Disponivel' | 'EmProducao';
 export type OperationalItemPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type RestockTaskStatus = 'Open' | 'InProgress' | 'Completed' | 'Cancelled';
 export type TodoTaskStatus = 'Backlog' | 'InAnalysis' | 'InDevelopment' | 'Completed' | 'Cancelled';
@@ -99,6 +100,7 @@ export interface Product {
   printer?: string;
   marketplaceFeeId?: string;
   marketplace?: string;
+  lifecycleStatus: ProductLifecycleStatus;
 }
 
 export interface ProductMetadata {
@@ -406,4 +408,26 @@ export interface Project {
   updatedAtUtc: string;
   estimatedMaterialCostBRL: number;
   estimatedTotalCostBRL: number;
+  isPersonalized: boolean;
+  personalizedSizeCm?: number;
+  personalizedIsPainted?: boolean;
+  personalizedQuotedPriceBRL?: number;
+  personalizedGeneratedProductId?: string;
+  personalizedSaleId?: string;
+}
+
+export interface PersonalizedPricingTier {
+  id: string;
+  order: number;
+  minSizeCm: number;
+  maxSizeCm?: number;
+  finishedPriceBRL: number;
+  unpaintedPriceBRL: number;
+  isActive: boolean;
+}
+
+export interface PersonalizedProject {
+  project: Project;
+  product?: Product;
+  saleId?: string;
 }

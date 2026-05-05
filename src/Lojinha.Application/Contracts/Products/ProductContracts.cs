@@ -1,3 +1,5 @@
+using Lojinha.Api.Entities;
+
 namespace Lojinha.Api.Contracts.Products;
 
 public sealed record FilamentItemRequest(Guid FilamentProfileId, decimal WeightGrams);
@@ -58,7 +60,8 @@ public sealed record ProductDto(
     IReadOnlyList<ProductFilamentDto> Filaments,
     string? Printer,
     string? Marketplace,
-    Guid? MarketplaceFeeId);
+    Guid? MarketplaceFeeId,
+    ProductLifecycleStatus LifecycleStatus = ProductLifecycleStatus.Disponivel);
 
 public sealed record ProductPriceHistoryEntryDto(
     DateTime ChangedAtUtc,
