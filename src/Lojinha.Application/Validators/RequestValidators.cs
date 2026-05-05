@@ -23,6 +23,14 @@ public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
     }
 }
 
+public sealed class ImpersonateRequestValidator : AbstractValidator<ImpersonateRequest>
+{
+    public ImpersonateRequestValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+    }
+}
+
 public sealed class ProductRequestValidator : AbstractValidator<ProductRequest>
 {
     public ProductRequestValidator()

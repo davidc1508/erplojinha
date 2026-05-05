@@ -14,6 +14,9 @@ export interface AuthResponse {
   fullName: string;
   role: string;
   supplierId?: string;
+  isImpersonating?: boolean;
+  impersonatorUserId?: string;
+  impersonatorEmail?: string;
   expiresAtUtc: string;
 }
 

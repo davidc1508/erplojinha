@@ -19,6 +19,28 @@ public sealed class AuthController(IAuthService authService, IUserService userSe
         return response is null ? Unauthorized() : Ok(response);
     }
 
+    [HttpPost("impersonate")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Impersonate([FromBody] ImpersonateRequest request, CancellationToken cancellationToken)
+    {
+        var adminUserId = User.GetUserId();
+        if (!adminUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var response = await authService.ImpersonateAsync(adminUserId.Value, request.UserId, cancellationToken);
+        if (response is null)
+        {
+            return NotFound(new { message = "Usuário alvo não encontrado para acessar como." });
+        }
+
+        return Ok(response);
+    }
+
     [HttpPut("change-password")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

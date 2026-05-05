@@ -66,6 +66,8 @@ let unauthorizedRedirectInFlight = false;
 function clearStoredSession() {
   localStorage.removeItem('lojinha-token');
   localStorage.removeItem('lojinha-session');
+  localStorage.removeItem('lojinha-original-token');
+  localStorage.removeItem('lojinha-original-session');
 }
 
 function notifyUnauthorized() {
@@ -129,6 +131,10 @@ export function subscribeToUnauthorized(handler: () => void) {
 export const authApi = {
   login: async (email: string, password: string) => {
     const { data } = await api.post<AuthResponse>('/auth/login', { email, password });
+    return data;
+  },
+  impersonate: async (userId: string) => {
+    const { data } = await api.post<AuthResponse>('/auth/impersonate', { userId });
     return data;
   },
   changePassword: async (currentPassword: string, newPassword: string) => {

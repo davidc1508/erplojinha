@@ -3,14 +3,17 @@ import { Alert, Button, Grid, IconButton, Pagination, Paper, Stack, TextField, T
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import SwitchAccountRoundedIcon from '@mui/icons-material/SwitchAccountRounded';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
 import { usersApi } from '../services/api';
 import { capitalizeFirstLetter } from '../services/text';
 
 export function UsersPage() {
+  const { isImpersonating, session, startImpersonation } = useAuth();
   const navigate = useNavigate();
   const pageSize = 8;
   const queryClient = useQueryClient();
@@ -19,6 +22,7 @@ export function UsersPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [impersonatingUserId, setImpersonatingUserId] = useState<string | null>(null);
 
   const filteredUsers = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -75,6 +79,28 @@ export function UsersPage() {
                     {user.supplierName ? <Typography color="text.secondary">Fornecedor: {capitalizeFirstLetter(user.supplierName)}</Typography> : null}
                   </div>
                   <Stack direction="row" spacing={1}>
+                    {session?.role === 'Admin' ? (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        color="secondary"
+                        startIcon={<SwitchAccountRoundedIcon />}
+                        disabled={isImpersonating || impersonatingUserId === user.id || session.email === user.email}
+                        onClick={async () => {
+                          try {
+                            setImpersonatingUserId(user.id);
+                            await startImpersonation(user.id);
+                          } catch (error: any) {
+                            const message = error?.response?.data?.message ?? 'Nao foi possivel acessar como este usuario.';
+                            setFeedback({ severity: 'warning', message });
+                          } finally {
+                            setImpersonatingUserId(null);
+                          }
+                        }}
+                      >
+                        Acessar como
+                      </Button>
+                    ) : null}
                     <IconButton color="primary" onClick={() => navigate(`/usuarios/${user.id}/editar`)}><EditRoundedIcon /></IconButton>
                     <IconButton color="error" onClick={() => setUserToDelete({ id: user.id, name: user.fullName })}><DeleteOutlineRoundedIcon /></IconButton>
                   </Stack>

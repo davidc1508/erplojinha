@@ -14,6 +14,7 @@ namespace Lojinha.Api.Services;
 public interface IAuthService
 {
     Task<AuthResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
+    Task<AuthResponse?> ImpersonateAsync(Guid adminUserId, Guid targetUserId, CancellationToken cancellationToken = default);
 }
 
 public sealed class AuthService(
@@ -44,29 +45,7 @@ public sealed class AuthService(
             await userRepository.SaveChangesAsync(cancellationToken);
         }
 
-        var options = jwtOptions.Value;
-        var expiresAt = DateTime.UtcNow.AddMinutes(options.ExpirationMinutes);
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.FullName),
-            new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Role, user.Role.ToString())
-        };
-
-        if (user.SupplierId.HasValue)
-        {
-            claims.Add(new Claim("supplier_id", user.SupplierId.Value.ToString()));
-        }
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.Key));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(
-            issuer: options.Issuer,
-            audience: options.Audience,
-            claims: claims,
-            expires: expiresAt,
-            signingCredentials: credentials);
+        var authResponse = BuildAuthResponse(user, null);
 
         await auditRepository.AddAsync(new AuditLog
         {
@@ -79,12 +58,80 @@ public sealed class AuthService(
 
         await auditRepository.SaveChangesAsync(cancellationToken);
 
+        return authResponse;
+    }
+
+    public async Task<AuthResponse?> ImpersonateAsync(Guid adminUserId, Guid targetUserId, CancellationToken cancellationToken = default)
+    {
+        var adminUser = await userRepository.GetByIdAsync(adminUserId, cancellationToken);
+        if (adminUser is null || adminUser.Role != UserRole.Admin)
+        {
+            return null;
+        }
+
+        var targetUser = await userRepository.GetByIdAsync(targetUserId, cancellationToken);
+        if (targetUser is null)
+        {
+            return null;
+        }
+
+        var authResponse = BuildAuthResponse(targetUser, adminUser);
+
+        await auditRepository.AddAsync(new AuditLog
+        {
+            EntityName = nameof(User),
+            EntityId = targetUser.Id.ToString(),
+            Action = AuditAction.LoggedIn,
+            ChangedBy = adminUser.Email,
+            PayloadJson = $"{{\"event\":\"impersonation_started\",\"admin_user_id\":\"{adminUser.Id}\",\"target_user_id\":\"{targetUser.Id}\"}}"
+        }, cancellationToken);
+
+        await auditRepository.SaveChangesAsync(cancellationToken);
+
+        return authResponse;
+    }
+
+    private AuthResponse BuildAuthResponse(User effectiveUser, User? impersonator)
+    {
+        var options = jwtOptions.Value;
+        var expiresAt = DateTime.UtcNow.AddMinutes(options.ExpirationMinutes);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, effectiveUser.Id.ToString()),
+            new(ClaimTypes.Name, effectiveUser.FullName),
+            new(ClaimTypes.Email, effectiveUser.Email),
+            new(ClaimTypes.Role, effectiveUser.Role.ToString())
+        };
+
+        if (effectiveUser.SupplierId.HasValue)
+        {
+            claims.Add(new Claim("supplier_id", effectiveUser.SupplierId.Value.ToString()));
+        }
+
+        if (impersonator is not null)
+        {
+            claims.Add(new Claim("impersonator_user_id", impersonator.Id.ToString()));
+            claims.Add(new Claim("impersonator_email", impersonator.Email));
+        }
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.Key));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(
+            issuer: options.Issuer,
+            audience: options.Audience,
+            claims: claims,
+            expires: expiresAt,
+            signingCredentials: credentials);
+
         return new AuthResponse(
             new JwtSecurityTokenHandler().WriteToken(token),
-            user.Email,
-            user.FullName,
-            user.Role,
-            user.SupplierId,
+            effectiveUser.Email,
+            effectiveUser.FullName,
+            effectiveUser.Role,
+            effectiveUser.SupplierId,
+            impersonator is not null,
+            impersonator?.Id,
+            impersonator?.Email,
             expiresAt);
     }
 }

@@ -1,4 +1,5 @@
 import {
+  Alert,
   AppBar,
   Avatar,
   Box,
@@ -62,7 +63,7 @@ const navigation = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { logout, session } = useAuth();
+  const { isImpersonating, logout, session, stopImpersonation } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -175,7 +176,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </IconButton>
             <Typography variant="h6">Lojinha</Typography>
           </Stack>
-          {!isMobile ? <Typography color="text.secondary" fontSize={14}>{session?.fullName}</Typography> : null}
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            {!isMobile ? <Typography color="text.secondary" fontSize={14}>{session?.fullName}</Typography> : null}
+            {isImpersonating ? (
+              <Button variant="outlined" color="warning" onClick={stopImpersonation}>
+                Encerrar acesso simulado
+              </Button>
+            ) : null}
+          </Stack>
         </Toolbar>
       </AppBar>
 
@@ -200,6 +208,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Drawer>
       <Box sx={{ flex: 1, minWidth: 0, p: { xs: 1.5, md: 4 } }}>
         <Toolbar />
+        {isImpersonating ? (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Acesso simulado ativo como {session?.fullName}. Todas as ações serão executadas no perfil emulado.
+          </Alert>
+        ) : null}
         {children}
       </Box>
     </Box>
