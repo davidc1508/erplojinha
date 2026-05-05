@@ -84,6 +84,8 @@ public sealed record ProjectDto(
     decimal EstimatedTotalCostBRL = 0m,
     bool IsPersonalized = false,
     decimal? PersonalizedSizeCm = null,
+    decimal? PersonalizedSizeMinCm = null,
+    decimal? PersonalizedSizeMaxCm = null,
     bool? PersonalizedIsPainted = null,
     decimal? PersonalizedQuotedPriceBRL = null,
     Guid? PersonalizedGeneratedProductId = null,

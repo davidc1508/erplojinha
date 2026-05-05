@@ -15,6 +15,7 @@ public interface IPersonalizedService
     Task<PersonalizedProjectDto> CreateProjectAsync(CreatePersonalizedProjectRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<PersonalizedProjectDto?> UpdateBudgetAsync(Guid projectId, UpdatePersonalizedBudgetRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<PersonalizedProjectDto?> AdvanceBudgetAsync(Guid projectId, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+    Task<PersonalizedProjectDto?> RejectBudgetAsync(Guid projectId, RejectPersonalizedBudgetRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<PersonalizedProjectDto?> AdvanceModelingAsync(Guid projectId, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<PersonalizedProjectDto?> ApproveProjectAsync(Guid projectId, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<PersonalizedProjectDto?> ConfigurePrintProductAsync(Guid projectId, PersonalizedPrintProductRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
@@ -106,18 +107,39 @@ public sealed class PersonalizedService(
 
     public async Task<IReadOnlyList<PersonalizedProjectDto>> GetProjectsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default)
     {
-        var projects = await projectService.GetProjectsAsync(scopedSupplierId, cancellationToken);
-        var personalized = projects
-            .Where(x => x.IsPersonalized)
+        var query = projectRepository.Query().Where(x => x.IsPersonalized);
+        if (scopedSupplierId.HasValue)
+        {
+            query = query.Where(x => x.OwnerSupplierId == scopedSupplierId.Value);
+        }
+        else
+        {
+            query = query.Where(x => x.OwnerSupplierId == null);
+        }
+
+        var projectIds = query
             .OrderByDescending(x => x.CreatedAtUtc)
+            .Select(x => x.Id)
             .ToList();
 
-        return await HydrateProductsAsync(personalized, cancellationToken);
+        var result = new List<PersonalizedProjectDto>(projectIds.Count);
+        foreach (var projectId in projectIds)
+        {
+            var item = await BuildProjectResponseAsync(projectId, actor: "system", scopedSupplierId, cancellationToken);
+            if (item is not null)
+            {
+                result.Add(item);
+            }
+        }
+
+        return result;
     }
 
     public async Task<PersonalizedProjectDto> CreateProjectAsync(CreatePersonalizedProjectRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
     {
-        var quote = ResolveQuote(request.SizeCm, request.IsPainted);
+        ValidateRange(request.SizeMinCm, request.SizeMaxCm);
+
+        var quote = ResolveQuote(request.SizeMaxCm, request.IsPainted);
 
         var project = new Project
         {
@@ -126,7 +148,9 @@ public sealed class PersonalizedService(
             Status = ProjectStatus.Planejado,
             OwnerSupplierId = scopedSupplierId,
             IsPersonalized = true,
-            PersonalizedSizeCm = request.SizeCm,
+            PersonalizedSizeCm = null,
+            PersonalizedSizeMinCm = request.SizeMinCm,
+            PersonalizedSizeMaxCm = request.SizeMaxCm,
             PersonalizedIsPainted = request.IsPainted,
             PersonalizedQuotedPriceBRL = quote,
             TimeEstimatedMinutes = 0,
@@ -180,9 +204,18 @@ public sealed class PersonalizedService(
             return null;
         }
 
-        project.PersonalizedSizeCm = request.SizeCm;
+        if (project.Status == ProjectStatus.Cancelado)
+        {
+            throw new InvalidOperationException("Este personalizado está cancelado.");
+        }
+
+        ValidateRange(request.SizeMinCm, request.SizeMaxCm);
+
+        project.PersonalizedSizeCm = null;
+        project.PersonalizedSizeMinCm = request.SizeMinCm;
+        project.PersonalizedSizeMaxCm = request.SizeMaxCm;
         project.PersonalizedIsPainted = request.IsPainted;
-        project.PersonalizedQuotedPriceBRL = ResolveQuote(request.SizeCm, request.IsPainted);
+        project.PersonalizedQuotedPriceBRL = ResolveQuote(request.SizeMaxCm, request.IsPainted);
         projectRepository.Update(project);
         await projectRepository.SaveChangesAsync(cancellationToken);
 
@@ -203,6 +236,48 @@ public sealed class PersonalizedService(
     public Task<PersonalizedProjectDto?> AdvanceBudgetAsync(Guid projectId, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
         => CompleteFixedStepAsync(projectId, StepBudget, 0m, actor, scopedSupplierId, cancellationToken);
 
+    public async Task<PersonalizedProjectDto?> RejectBudgetAsync(Guid projectId, RejectPersonalizedBudgetRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+    {
+        var project = FindScopedPersonalizedProject(projectId, scopedSupplierId);
+        if (project is null)
+        {
+            return null;
+        }
+
+        if (project.Status == ProjectStatus.Cancelado)
+        {
+            return await BuildProjectResponseAsync(projectId, actor, scopedSupplierId, cancellationToken);
+        }
+
+        project.Status = ProjectStatus.Cancelado;
+        projectRepository.Update(project);
+
+        var steps = stepRepository.Query().Where(x => x.ProjectId == projectId).ToList();
+        foreach (var step in steps)
+        {
+            if (step.Status == ProjectStepStatus.Pendente || step.Status == ProjectStepStatus.EmAndamento)
+            {
+                step.Status = ProjectStepStatus.Cancelada;
+                stepRepository.Update(step);
+            }
+        }
+
+        await auditRepository.AddAsync(new AuditLog
+        {
+            EntityName = nameof(Project),
+            EntityId = project.Id.ToString(),
+            Action = AuditAction.Updated,
+            ChangedBy = actor,
+            PayloadJson = $"{{\"module\":\"Personalizados\",\"budgetRejected\":true,\"reason\":\"{request.Reason?.Trim() ?? string.Empty}\"}}"
+        }, cancellationToken);
+
+        await stepRepository.SaveChangesAsync(cancellationToken);
+        await projectRepository.SaveChangesAsync(cancellationToken);
+        await auditRepository.SaveChangesAsync(cancellationToken);
+
+        return await BuildProjectResponseAsync(projectId, actor, scopedSupplierId, cancellationToken);
+    }
+
     public Task<PersonalizedProjectDto?> AdvanceModelingAsync(Guid projectId, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
         => CompleteFixedStepAsync(projectId, StepModeling, 0m, actor, scopedSupplierId, cancellationToken);
 
@@ -217,7 +292,15 @@ public sealed class PersonalizedService(
             return null;
         }
 
+        if (project.Status == ProjectStatus.Cancelado)
+        {
+            throw new InvalidOperationException("Este personalizado está cancelado.");
+        }
+
         EnsureStepIsCompleted(projectId, StepApproval);
+
+        project.PersonalizedSizeCm = request.RealSizeCm;
+        project.PersonalizedQuotedPriceBRL = ResolveQuote(request.RealSizeCm, project.PersonalizedIsPainted ?? true);
 
         var categoryId = await EnsureEncomendaCategoryAsync(cancellationToken);
 
@@ -275,6 +358,11 @@ public sealed class PersonalizedService(
         if (!project.PersonalizedGeneratedProductId.HasValue)
         {
             throw new InvalidOperationException("Configure o produto da impressão antes de finalizar esta etapa.");
+        }
+
+        if (!project.PersonalizedSizeCm.HasValue)
+        {
+            throw new InvalidOperationException("Defina o tamanho real antes de finalizar a impressão.");
         }
 
         await CompleteFixedStepAsync(projectId, StepPrinting, request.TimeRealMinutes, actor, scopedSupplierId, cancellationToken);
@@ -455,7 +543,21 @@ public sealed class PersonalizedService(
             throw new InvalidOperationException("Nenhuma faixa de preço ativa cobre o tamanho informado.");
         }
 
-        return isPainted ? tier.FinishedPriceBRL : tier.UnpaintedPriceBRL;
+        var pricePerCm = isPainted ? tier.FinishedPriceBRL : tier.UnpaintedPriceBRL;
+        return decimal.Round(pricePerCm * sizeCm, 2);
+    }
+
+    private static void ValidateRange(decimal sizeMinCm, decimal sizeMaxCm)
+    {
+        if (sizeMinCm <= 0 || sizeMaxCm <= 0)
+        {
+            throw new InvalidOperationException("O tamanho mínimo e máximo devem ser maiores que zero.");
+        }
+
+        if (sizeMinCm > sizeMaxCm)
+        {
+            throw new InvalidOperationException("O tamanho mínimo não pode ser maior que o tamanho máximo.");
+        }
     }
 
     private async Task<PersonalizedProjectDto?> BuildProjectResponseAsync(Guid projectId, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken)

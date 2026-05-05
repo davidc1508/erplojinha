@@ -24,14 +24,20 @@ public sealed record PersonalizedPricingTierDto(
 public sealed record CreatePersonalizedProjectRequest(
     string Name,
     string? Description,
-    decimal SizeCm,
+    decimal SizeMinCm,
+    decimal SizeMaxCm,
     bool IsPainted);
 
 public sealed record UpdatePersonalizedBudgetRequest(
-    decimal SizeCm,
+    decimal SizeMinCm,
+    decimal SizeMaxCm,
     bool IsPainted);
 
+public sealed record RejectPersonalizedBudgetRequest(
+    string? Reason);
+
 public sealed record PersonalizedPrintProductRequest(
+    decimal RealSizeCm,
     string Name,
     string? Sku,
     string? Description,

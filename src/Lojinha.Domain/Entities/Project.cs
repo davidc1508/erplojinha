@@ -32,6 +32,8 @@ public sealed class Project : AuditableEntity
     // Personalizados
     public bool IsPersonalized { get; set; }
     public decimal? PersonalizedSizeCm { get; set; }
+    public decimal? PersonalizedSizeMinCm { get; set; }
+    public decimal? PersonalizedSizeMaxCm { get; set; }
     public bool? PersonalizedIsPainted { get; set; }
     public decimal? PersonalizedQuotedPriceBRL { get; set; }
     public Guid? PersonalizedGeneratedProductId { get; set; }

@@ -21,7 +21,6 @@ import {
   Typography
 } from '@mui/material';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { PageSection } from '../components/PageSection';
 import { personalizadosApi, productsApi } from '../services/api';
 import { formatCurrency, paymentMethodLabel } from '../services/labels';
@@ -41,22 +40,29 @@ function stepDone(project: PersonalizedProject, name: string) {
 }
 
 export function PersonalizadosPage() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [createForm, setCreateForm] = useState({ name: '', description: '', sizeCm: 5, isPainted: true });
+  const [createForm, setCreateForm] = useState({ name: '', description: '', sizeMinCm: 10, sizeMaxCm: 15, isPainted: true });
 
-  const [budgetDialog, setBudgetDialog] = useState<{ open: boolean; projectId: string; sizeCm: number; isPainted: boolean }>({
+  const [budgetDialog, setBudgetDialog] = useState<{ open: boolean; projectId: string; sizeMinCm: number; sizeMaxCm: number; isPainted: boolean }>({
     open: false,
     projectId: '',
-    sizeCm: 5,
+    sizeMinCm: 10,
+    sizeMaxCm: 15,
     isPainted: true
+  });
+
+  const [rejectDialog, setRejectDialog] = useState<{ open: boolean; projectId: string; reason: string }>({
+    open: false,
+    projectId: '',
+    reason: ''
   });
 
   const [printProductDialog, setPrintProductDialog] = useState({
     open: false,
     projectId: '',
+    realSizeCm: 10,
     name: '',
     sku: '',
     description: '',
@@ -136,12 +142,13 @@ export function PersonalizadosPage() {
     mutationFn: async () => personalizadosApi.create({
       name: createForm.name,
       description: createForm.description,
-      sizeCm: Number(createForm.sizeCm),
+      sizeMinCm: Number(createForm.sizeMinCm),
+      sizeMaxCm: Number(createForm.sizeMaxCm),
       isPainted: createForm.isPainted
     }),
     onSuccess: async () => {
       setFeedback('Pedido personalizado criado com etapas fixas.');
-      setCreateForm({ name: '', description: '', sizeCm: 5, isPainted: true });
+      setCreateForm({ name: '', description: '', sizeMinCm: 10, sizeMaxCm: 15, isPainted: true });
       await reload();
     },
     onError: () => setFeedback('Nao foi possivel criar o personalizado. Verifique a tabela de valores.')
@@ -159,18 +166,29 @@ export function PersonalizadosPage() {
 
   const updateBudgetMutation = useMutation({
     mutationFn: async () => personalizadosApi.updateBudget(budgetDialog.projectId, {
-      sizeCm: Number(budgetDialog.sizeCm),
+      sizeMinCm: Number(budgetDialog.sizeMinCm),
+      sizeMaxCm: Number(budgetDialog.sizeMaxCm),
       isPainted: budgetDialog.isPainted
     }),
     onSuccess: async () => {
-      setBudgetDialog({ open: false, projectId: '', sizeCm: 5, isPainted: true });
+      setBudgetDialog({ open: false, projectId: '', sizeMinCm: 10, sizeMaxCm: 15, isPainted: true });
       await reload();
     },
     onError: () => setFeedback('Nao foi possivel atualizar o orçamento.')
   });
 
+  const rejectBudgetMutation = useMutation({
+    mutationFn: async () => personalizadosApi.rejectBudget(rejectDialog.projectId, { reason: rejectDialog.reason || null }),
+    onSuccess: async () => {
+      setRejectDialog({ open: false, projectId: '', reason: '' });
+      await reload();
+    },
+    onError: () => setFeedback('Nao foi possivel rejeitar o orçamento.')
+  });
+
   const configurePrintProductMutation = useMutation({
     mutationFn: async () => personalizadosApi.configurePrintProduct(printProductDialog.projectId, {
+      realSizeCm: Number(printProductDialog.realSizeCm),
       name: printProductDialog.name,
       sku: printProductDialog.sku || null,
       description: printProductDialog.description || null,
@@ -196,6 +214,7 @@ export function PersonalizadosPage() {
       setPrintProductDialog({
         open: false,
         projectId: '',
+        realSizeCm: 10,
         name: '',
         sku: '',
         description: '',
@@ -261,12 +280,12 @@ export function PersonalizadosPage() {
     <Stack spacing={3}>
       <Stack spacing={0.5}>
         <Typography variant="h3">Personalizados</Typography>
-        <Typography color="text.secondary">Tabela de valores por tamanho e fluxo completo: orçamento, modelagem, aprovação, impressão, acabamento e venda final.</Typography>
+        <Typography color="text.secondary">Tabela de valores por centímetro e fluxo completo: orçamento, modelagem, aprovação, impressão, acabamento e venda final.</Typography>
       </Stack>
 
       {feedback ? <Alert severity="info">{feedback}</Alert> : null}
 
-      <PageSection title="Tabela por tamanho" subtitle="Valores da peça finalizada e da peça sem pintura.">
+      <PageSection title="Tabela por tamanho" subtitle="Valores por centímetro da peça finalizada e da peça sem pintura.">
         <Stack spacing={2}>
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small">
@@ -275,8 +294,8 @@ export function PersonalizadosPage() {
                   <TableCell>Ordem</TableCell>
                   <TableCell>De (cm)</TableCell>
                   <TableCell>Até (cm)</TableCell>
-                  <TableCell>Valor finalizada</TableCell>
-                  <TableCell>Valor sem pintura</TableCell>
+                  <TableCell>Valor por cm (finalizada)</TableCell>
+                  <TableCell>Valor por cm (sem pintura)</TableCell>
                   <TableCell>Ativa</TableCell>
                 </TableRow>
               </TableHead>
@@ -322,17 +341,18 @@ export function PersonalizadosPage() {
         </Stack>
       </PageSection>
 
-      <PageSection title="Novo pedido personalizado" subtitle="Cria um projeto com etapas fixas e orçamento automático por tamanho/pintura.">
+      <PageSection title="Novo pedido personalizado" subtitle="Cria um pedido de personalizado com faixa de tamanho inicial e orçamento automático.">
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}><TextField fullWidth label="Nome" value={createForm.name} onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))} /></Grid>
-          <Grid item xs={12} md={3}><TextField fullWidth label="Tamanho (cm)" type="number" value={createForm.sizeCm} onChange={(event) => setCreateForm((current) => ({ ...current, sizeCm: Number(event.target.value) }))} /></Grid>
-          <Grid item xs={12} md={3}><TextField fullWidth select label="Pintura" value={createForm.isPainted ? 'yes' : 'no'} onChange={(event) => setCreateForm((current) => ({ ...current, isPainted: event.target.value === 'yes' }))}><MenuItem value="yes">Com pintura</MenuItem><MenuItem value="no">Sem pintura</MenuItem></TextField></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth label="De (cm)" type="number" value={createForm.sizeMinCm} onChange={(event) => setCreateForm((current) => ({ ...current, sizeMinCm: Number(event.target.value) }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth label="Até (cm)" type="number" value={createForm.sizeMaxCm} onChange={(event) => setCreateForm((current) => ({ ...current, sizeMaxCm: Number(event.target.value) }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth select label="Pintura" value={createForm.isPainted ? 'yes' : 'no'} onChange={(event) => setCreateForm((current) => ({ ...current, isPainted: event.target.value === 'yes' }))}><MenuItem value="yes">Com pintura</MenuItem><MenuItem value="no">Sem pintura</MenuItem></TextField></Grid>
           <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={() => createMutation.mutate()} disabled={createMutation.isLoading || !createForm.name.trim()}>Criar</Button></Grid>
           <Grid item xs={12}><TextField fullWidth label="Descrição" value={createForm.description} onChange={(event) => setCreateForm((current) => ({ ...current, description: event.target.value }))} /></Grid>
         </Grid>
       </PageSection>
 
-      <PageSection title="Pedidos personalizados" subtitle="As etapas de orçamento e modelagem avançam por clique; impressão, acabamento e venda disparam os efeitos operacionais.">
+      <PageSection title="Pedidos personalizados" subtitle="Separado dos projetos de produção. A etapa de impressão define o tamanho real e gera os efeitos operacionais.">
         <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
           <Table size="small">
             <TableHead>
@@ -350,7 +370,13 @@ export function PersonalizadosPage() {
                   <TableCell>
                     <Stack spacing={0.2}>
                       <Typography fontWeight={700}>{item.project.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{item.project.personalizedSizeCm?.toFixed(1)} cm • {item.project.personalizedIsPainted ? 'Com pintura' : 'Sem pintura'}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {item.project.personalizedSizeCm
+                          ? `${item.project.personalizedSizeCm.toFixed(1)} cm (real)`
+                          : `${(item.project.personalizedSizeMinCm ?? 0).toFixed(1)} a ${(item.project.personalizedSizeMaxCm ?? 0).toFixed(1)} cm (faixa)`}
+                        {' • '}
+                        {item.project.personalizedIsPainted ? 'Com pintura' : 'Sem pintura'}
+                      </Typography>
                     </Stack>
                   </TableCell>
                   <TableCell>{formatCurrency(item.project.personalizedQuotedPriceBRL ?? 0)}</TableCell>
@@ -362,22 +388,28 @@ export function PersonalizadosPage() {
                     </Stack>
                   </TableCell>
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                    {(() => {
+                      const isCanceled = item.project.status === 'Cancelado';
+                      return (
                     <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
-                      <Button size="small" onClick={() => navigate(`/projetos/${item.project.id}`)}>Abrir</Button>
                       <Button size="small" onClick={() => setBudgetDialog({
                         open: true,
                         projectId: item.project.id,
-                        sizeCm: item.project.personalizedSizeCm ?? 5,
+                        sizeMinCm: item.project.personalizedSizeMinCm ?? 10,
+                        sizeMaxCm: item.project.personalizedSizeMaxCm ?? 15,
                         isPainted: item.project.personalizedIsPainted ?? true
-                      })}>Orçamento</Button>
-                      {!stepDone(item, 'Orçamento') ? <Button size="small" onClick={() => simpleActionMutation.mutate({ action: 'advanceBudget', projectId: item.project.id })}>Avançar orçamento</Button> : null}
-                      {stepDone(item, 'Orçamento') && !stepDone(item, 'Elaboração modelo 3D') ? <Button size="small" onClick={() => simpleActionMutation.mutate({ action: 'advanceModeling', projectId: item.project.id })}>Avançar modelagem</Button> : null}
-                      {stepDone(item, 'Elaboração modelo 3D') && !stepDone(item, 'Aprovação do projeto') ? <Button size="small" onClick={() => simpleActionMutation.mutate({ action: 'approve', projectId: item.project.id })}>Aprovar</Button> : null}
-                      {stepDone(item, 'Aprovação do projeto') ? <Button size="small" onClick={() => setPrintProductDialog((current) => ({ ...current, open: true, projectId: item.project.id, name: item.product?.name ?? item.project.name, salePrice: String(item.project.personalizedQuotedPriceBRL ?? 0) }))}>Produto impressão</Button> : null}
-                      {item.product && !stepDone(item, 'Impressão') ? <Button size="small" onClick={() => setPrintFinishDialog({ open: true, projectId: item.project.id, timeRealMinutes: 0, producedQuantity: 1 })}>Finalizar impressão</Button> : null}
-                      {stepDone(item, 'Impressão') && !stepDone(item, 'Acabamento') ? <Button size="small" onClick={() => setFinishingDialog({ open: true, projectId: item.project.id, timeRealMinutes: 0 })}>Finalizar acabamento</Button> : null}
-                      {stepDone(item, 'Acabamento') && !item.saleId ? <Button size="small" color="success" onClick={() => setFinalizeDialog({ open: true, projectId: item.project.id, paymentMethod: 'Pix', quantity: 1, notes: '' })}>Finalizar e vender</Button> : null}
+                      })} disabled={isCanceled}>Orçamento</Button>
+                      {!isCanceled && !stepDone(item, 'Orçamento') ? <Button size="small" onClick={() => simpleActionMutation.mutate({ action: 'advanceBudget', projectId: item.project.id })}>Avançar orçamento</Button> : null}
+                      {!isCanceled && !stepDone(item, 'Orçamento') ? <Button size="small" color="error" onClick={() => setRejectDialog({ open: true, projectId: item.project.id, reason: '' })}>Rejeitar orçamento</Button> : null}
+                      {!isCanceled && stepDone(item, 'Orçamento') && !stepDone(item, 'Elaboração modelo 3D') ? <Button size="small" onClick={() => simpleActionMutation.mutate({ action: 'advanceModeling', projectId: item.project.id })}>Avançar modelagem</Button> : null}
+                      {!isCanceled && stepDone(item, 'Elaboração modelo 3D') && !stepDone(item, 'Aprovação do projeto') ? <Button size="small" onClick={() => simpleActionMutation.mutate({ action: 'approve', projectId: item.project.id })}>Aprovar</Button> : null}
+                      {!isCanceled && stepDone(item, 'Aprovação do projeto') ? <Button size="small" onClick={() => setPrintProductDialog((current) => ({ ...current, open: true, projectId: item.project.id, realSizeCm: item.project.personalizedSizeCm ?? item.project.personalizedSizeMaxCm ?? 10, name: item.product?.name ?? item.project.name, salePrice: String(item.project.personalizedQuotedPriceBRL ?? 0) }))}>Produto impressão</Button> : null}
+                      {!isCanceled && item.product && !stepDone(item, 'Impressão') ? <Button size="small" onClick={() => setPrintFinishDialog({ open: true, projectId: item.project.id, timeRealMinutes: 0, producedQuantity: 1 })}>Finalizar impressão</Button> : null}
+                      {!isCanceled && stepDone(item, 'Impressão') && !stepDone(item, 'Acabamento') ? <Button size="small" onClick={() => setFinishingDialog({ open: true, projectId: item.project.id, timeRealMinutes: 0 })}>Finalizar acabamento</Button> : null}
+                      {!isCanceled && stepDone(item, 'Acabamento') && !item.saleId ? <Button size="small" color="success" onClick={() => setFinalizeDialog({ open: true, projectId: item.project.id, paymentMethod: 'Pix', quantity: 1, notes: '' })}>Finalizar e vender</Button> : null}
                     </Stack>
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
               ))}
@@ -387,11 +419,12 @@ export function PersonalizadosPage() {
         </Paper>
       </PageSection>
 
-      <Dialog open={budgetDialog.open} onClose={() => setBudgetDialog({ open: false, projectId: '', sizeCm: 5, isPainted: true })}>
+      <Dialog open={budgetDialog.open} onClose={() => setBudgetDialog({ open: false, projectId: '', sizeMinCm: 10, sizeMaxCm: 15, isPainted: true })}>
         <DialogTitle>Atualizar orçamento</DialogTitle>
         <DialogContent sx={{ minWidth: 360, pt: 2 }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField type="number" label="Tamanho (cm)" value={budgetDialog.sizeCm} onChange={(event) => setBudgetDialog((current) => ({ ...current, sizeCm: Number(event.target.value) }))} />
+            <TextField type="number" label="Tamanho mínimo (cm)" value={budgetDialog.sizeMinCm} onChange={(event) => setBudgetDialog((current) => ({ ...current, sizeMinCm: Number(event.target.value) }))} />
+            <TextField type="number" label="Tamanho máximo (cm)" value={budgetDialog.sizeMaxCm} onChange={(event) => setBudgetDialog((current) => ({ ...current, sizeMaxCm: Number(event.target.value) }))} />
             <TextField select label="Pintura" value={budgetDialog.isPainted ? 'yes' : 'no'} onChange={(event) => setBudgetDialog((current) => ({ ...current, isPainted: event.target.value === 'yes' }))}>
               <MenuItem value="yes">Com pintura</MenuItem>
               <MenuItem value="no">Sem pintura</MenuItem>
@@ -399,8 +432,28 @@ export function PersonalizadosPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBudgetDialog({ open: false, projectId: '', sizeCm: 5, isPainted: true })}>Cancelar</Button>
+          <Button onClick={() => setBudgetDialog({ open: false, projectId: '', sizeMinCm: 10, sizeMaxCm: 15, isPainted: true })}>Cancelar</Button>
           <Button variant="contained" onClick={() => updateBudgetMutation.mutate()} disabled={updateBudgetMutation.isLoading}>Salvar</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={rejectDialog.open} onClose={() => setRejectDialog({ open: false, projectId: '', reason: '' })}>
+        <DialogTitle>Rejeitar orçamento</DialogTitle>
+        <DialogContent sx={{ minWidth: 360, pt: 2 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography color="text.secondary">Este pedido será cancelado e não seguirá para modelagem.</Typography>
+            <TextField
+              label="Motivo (opcional)"
+              value={rejectDialog.reason}
+              onChange={(event) => setRejectDialog((current) => ({ ...current, reason: event.target.value }))}
+              multiline
+              minRows={2}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialog({ open: false, projectId: '', reason: '' })}>Voltar</Button>
+          <Button color="error" variant="contained" onClick={() => rejectBudgetMutation.mutate()} disabled={rejectBudgetMutation.isLoading}>Rejeitar orçamento</Button>
         </DialogActions>
       </Dialog>
 
@@ -408,6 +461,7 @@ export function PersonalizadosPage() {
         <DialogTitle>Configurar produto da impressão</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} md={4}><TextField fullWidth label="Tamanho real (cm)" type="number" value={printProductDialog.realSizeCm} onChange={(event) => setPrintProductDialog((current) => ({ ...current, realSizeCm: Number(event.target.value) }))} /></Grid>
             <Grid item xs={12} md={6}><TextField fullWidth label="Nome" value={printProductDialog.name} onChange={(event) => setPrintProductDialog((current) => ({ ...current, name: event.target.value }))} /></Grid>
             <Grid item xs={12} md={3}><TextField fullWidth label="SKU" value={printProductDialog.sku} onChange={(event) => setPrintProductDialog((current) => ({ ...current, sku: event.target.value }))} /></Grid>
             <Grid item xs={12} md={3}><TextField fullWidth select label="Fornecedor" value={printProductDialog.supplierId} onChange={(event) => setPrintProductDialog((current) => ({ ...current, supplierId: event.target.value }))}><MenuItem value="">Lojinha</MenuItem>{(metadata?.suppliers ?? []).map((supplier) => <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>)}</TextField></Grid>

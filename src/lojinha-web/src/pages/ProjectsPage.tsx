@@ -23,6 +23,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PageSection } from '../components/PageSection';
 import { SearchSelectField } from '../components/SearchSelectField';
 import { productsApi, projectsApi } from '../services/api';
@@ -46,6 +47,7 @@ export function ProjectsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [openDialog, setOpenDialog] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -89,9 +91,7 @@ export function ProjectsPage() {
   };
 
   const handleDeleteProject = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteTargetId(id);
   };
 
   if (isLoading) {
@@ -189,6 +189,21 @@ export function ProjectsPage() {
           <Button onClick={handleCreateProject} variant="contained" disabled={!formData.name.trim() || createMutation.isLoading}>{createMutation.isLoading ? 'Criando...' : 'Criar'}</Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        title="Excluir projeto"
+        description="Tem certeza que deseja excluir este projeto? Esta ação não poderá ser desfeita."
+        confirmLabel="Excluir"
+        confirmColor="error"
+        isLoading={deleteMutation.isLoading}
+        onCancel={() => setDeleteTargetId(null)}
+        onConfirm={() => {
+          if (deleteTargetId) {
+            deleteMutation.mutate(deleteTargetId, { onSuccess: () => setDeleteTargetId(null) });
+          }
+        }}
+      />
     </Stack>
   );
 }

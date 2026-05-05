@@ -35,6 +35,7 @@ import ReportProblemRoundedIcon from '@mui/icons-material/ReportProblemRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { SearchSelectField } from '../components/SearchSelectField';
 import { productsApi, projectsApi } from '../services/api';
 import { durationPartsToMinutes, minutesToDurationParts } from '../services/product';
@@ -62,6 +63,7 @@ export function ProjectDetailPage() {
   const [openAddStepDialog, setOpenAddStepDialog] = useState(false);
   const [openEditStepDialog, setOpenEditStepDialog] = useState(false);
   const [openFailStepDialog, setOpenFailStepDialog] = useState(false);
+  const [deleteStepId, setDeleteStepId] = useState<string | null>(null);
 
   const [stepForm, setStepForm] = useState({
     name: '',
@@ -292,11 +294,7 @@ export function ProjectDetailPage() {
                 size="small"
                 color="error"
                 startIcon={<DeleteOutlineRoundedIcon />}
-                onClick={() => {
-                  if (window.confirm('Excluir esta mesa e todo o histórico de tentativas?')) {
-                    deleteStepMutation.mutate(step.id);
-                  }
-                }}
+                onClick={() => setDeleteStepId(step.id)}
               >
                 Excluir
               </Button>
@@ -627,6 +625,21 @@ export function ProjectDetailPage() {
           <Button onClick={() => failStepMutation.mutate({ timeLostMinutes: failStepForm.timeLostMinutes, weightLostGrams: Number(failStepForm.weightLostGrams), failureReason: failStepForm.failureReason.trim() || null })} variant="contained" color="error" disabled={failStepForm.timeLostMinutes <= 0 || Number(failStepForm.weightLostGrams) <= 0 || failStepMutation.isLoading}>Registrar falha</Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteStepId)}
+        title="Excluir mesa"
+        description="Excluir esta mesa e todo o histórico de tentativas?"
+        confirmLabel="Excluir"
+        confirmColor="error"
+        isLoading={deleteStepMutation.isLoading}
+        onCancel={() => setDeleteStepId(null)}
+        onConfirm={() => {
+          if (deleteStepId) {
+            deleteStepMutation.mutate(deleteStepId, { onSuccess: () => setDeleteStepId(null) });
+          }
+        }}
+      />
     </Stack>
   );
 }

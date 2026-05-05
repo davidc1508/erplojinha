@@ -505,6 +505,10 @@ export const personalizadosApi = {
     const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/orcamento/avancar`);
     return data;
   },
+  rejectBudget: async (projectId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/orcamento/rejeitar`, payload);
+    return data;
+  },
   advanceModeling: async (projectId: string) => {
     const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/elaboracao/avancar`);
     return data;

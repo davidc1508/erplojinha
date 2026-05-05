@@ -42,6 +42,7 @@ public sealed class ProjectService(
 public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default)
     {
         var projects = ApplyScope(projectRepository.Query(), scopedSupplierId)
+            .Where(p => !p.IsPersonalized)
             .OrderByDescending(p => p.CreatedAtUtc)
             .ToList();
 
@@ -779,6 +780,8 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             decimal.Round(estimatedTotal, 2),
             p.IsPersonalized,
             p.PersonalizedSizeCm,
+            p.PersonalizedSizeMinCm,
+            p.PersonalizedSizeMaxCm,
             p.PersonalizedIsPainted,
             p.PersonalizedQuotedPriceBRL,
             p.PersonalizedGeneratedProductId,

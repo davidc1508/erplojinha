@@ -59,6 +59,10 @@ public sealed class PersonalizadosController(IPersonalizedService personalizedSe
     public async Task<ActionResult<PersonalizedProjectDto>> AdvanceBudget(Guid projectId, CancellationToken cancellationToken)
         => await Handle(() => personalizedService.AdvanceBudgetAsync(projectId, User.GetEmail(), ScopedSupplierId, cancellationToken));
 
+    [HttpPost("{projectId:guid}/orcamento/rejeitar")]
+    public async Task<ActionResult<PersonalizedProjectDto>> RejectBudget(Guid projectId, [FromBody] RejectPersonalizedBudgetRequest request, CancellationToken cancellationToken)
+        => await Handle(() => personalizedService.RejectBudgetAsync(projectId, request, User.GetEmail(), ScopedSupplierId, cancellationToken));
+
     [HttpPost("{projectId:guid}/elaboracao/avancar")]
     public async Task<ActionResult<PersonalizedProjectDto>> AdvanceModeling(Guid projectId, CancellationToken cancellationToken)
         => await Handle(() => personalizedService.AdvanceModelingAsync(projectId, User.GetEmail(), ScopedSupplierId, cancellationToken));

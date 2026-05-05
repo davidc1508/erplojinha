@@ -410,6 +410,8 @@ export interface Project {
   estimatedTotalCostBRL: number;
   isPersonalized: boolean;
   personalizedSizeCm?: number;
+  personalizedSizeMinCm?: number;
+  personalizedSizeMaxCm?: number;
   personalizedIsPainted?: boolean;
   personalizedQuotedPriceBRL?: number;
   personalizedGeneratedProductId?: string;
