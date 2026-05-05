@@ -43,7 +43,7 @@ const emptyForm = {
   commissionPercentage: 0,
   additionalCost: 0,
   printerProfileId: '',
-  filaments: [] as { filamentProfileId: string; weightGrams: number }[],
+  filaments: [{ filamentProfileId: '', weightGrams: 0 }] as { filamentProfileId: string; weightGrams: number }[],
   marketplaceFeeId: '',
   desiredMarkup: 2.7,
   salePrice: ''
@@ -366,9 +366,11 @@ export function ProductFormPage() {
                             />
                           </Grid>
                           <Grid item xs={2} sm={2} md={1} sx={{ display: 'flex', justifyContent: 'center' }}>
-                            <IconButton onClick={() => removeFilament(index)} color="error" aria-label="Remover filamento">
-                              <DeleteOutlineRoundedIcon />
-                            </IconButton>
+                            {index > 0 && (
+                              <IconButton onClick={() => removeFilament(index)} color="error" aria-label="Remover filamento">
+                                <DeleteOutlineRoundedIcon />
+                              </IconButton>
+                            )}
                           </Grid>
                         </Grid>
                       ))}
