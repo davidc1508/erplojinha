@@ -26,7 +26,7 @@ export function SearchSelectField({
   options,
   onChange,
   disabled = false,
-  helperText = 'Digite para buscar.',
+  helperText,
   placeholder,
   minQueryLength = 2,
   disableClearable = false,
