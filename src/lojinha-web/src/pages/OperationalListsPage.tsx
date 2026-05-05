@@ -26,13 +26,11 @@ import type {
   OperationalItemPriority,
   OperationalRestockItem,
   OperationalTodoItem,
-  RestockTaskStatus,
-  TodoTaskStatus
+  RestockTaskStatus
 } from '../services/types';
 
 const priorityOptions: OperationalItemPriority[] = ['Low', 'Medium', 'High', 'Urgent'];
 const restockStatusOptions: RestockTaskStatus[] = ['Open', 'InProgress', 'Completed', 'Cancelled'];
-const todoStatusOptions: TodoTaskStatus[] = ['Backlog', 'InAnalysis', 'InDevelopment', 'Completed', 'Cancelled'];
 
 const emptyRestockForm = {
   id: '',
@@ -48,7 +46,6 @@ const emptyTodoForm = {
   id: '',
   name: '',
   priority: 'Medium' as OperationalItemPriority,
-  status: 'Backlog' as TodoTaskStatus,
   source: ''
 };
 
@@ -65,16 +62,6 @@ function restockStatusLabel(value: RestockTaskStatus) {
   return {
     Open: 'Aberto',
     InProgress: 'Em produção',
-    Completed: 'Concluído',
-    Cancelled: 'Cancelado'
-  }[value];
-}
-
-function todoStatusLabel(value: TodoTaskStatus) {
-  return {
-    Backlog: 'Backlog',
-    InAnalysis: 'Em análise',
-    InDevelopment: 'Em desenvolvimento',
     Completed: 'Concluído',
     Cancelled: 'Cancelado'
   }[value];
@@ -141,7 +128,6 @@ export function OperationalListsPage() {
       const payload = {
         name: todoForm.name,
         priority: todoForm.priority,
-        status: todoForm.status,
         source: todoForm.source
       };
 
@@ -185,7 +171,6 @@ export function OperationalListsPage() {
       id: item.id,
       name: item.name,
       priority: item.priority,
-      status: item.status,
       source: item.source
     });
   }
@@ -345,17 +330,6 @@ export function OperationalListsPage() {
                 {priorityOptions.map((value) => <MenuItem key={value} value={value}>{priorityLabel(value)}</MenuItem>)}
               </TextField>
             </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                select
-                fullWidth
-                label="Status"
-                value={todoForm.status}
-                onChange={(event) => setTodoForm((current) => ({ ...current, status: event.target.value as TodoTaskStatus }))}
-              >
-                {todoStatusOptions.map((value) => <MenuItem key={value} value={value}>{todoStatusLabel(value)}</MenuItem>)}
-              </TextField>
-            </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -386,7 +360,6 @@ export function OperationalListsPage() {
                   <TableCell>Item</TableCell>
                   <TableCell>Fonte</TableCell>
                   <TableCell>Prioridade</TableCell>
-                  <TableCell>Status</TableCell>
                   <TableCell align="right">Ações</TableCell>
                 </TableRow>
               </TableHead>
@@ -396,7 +369,6 @@ export function OperationalListsPage() {
                     <TableCell>{item.name}</TableCell>
                     <TableCell>{item.source || '-'}</TableCell>
                     <TableCell>{priorityLabel(item.priority)}</TableCell>
-                    <TableCell>{todoStatusLabel(item.status)}</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       <IconButton color="primary" onClick={() => editTodo(item)}><EditRoundedIcon /></IconButton>
                       <IconButton color="error" onClick={() => setTodoToDelete({ id: item.id, name: item.name })}><DeleteOutlineRoundedIcon /></IconButton>
@@ -405,7 +377,7 @@ export function OperationalListsPage() {
                 ))}
                 {todoItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5}><Typography color="text.secondary">Sem itens a fazer por enquanto.</Typography></TableCell>
+                    <TableCell colSpan={4}><Typography color="text.secondary">Sem itens a fazer por enquanto.</Typography></TableCell>
                   </TableRow>
                 ) : null}
               </TableBody>

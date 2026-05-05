@@ -161,7 +161,6 @@ public sealed class OperationalListService(
     {
         var rows = ApplyScope(todoRepository.Query(), scopedSupplierId)
             .OrderByDescending(item => item.Priority)
-            .ThenBy(item => item.Status)
             .ThenByDescending(item => item.CreatedAtUtc)
             .ToList();
 
@@ -175,9 +174,7 @@ public sealed class OperationalListService(
             Name = request.Name.Trim(),
             OwnerSupplierId = scopedSupplierId,
             Priority = request.Priority,
-            Status = request.Status,
-            Source = request.Source?.Trim() ?? string.Empty,
-            CompletedAtUtc = request.Status == TodoTaskStatus.Completed ? DateTime.UtcNow : null
+            Source = request.Source?.Trim() ?? string.Empty
         };
 
         await todoRepository.AddAsync(entity, cancellationToken);
@@ -198,9 +195,7 @@ public sealed class OperationalListService(
 
         entity.Name = request.Name.Trim();
         entity.Priority = request.Priority;
-        entity.Status = request.Status;
         entity.Source = request.Source?.Trim() ?? string.Empty;
-        entity.CompletedAtUtc = request.Status == TodoTaskStatus.Completed ? entity.CompletedAtUtc ?? DateTime.UtcNow : null;
 
         todoRepository.Update(entity);
         await auditRepository.AddAsync(CreateAudit(nameof(OperationalTodoItem), entity.Id, AuditAction.Updated, actor, entity), cancellationToken);
@@ -263,9 +258,7 @@ public sealed class OperationalListService(
             item.Name,
             item.OwnerSupplierId,
             item.Priority,
-            item.Status,
             item.Source,
-            item.CompletedAtUtc,
             item.CreatedAtUtc,
             item.UpdatedAtUtc);
 

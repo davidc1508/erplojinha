@@ -91,15 +91,6 @@ public enum RestockTaskStatus
     Cancelled = 4
 }
 
-public enum TodoTaskStatus
-{
-    Backlog = 1,
-    InAnalysis = 2,
-    InDevelopment = 3,
-    Completed = 4,
-    Cancelled = 5
-}
-
 public enum ProjectStatus
 {
     Planejado = 1,

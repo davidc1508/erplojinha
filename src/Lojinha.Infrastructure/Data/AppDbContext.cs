@@ -75,7 +75,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<OperationalRestockItem>().Property(x => x.Priority).HasConversion<string>();
         modelBuilder.Entity<OperationalRestockItem>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<OperationalTodoItem>().Property(x => x.Priority).HasConversion<string>();
-        modelBuilder.Entity<OperationalTodoItem>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<Project>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<ProjectStep>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<ProjectStepAttempt>().Property(x => x.Status).HasConversion<string>();
@@ -157,7 +156,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasIndex(x => new { x.OwnerSupplierId, x.Status, x.Priority });
 
         modelBuilder.Entity<OperationalTodoItem>()
-            .HasIndex(x => new { x.OwnerSupplierId, x.Status, x.Priority });
+            .HasIndex(x => new { x.OwnerSupplierId, x.Priority });
 
         modelBuilder.Entity<Product>()
             .HasOne(x => x.Supplier)

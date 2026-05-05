@@ -7,7 +7,6 @@ export type FairStatus = 'Awaiting' | 'Open' | 'Finalized' | 'Cancelled';
 export type ProductLifecycleStatus = 'Disponivel' | 'EmProducao';
 export type OperationalItemPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type RestockTaskStatus = 'Open' | 'InProgress' | 'Completed' | 'Cancelled';
-export type TodoTaskStatus = 'Backlog' | 'InAnalysis' | 'InDevelopment' | 'Completed' | 'Cancelled';
 
 export interface AuthResponse {
   token: string;
@@ -338,9 +337,7 @@ export interface OperationalTodoItem {
   name: string;
   ownerSupplierId?: string;
   priority: OperationalItemPriority;
-  status: TodoTaskStatus;
   source: string;
-  completedAtUtc?: string;
   createdAtUtc: string;
   updatedAtUtc: string;
 }

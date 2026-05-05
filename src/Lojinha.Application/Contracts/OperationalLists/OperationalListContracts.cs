@@ -13,7 +13,6 @@ public sealed record RestockItemRequest(
 public sealed record TodoItemRequest(
     string Name,
     OperationalItemPriority Priority,
-    TodoTaskStatus Status,
     string? Source);
 
 public sealed record RestockItemDto(
@@ -36,8 +35,6 @@ public sealed record TodoItemDto(
     string Name,
     Guid? OwnerSupplierId,
     OperationalItemPriority Priority,
-    TodoTaskStatus Status,
     string Source,
-    DateTime? CompletedAtUtc,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);
