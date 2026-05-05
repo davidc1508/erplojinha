@@ -353,15 +353,15 @@ export function ProductFormPage() {
                               onChange={(value) => updateFilament(index, 'filamentProfileId', value)}
                               placeholder="Digite o nome do filamento"
                               minQueryLength={0}
-                              helperText={index === 0 ? 'Digite para buscar.' : undefined}
                             />
                           </Grid>
                           <Grid item xs={10} sm={4} md={3}>
                             <TextField
-                              label="Peso (g)"
                               type="number"
                               value={item.weightGrams}
                               onChange={(event) => updateFilament(index, 'weightGrams', Number(event.target.value))}
+                              placeholder="Peso (g)"
+                              inputProps={{ 'aria-label': 'Peso em gramas' }}
                               fullWidth
                             />
                           </Grid>

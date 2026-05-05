@@ -6,6 +6,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PageSection } from '../components/PageSection';
 import { suppliersApi } from '../services/api';
 import { capitalizeFirstLetter } from '../services/text';
@@ -18,6 +19,7 @@ export function SuppliersPage() {
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'warning'; message: string } | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [supplierToDelete, setSupplierToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const filteredSuppliers = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -70,7 +72,7 @@ export function SuppliersPage() {
                 <Stack direction="row" spacing={1}>
                   <IconButton color="info" onClick={() => navigate(`/fornecedores/${supplier.id}`)}><VisibilityRoundedIcon /></IconButton>
                   <IconButton color="primary" onClick={() => navigate(`/fornecedores/${supplier.id}/editar`)}><EditRoundedIcon /></IconButton>
-                  <IconButton color="error" onClick={() => deleteMutation.mutate(supplier.id)}><DeleteOutlineRoundedIcon /></IconButton>
+                  <IconButton color="error" onClick={() => setSupplierToDelete({ id: supplier.id, name: supplier.name })}><DeleteOutlineRoundedIcon /></IconButton>
                 </Stack>
               </Stack>
             </Paper>
@@ -82,6 +84,24 @@ export function SuppliersPage() {
           </Stack>
         </Stack>
       </PageSection>
+      <ConfirmDialog
+        open={Boolean(supplierToDelete)}
+        title="Excluir fornecedor"
+        description={`Deseja excluir o fornecedor ${capitalizeFirstLetter(supplierToDelete?.name ?? '')}?`}
+        confirmLabel="Excluir"
+        confirmColor="error"
+        isLoading={deleteMutation.isLoading}
+        onCancel={() => setSupplierToDelete(null)}
+        onConfirm={() => {
+          if (!supplierToDelete) {
+            return;
+          }
+
+          deleteMutation.mutate(supplierToDelete.id, {
+            onSuccess: () => setSupplierToDelete(null)
+          });
+        }}
+      />
     </Stack>
   );
 }

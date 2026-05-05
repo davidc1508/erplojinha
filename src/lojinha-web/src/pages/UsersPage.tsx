@@ -5,6 +5,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PageSection } from '../components/PageSection';
 import { usersApi } from '../services/api';
 import { capitalizeFirstLetter } from '../services/text';
@@ -17,6 +18,7 @@ export function UsersPage() {
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'warning'; message: string } | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const filteredUsers = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -74,7 +76,7 @@ export function UsersPage() {
                   </div>
                   <Stack direction="row" spacing={1}>
                     <IconButton color="primary" onClick={() => navigate(`/usuarios/${user.id}/editar`)}><EditRoundedIcon /></IconButton>
-                    <IconButton color="error" onClick={() => deleteMutation.mutate(user.id)}><DeleteOutlineRoundedIcon /></IconButton>
+                    <IconButton color="error" onClick={() => setUserToDelete({ id: user.id, name: user.fullName })}><DeleteOutlineRoundedIcon /></IconButton>
                   </Stack>
                 </Stack>
               </Paper>
@@ -87,6 +89,24 @@ export function UsersPage() {
           </Stack>
         </PageSection>
       </Grid>
+      <ConfirmDialog
+        open={Boolean(userToDelete)}
+        title="Excluir usuário"
+        description={`Deseja excluir o usuário ${capitalizeFirstLetter(userToDelete?.name ?? '')}?`}
+        confirmLabel="Excluir"
+        confirmColor="error"
+        isLoading={deleteMutation.isLoading}
+        onCancel={() => setUserToDelete(null)}
+        onConfirm={() => {
+          if (!userToDelete) {
+            return;
+          }
+
+          deleteMutation.mutate(userToDelete.id, {
+            onSuccess: () => setUserToDelete(null)
+          });
+        }}
+      />
     </Grid>
   );
 }

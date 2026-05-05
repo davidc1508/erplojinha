@@ -5,6 +5,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import { useMemo, useState } from 'react';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CurrencyField } from '../components/CurrencyField';
 import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
@@ -37,6 +38,7 @@ export function PrintersPage() {
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'warning'; message: string } | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [printerToDelete, setPrinterToDelete] = useState<{ id: string; name: string } | null>(null);
   const isEditing = useMemo(() => Boolean(form.id), [form.id]);
   const filteredPrinters = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -117,7 +119,7 @@ export function PrintersPage() {
                     {!isSupplier ? (
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <IconButton color="primary" onClick={() => handleOpenEditDialog(printer)}><EditRoundedIcon /></IconButton>
-                        <IconButton color="error" onClick={() => deleteMutation.mutate(printer.id)}><DeleteOutlineRoundedIcon /></IconButton>
+                        <IconButton color="error" onClick={() => setPrinterToDelete({ id: printer.id, name: printer.name })}><DeleteOutlineRoundedIcon /></IconButton>
                       </Stack>
                     ) : null}
                   </Stack>
@@ -149,7 +151,7 @@ export function PrintersPage() {
                     <TableCell sx={{ py: 1.5 }}>{printer.failureRate}%</TableCell>
                     {!isSupplier ? <TableCell align="right" sx={{ py: 1.5, pr: 2, whiteSpace: 'nowrap' }}>
                       <IconButton color="primary" onClick={() => handleOpenEditDialog(printer)}><EditRoundedIcon /></IconButton>
-                      <IconButton color="error" onClick={() => deleteMutation.mutate(printer.id)}><DeleteOutlineRoundedIcon /></IconButton>
+                      <IconButton color="error" onClick={() => setPrinterToDelete({ id: printer.id, name: printer.name })}><DeleteOutlineRoundedIcon /></IconButton>
                     </TableCell> : null}
                   </TableRow>
                 ))}
@@ -164,6 +166,25 @@ export function PrintersPage() {
           </Stack>
         </Stack>
       </PageSection>
+
+      <ConfirmDialog
+        open={Boolean(printerToDelete)}
+        title="Excluir impressora"
+        description={`Deseja excluir a impressora ${capitalizeFirstLetter(printerToDelete?.name ?? '')}?`}
+        confirmLabel="Excluir"
+        confirmColor="error"
+        isLoading={deleteMutation.isLoading}
+        onCancel={() => setPrinterToDelete(null)}
+        onConfirm={() => {
+          if (!printerToDelete) {
+            return;
+          }
+
+          deleteMutation.mutate(printerToDelete.id, {
+            onSuccess: () => setPrinterToDelete(null)
+          });
+        }}
+      />
 
       <Dialog open={!isSupplier && isDialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm">
         <DialogTitle>{isEditing ? 'Editar impressora' : 'Nova impressora'}</DialogTitle>

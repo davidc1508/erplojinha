@@ -6,6 +6,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import { useMemo, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PageSection } from '../components/PageSection';
 import { categoriesApi } from '../services/api';
 import { capitalizeFirstLetter } from '../services/text';
@@ -29,6 +30,7 @@ export function CategoriesPage() {
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'warning'; message: string } | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const isEditing = useMemo(() => Boolean(form.id), [form.id]);
   const filteredCategories = useMemo(() => {
@@ -113,7 +115,7 @@ export function CategoriesPage() {
                     {!isSupplier ? (
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <IconButton color="primary" onClick={() => handleOpenEditDialog(category)}><EditRoundedIcon /></IconButton>
-                        <IconButton color="error" onClick={() => deleteMutation.mutate(category.id)}><DeleteOutlineRoundedIcon /></IconButton>
+                        <IconButton color="error" onClick={() => setCategoryToDelete({ id: category.id, name: category.name })}><DeleteOutlineRoundedIcon /></IconButton>
                       </Stack>
                     ) : null}
                   </Stack>
@@ -146,7 +148,7 @@ export function CategoriesPage() {
                     <TableCell sx={{ py: 1.5 }}><Chip label={category.colorHex} size="small" sx={{ backgroundColor: 'rgba(217,107,135,0.12)' }} /></TableCell>
                     {!isSupplier ? <TableCell align="right" sx={{ py: 1.5, pr: 2, whiteSpace: 'nowrap' }}>
                       <IconButton color="primary" onClick={() => handleOpenEditDialog(category)}><EditRoundedIcon /></IconButton>
-                      <IconButton color="error" onClick={() => deleteMutation.mutate(category.id)}><DeleteOutlineRoundedIcon /></IconButton>
+                      <IconButton color="error" onClick={() => setCategoryToDelete({ id: category.id, name: category.name })}><DeleteOutlineRoundedIcon /></IconButton>
                     </TableCell> : null}
                   </TableRow>
                 ))}
@@ -161,6 +163,25 @@ export function CategoriesPage() {
           </Stack>
         </Stack>
       </PageSection>
+
+      <ConfirmDialog
+        open={Boolean(categoryToDelete)}
+        title="Excluir categoria"
+        description={`Deseja excluir a categoria ${capitalizeFirstLetter(categoryToDelete?.name ?? '')}?`}
+        confirmLabel="Excluir"
+        confirmColor="error"
+        isLoading={deleteMutation.isLoading}
+        onCancel={() => setCategoryToDelete(null)}
+        onConfirm={() => {
+          if (!categoryToDelete) {
+            return;
+          }
+
+          deleteMutation.mutate(categoryToDelete.id, {
+            onSuccess: () => setCategoryToDelete(null)
+          });
+        }}
+      />
 
       <Dialog open={!isSupplier && isDialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm">
         <DialogTitle>{isEditing ? 'Editar categoria' : 'Nova categoria'}</DialogTitle>

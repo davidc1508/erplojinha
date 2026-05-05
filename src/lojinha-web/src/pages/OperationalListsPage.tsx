@@ -19,6 +19,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import { useMemo, useState } from 'react';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PageSection } from '../components/PageSection';
 import { operationalListsApi, productsApi } from '../services/api';
 import type {
@@ -92,6 +93,8 @@ export function OperationalListsPage() {
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'warning'; message: string } | null>(null);
   const [restockForm, setRestockForm] = useState(emptyRestockForm);
   const [todoForm, setTodoForm] = useState(emptyTodoForm);
+  const [restockToDelete, setRestockToDelete] = useState<{ id: string; productName: string } | null>(null);
+  const [todoToDelete, setTodoToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: productsApi.getAll });
   const { data: restockItems = [] } = useQuery({ queryKey: ['operational-restock'], queryFn: operationalListsApi.getRestockItems });
@@ -305,7 +308,7 @@ export function OperationalListsPage() {
                     <TableCell>{item.dueDateUtc ? new Date(item.dueDateUtc).toLocaleDateString('pt-BR') : '-'}</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       <IconButton color="primary" onClick={() => editRestock(item)}><EditRoundedIcon /></IconButton>
-                      <IconButton color="error" onClick={() => deleteRestockMutation.mutate(item.id)}><DeleteOutlineRoundedIcon /></IconButton>
+                      <IconButton color="error" onClick={() => setRestockToDelete({ id: item.id, productName: item.productName })}><DeleteOutlineRoundedIcon /></IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -396,7 +399,7 @@ export function OperationalListsPage() {
                     <TableCell>{todoStatusLabel(item.status)}</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       <IconButton color="primary" onClick={() => editTodo(item)}><EditRoundedIcon /></IconButton>
-                      <IconButton color="error" onClick={() => deleteTodoMutation.mutate(item.id)}><DeleteOutlineRoundedIcon /></IconButton>
+                      <IconButton color="error" onClick={() => setTodoToDelete({ id: item.id, name: item.name })}><DeleteOutlineRoundedIcon /></IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -410,6 +413,44 @@ export function OperationalListsPage() {
           </Paper>
         </Stack>
       </PageSection>
+
+      <ConfirmDialog
+        open={Boolean(restockToDelete)}
+        title="Excluir item de reposição"
+        description={`Deseja excluir o item de reposição ${restockToDelete?.productName ?? ''}?`}
+        confirmLabel="Excluir"
+        confirmColor="error"
+        isLoading={deleteRestockMutation.isLoading}
+        onCancel={() => setRestockToDelete(null)}
+        onConfirm={() => {
+          if (!restockToDelete) {
+            return;
+          }
+
+          deleteRestockMutation.mutate(restockToDelete.id, {
+            onSuccess: () => setRestockToDelete(null)
+          });
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(todoToDelete)}
+        title="Excluir item a fazer"
+        description={`Deseja excluir o item ${todoToDelete?.name ?? ''}?`}
+        confirmLabel="Excluir"
+        confirmColor="error"
+        isLoading={deleteTodoMutation.isLoading}
+        onCancel={() => setTodoToDelete(null)}
+        onConfirm={() => {
+          if (!todoToDelete) {
+            return;
+          }
+
+          deleteTodoMutation.mutate(todoToDelete.id, {
+            onSuccess: () => setTodoToDelete(null)
+          });
+        }}
+      />
     </Stack>
   );
 }
