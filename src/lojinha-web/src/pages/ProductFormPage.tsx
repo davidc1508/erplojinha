@@ -338,11 +338,14 @@ export function ProductFormPage() {
                       {(metadata?.printers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
                     </TextField>
                   </Grid>
-                    <Grid item xs={12}>
-                      <Stack spacing={1}>
-                        <Typography variant="body2" fontWeight={600}>Filamentos</Typography>
-                        {form.filaments.map((item, index) => (
-                          <Stack key={index} direction="row" spacing={1} alignItems="flex-start">
+                  <Grid item xs={12} md={3}><TextField label="Itens por placa" type="number" value={form.itemsPerPlate} onChange={(event) => updateForm('itemsPerPlate', Number(event.target.value))} helperText="Use 1 quando o custo ja for unitario." fullWidth /></Grid>
+                  <Grid item xs={12} md={3}><CurrencyField label="Tarifa kWh" value={form.tariffPerKwh} onValueChange={(value) => updateForm('tariffPerKwh', value)} fullWidth /></Grid>
+                  <Grid item xs={12}>
+                    <Stack spacing={1.25}>
+                      <Typography variant="body2" fontWeight={600}>Filamentos</Typography>
+                      {form.filaments.map((item, index) => (
+                        <Grid key={index} container spacing={1} alignItems="center">
+                          <Grid item xs={12} md={7}>
                             <SearchSelectField
                               label="Filamento"
                               value={item.filamentProfileId}
@@ -350,21 +353,35 @@ export function ProductFormPage() {
                               onChange={(value) => updateFilament(index, 'filamentProfileId', value)}
                               placeholder="Digite o nome do filamento"
                               minQueryLength={0}
+                              helperText={index === 0 ? 'Digite para buscar.' : undefined}
                             />
-                            <TextField label="Peso (g)" type="number" value={item.weightGrams} onChange={(e) => updateFilament(index, 'weightGrams', Number(e.target.value))} sx={{ width: 130 }} />
-                            <IconButton onClick={() => removeFilament(index)} color="error" sx={{ mt: 1 }}><DeleteOutlineRoundedIcon /></IconButton>
-                          </Stack>
-                        ))}
-                        <Button size="small" startIcon={<AddRoundedIcon />} onClick={addFilament} sx={{ alignSelf: 'flex-start' }}>Adicionar filamento</Button>
-                        {form.filaments.length > 0 && (
-                          <Typography variant="caption" color="text.secondary">
-                            Peso total: {form.filaments.reduce((sum, f) => sum + (Number(f.weightGrams) || 0), 0).toFixed(0)} g
-                          </Typography>
-                        )}
-                      </Stack>
-                    </Grid>
-                  <Grid item xs={12} md={4}><TextField label="Itens por placa" type="number" value={form.itemsPerPlate} onChange={(event) => updateForm('itemsPerPlate', Number(event.target.value))} helperText="Use 1 quando o custo ja for unitario." fullWidth /></Grid>
-                  <Grid item xs={12} md={4}><CurrencyField label="Tarifa kWh" value={form.tariffPerKwh} onValueChange={(value) => updateForm('tariffPerKwh', value)} fullWidth /></Grid>
+                          </Grid>
+                          <Grid item xs={10} sm={4} md={3}>
+                            <TextField
+                              label="Peso (g)"
+                              type="number"
+                              value={item.weightGrams}
+                              onChange={(event) => updateFilament(index, 'weightGrams', Number(event.target.value))}
+                              fullWidth
+                            />
+                          </Grid>
+                          <Grid item xs={2} sm={2} md={2} sx={{ display: 'flex', justifyContent: 'center' }}>
+                            <IconButton onClick={() => removeFilament(index)} color="error" aria-label="Remover filamento">
+                              <DeleteOutlineRoundedIcon />
+                            </IconButton>
+                          </Grid>
+                        </Grid>
+                      ))}
+                      <Button size="small" startIcon={<AddRoundedIcon />} onClick={addFilament} sx={{ alignSelf: 'flex-start' }}>
+                        Adicionar filamento
+                      </Button>
+                      {form.filaments.length > 0 ? (
+                        <Typography variant="caption" color="text.secondary">
+                          Peso total: {form.filaments.reduce((sum, f) => sum + (Number(f.weightGrams) || 0), 0).toFixed(0)} g
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                  </Grid>
                   <Grid item xs={12} md={8}>
                     <Grid container spacing={2}>
                       <Grid item xs={4}><TextField label="Duração (h)" type="number" value={duration.hours} onChange={(event) => updateDurationPart('hours', Number(event.target.value))} fullWidth /></Grid>
