@@ -25,6 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
 import { suppliesApi } from '../services/api';
+import { capitalizeFirstLetter } from '../services/text';
 
 function formatSupplyCost(costPerUnit: number, unit: string) {
   if (unit === 'g' && costPerUnit > 0 && costPerUnit < 1) {
@@ -106,7 +107,7 @@ export function SuppliesPage() {
               <Paper key={supply.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
                 <Stack spacing={1.1}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                    <Typography fontWeight={700}>{supply.name}</Typography>
+                    <Typography fontWeight={700}>{capitalizeFirstLetter(supply.name)}</Typography>
                     <Chip label={`${supply.stockQuantity} ${supply.unit}`} color={supply.stockQuantity <= supply.minimumStock ? 'warning' : 'success'} size="small" />
                   </Stack>
                   <Typography color="text.secondary">Custo: {formatSupplyCost(supply.costPerUnit, supply.unit)}</Typography>
@@ -138,8 +139,8 @@ export function SuppliesPage() {
                   <TableRow key={supply.id} hover>
                     <TableCell>
                       <Stack spacing={0.5}>
-                        <Typography fontWeight={700}>{supply.name}</Typography>
-                        <Typography color="text.secondary" fontSize={13}>{supply.notes || 'Sem observações'}</Typography>
+                        <Typography fontWeight={700}>{capitalizeFirstLetter(supply.name)}</Typography>
+                        <Typography color="text.secondary" fontSize={13}>{capitalizeFirstLetter(supply.notes || 'Sem observações')}</Typography>
                       </Stack>
                     </TableCell>
                     <TableCell>{supply.unit}</TableCell>

@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageSection } from '../components/PageSection';
 import { suppliersApi } from '../services/api';
+import { capitalizeFirstLetter } from '../services/text';
 
 export function SuppliersPage() {
   const pageSize = 8;
@@ -62,8 +63,8 @@ export function SuppliersPage() {
             <Paper key={supplier.id} sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.65)' }}>
               <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="center">
                 <div>
-                  <Typography fontWeight={700}>{supplier.name}</Typography>
-                  <Typography color="text.secondary">Contato: {supplier.contactName || 'Não informado'}</Typography>
+                  <Typography fontWeight={700}>{capitalizeFirstLetter(supplier.name)}</Typography>
+                  <Typography color="text.secondary">Contato: {capitalizeFirstLetter(supplier.contactName || 'Não informado')}</Typography>
                   <Typography color="text.secondary">Telefone: {supplier.phoneNumber || 'Não informado'}</Typography>
                 </div>
                 <Stack direction="row" spacing={1}>

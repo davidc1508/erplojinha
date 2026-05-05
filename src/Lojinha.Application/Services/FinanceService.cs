@@ -24,7 +24,6 @@ public sealed class FinanceService(
     private const string SupplierFairPayableCategory = "Contas a pagar de feiras";
     private const string SupplierFairPaymentCategory = "Pagamento de cota de feira";
     private const string SupplierFairLegacyPendingCategory = "Pendencia de pagamento em feiras";
-    private const string StoreFairReimbursementCategory = "Recebimento de fornecedores em feiras";
 
     public async Task<IReadOnlyList<FinancialEntryDto>> GetEntriesAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
@@ -89,20 +88,6 @@ public sealed class FinanceService(
         };
 
         await financeRepository.AddAsync(entry, cancellationToken);
-
-        if (supplierId.HasValue && isSupplierFairPayment)
-        {
-            await financeRepository.AddAsync(new FinancialEntry
-            {
-                Type = FinancialEntryType.Income,
-                Classification = FinancialClassification.Variable,
-                Category = StoreFairReimbursementCategory,
-                Description = $"Repasse recebido de {supplierName}: {entry.Description}",
-                Amount = entry.Amount,
-                OccurredOnUtc = entry.OccurredOnUtc,
-                ReferenceId = entry.ReferenceId
-            }, cancellationToken);
-        }
 
         await auditRepository.AddAsync(new AuditLog
         {

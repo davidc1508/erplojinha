@@ -332,20 +332,20 @@ export function ProductFormPage() {
                 </Stack>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} md={4}>
                     <TextField select label="Impressora" value={form.printerProfileId} onChange={(event) => updateForm('printerProfileId', event.target.value)} fullWidth>
                       <MenuItem value="">Sem impressora</MenuItem>
                       {(metadata?.printers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
                     </TextField>
                   </Grid>
-                  <Grid item xs={12} md={3}><TextField label="Itens por placa" type="number" value={form.itemsPerPlate} onChange={(event) => updateForm('itemsPerPlate', Number(event.target.value))} helperText="Use 1 quando o custo ja for unitario." fullWidth /></Grid>
-                  <Grid item xs={12} md={3}><CurrencyField label="Tarifa kWh" value={form.tariffPerKwh} onValueChange={(value) => updateForm('tariffPerKwh', value)} fullWidth /></Grid>
+                  <Grid item xs={12} md={4}><TextField label="Itens por placa" type="number" value={form.itemsPerPlate} onChange={(event) => updateForm('itemsPerPlate', Number(event.target.value))} helperText="Use 1 quando o custo ja for unitario." fullWidth /></Grid>
+                  <Grid item xs={12} md={4}><CurrencyField label="Tarifa kWh" value={form.tariffPerKwh} onValueChange={(value) => updateForm('tariffPerKwh', value)} fullWidth /></Grid>
                   <Grid item xs={12}>
                     <Stack spacing={1.25}>
                       <Typography variant="body2" fontWeight={600}>Filamentos</Typography>
                       {form.filaments.map((item, index) => (
                         <Grid key={index} container spacing={1} alignItems="center">
-                          <Grid item xs={12} md={7}>
+                          <Grid item xs={12} md={8}>
                             <SearchSelectField
                               label="Filamento"
                               value={item.filamentProfileId}
@@ -365,7 +365,7 @@ export function ProductFormPage() {
                               fullWidth
                             />
                           </Grid>
-                          <Grid item xs={2} sm={2} md={2} sx={{ display: 'flex', justifyContent: 'center' }}>
+                          <Grid item xs={2} sm={2} md={1} sx={{ display: 'flex', justifyContent: 'center' }}>
                             <IconButton onClick={() => removeFilament(index)} color="error" aria-label="Remover filamento">
                               <DeleteOutlineRoundedIcon />
                             </IconButton>
@@ -382,15 +382,15 @@ export function ProductFormPage() {
                       ) : null}
                     </Stack>
                   </Grid>
-                  <Grid item xs={12} md={8}>
+                  <Grid item xs={12} md={6}>
                     <Grid container spacing={2}>
                       <Grid item xs={4}><TextField label="Duração (h)" type="number" value={duration.hours} onChange={(event) => updateDurationPart('hours', Number(event.target.value))} fullWidth /></Grid>
                       <Grid item xs={4}><TextField label="Min" type="number" value={duration.minutes} onChange={(event) => updateDurationPart('minutes', Number(event.target.value))} fullWidth /></Grid>
                       <Grid item xs={4}><TextField label="Seg" type="number" value={duration.seconds} onChange={(event) => updateDurationPart('seconds', Number(event.target.value))} fullWidth /></Grid>
                     </Grid>
                   </Grid>
-                  <Grid item xs={12} md={4}><TextField label="Altura (cm)" type="number" value={form.heightCentimeters} onChange={(event) => updateForm('heightCentimeters', Number(event.target.value))} fullWidth /></Grid>
-                  <Grid item xs={12} md={4}><TextField label="Comprimento (m)" type="number" value={form.lengthMetersUsed} onChange={(event) => updateForm('lengthMetersUsed', Number(event.target.value))} fullWidth /></Grid>
+                  <Grid item xs={12} md={3}><TextField label="Altura (cm)" type="number" value={form.heightCentimeters} onChange={(event) => updateForm('heightCentimeters', Number(event.target.value))} fullWidth /></Grid>
+                  <Grid item xs={12} md={3}><TextField label="Comprimento (m)" type="number" value={form.lengthMetersUsed} onChange={(event) => updateForm('lengthMetersUsed', Number(event.target.value))} fullWidth /></Grid>
                 </Grid>
 
                 <Stack spacing={0.75}>

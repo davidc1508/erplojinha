@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
 import { categoriesApi } from '../services/api';
+import { capitalizeFirstLetter } from '../services/text';
 
 const emptyForm = { id: '', name: '', description: '', colorHex: '#f5b2c5' };
 
@@ -103,11 +104,11 @@ export function CategoriesPage() {
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
                         <Paper sx={{ width: 18, height: 18, backgroundColor: category.colorHex, borderRadius: 99, flexShrink: 0 }} />
-                        <Typography fontWeight={700}>{category.name}</Typography>
+                        <Typography fontWeight={700}>{capitalizeFirstLetter(category.name)}</Typography>
                       </Stack>
                       <Chip label={formatCategoryIdentifier(category.numericIdentifier)} size="small" />
                     </Stack>
-                    <Typography color="text.secondary">{category.description || 'Sem descrição'}</Typography>
+                    <Typography color="text.secondary">{capitalizeFirstLetter(category.description || 'Sem descrição')}</Typography>
                     <Typography color="text.secondary">Cor: {category.colorHex}</Typography>
                     {!isSupplier ? (
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -138,10 +139,10 @@ export function CategoriesPage() {
                     <TableCell sx={{ py: 1.5 }}>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Paper sx={{ width: 18, height: 18, backgroundColor: category.colorHex, borderRadius: 99, flexShrink: 0 }} />
-                        <Typography fontWeight={700}>{category.name}</Typography>
+                        <Typography fontWeight={700}>{capitalizeFirstLetter(category.name)}</Typography>
                       </Stack>
                     </TableCell>
-                    <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word' }}>{category.description || 'Sem descrição'}</TableCell>
+                    <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word' }}>{capitalizeFirstLetter(category.description || 'Sem descrição')}</TableCell>
                     <TableCell sx={{ py: 1.5 }}><Chip label={category.colorHex} size="small" sx={{ backgroundColor: 'rgba(217,107,135,0.12)' }} /></TableCell>
                     {!isSupplier ? <TableCell align="right" sx={{ py: 1.5, pr: 2, whiteSpace: 'nowrap' }}>
                       <IconButton color="primary" onClick={() => handleOpenEditDialog(category)}><EditRoundedIcon /></IconButton>

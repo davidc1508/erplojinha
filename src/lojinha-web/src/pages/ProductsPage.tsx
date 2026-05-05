@@ -34,6 +34,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePreservedListState } from '../hooks/useSessionState';
 import { PageSection } from '../components/PageSection';
 import { categoriesApi, productsApi } from '../services/api';
+import { capitalizeFirstLetter } from '../services/text';
 import type { Product } from '../services/types';
 
 function formatCurrency(value: number) {
@@ -171,7 +172,7 @@ export function ProductsPage() {
     return (
       <Stack direction="row" spacing={1} alignItems="center">
         <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: categoryColor, flexShrink: 0 }} />
-        <Typography>{product.category}</Typography>
+        <Typography>{capitalizeFirstLetter(product.category)}</Typography>
       </Stack>
     );
   }
@@ -232,7 +233,7 @@ export function ProductsPage() {
                 <Paper key={product.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
                   <Stack spacing={1.2}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                      <Typography fontWeight={700}>{product.name}</Typography>
+                      <Typography fontWeight={700}>{capitalizeFirstLetter(product.name)}</Typography>
                       <Stack direction="row" spacing={0.5} flexWrap="wrap">
                         <Chip label={product.supplier ?? 'Lojinha'} size="small" color={product.supplier ? 'default' : 'primary'} />
                       </Stack>
@@ -282,11 +283,11 @@ export function ProductsPage() {
                       <TableCell sx={{ maxWidth: 0, pr: 1.5 }}>
                         <Stack spacing={0.5}>
                           <Typography fontWeight={700} noWrap title={product.name}>{truncateText(product.name, 34)}</Typography>
-                          <Typography color="text.secondary" fontSize={13} noWrap title={`${product.printer ?? 'Sem impressora'} • ${(product.filaments ?? []).map((f) => f.filamentName).join(', ') || 'Sem filamento'}`}>{truncateText(`${product.printer ?? 'Sem impressora'} • ${(product.filaments ?? []).map((f) => f.filamentName).join(', ') || 'Sem filamento'}`, 44)}</Typography>
+                          <Typography color="text.secondary" fontSize={13} noWrap title={`${capitalizeFirstLetter(product.printer ?? 'Sem impressora')} • ${(product.filaments ?? []).map((f) => capitalizeFirstLetter(f.filamentName)).join(', ') || 'Sem filamento'}`}>{truncateText(`${capitalizeFirstLetter(product.printer ?? 'Sem impressora')} • ${(product.filaments ?? []).map((f) => capitalizeFirstLetter(f.filamentName)).join(', ') || 'Sem filamento'}`, 44)}</Typography>
                         </Stack>
                       </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{renderCategoryWithColor(product)}</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }} title={product.supplier ?? 'Lojinha Sem Nome'}>{truncateText(product.supplier ?? 'Lojinha Sem Nome', 22)}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }} title={capitalizeFirstLetter(product.supplier ?? 'Lojinha Sem Nome')}>{truncateText(capitalizeFirstLetter(product.supplier ?? 'Lojinha Sem Nome'), 22)}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         <Stack spacing={0.15}>
                           <Typography fontSize={13}>C: {formatCurrency(product.costPrice)}</Typography>

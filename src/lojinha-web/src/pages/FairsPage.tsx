@@ -35,6 +35,7 @@ import { TableSkeleton } from '../components/TableSkeleton';
 import { fairsApi } from '../services/api';
 import { formatUtcDate, formatUtcDateRange, getUtcDateParts, isUtcDateTodayOrPast } from '../services/date';
 import { fairStatusLabel, formatCurrency } from '../services/labels';
+import { capitalizeFirstLetter } from '../services/text';
 import type { Fair } from '../services/types';
 
 type FairSortField = 'name' | 'eventDateUtc' | 'location' | 'status' | 'grossRevenue' | 'netRevenue';
@@ -236,7 +237,7 @@ export function FairsPage() {
                     {day.fairs.map((fair) => (
                       <Chip
                         key={`${fair.id}-${day.day}`}
-                        label={fair.name}
+                        label={capitalizeFirstLetter(fair.name)}
                         size="small"
                         color={getFairChipColor(fair.status)}
                         onClick={() => navigate(`/feiras/${fair.id}`, { state: { preserveState: true } })}
@@ -254,8 +255,8 @@ export function FairsPage() {
           <Typography variant="h6">Comparativo entre feiras</Typography>
           <Typography color="text.secondary">Últimas 5 feiras em aberto ou finalizadas para comparar resultado e margem no mesmo contexto.</Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor resultado líquido</Typography><Typography variant="h6">{bestResultFair ? `${bestResultFair.name} • ${formatCurrency(bestResultFair.netRevenue)} • ${formatUtcDate(bestResultFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper></Grid>
-            <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor margem</Typography><Typography variant="h6">{bestMarginFair ? `${bestMarginFair.name} • ${bestMarginFair.margin.toFixed(1)}% • ${formatUtcDate(bestMarginFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor resultado líquido</Typography><Typography variant="h6">{bestResultFair ? `${capitalizeFirstLetter(bestResultFair.name)} • ${formatCurrency(bestResultFair.netRevenue)} • ${formatUtcDate(bestResultFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor margem</Typography><Typography variant="h6">{bestMarginFair ? `${capitalizeFirstLetter(bestMarginFair.name)} • ${bestMarginFair.margin.toFixed(1)}% • ${formatUtcDate(bestMarginFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper></Grid>
           </Grid>
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small" sx={{ minWidth: 760 }}>
@@ -271,7 +272,7 @@ export function FairsPage() {
               <TableBody>
                 {fairComparison.map((item) => (
                   <TableRow key={item.id} hover onClick={() => navigate(`/feiras/${item.id}`, { state: { preserveState: true } })} sx={{ cursor: 'pointer' }}>
-                    <TableCell>{item.name}</TableCell>
+                    <TableCell>{capitalizeFirstLetter(item.name)}</TableCell>
                     <TableCell>{formatUtcDate(item.eventDateUtc)}</TableCell>
                     <TableCell>{formatCurrency(item.grossRevenue)}</TableCell>
                     <TableCell>{formatCurrency(item.netRevenue)}</TableCell>
@@ -336,7 +337,7 @@ export function FairsPage() {
               >
                 <Stack spacing={1.1}>
                   <Stack direction="row" justifyContent="space-between" spacing={1}>
-                    <Typography fontWeight={700}>{fair.name}</Typography>
+                    <Typography fontWeight={700}>{capitalizeFirstLetter(fair.name)}</Typography>
                     <Chip label={fairStatusLabel(fair.status)} size="small" color={getFairChipColor(fair.status)} />
                   </Stack>
                   <Typography color="text.secondary">{formatUtcDateRange(fair.eventDateUtc, fair.endDateUtc)} • {fair.location}</Typography>
@@ -386,7 +387,7 @@ export function FairsPage() {
                   <TableRow key={fair.id} hover onClick={() => navigate(`/feiras/${fair.id}`, { state: { preserveState: true } })} sx={{ cursor: 'pointer' }}>
                     <TableCell sx={{ maxWidth: 0 }}>
                       <Stack spacing={0.5}>
-                        <Typography fontWeight={700} noWrap>{fair.name}</Typography>
+                        <Typography fontWeight={700} noWrap>{capitalizeFirstLetter(fair.name)}</Typography>
                         <Typography color="text.secondary" fontSize={13} noWrap>Caixinha: {formatCurrency(fair.piggyBankAmount)}</Typography>
                       </Stack>
                     </TableCell>

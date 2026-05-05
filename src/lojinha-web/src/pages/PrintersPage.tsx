@@ -9,6 +9,7 @@ import { CurrencyField } from '../components/CurrencyField';
 import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
 import { printersApi } from '../services/api';
+import { capitalizeFirstLetter } from '../services/text';
 
 const emptyForm = {
   id: '',
@@ -107,8 +108,8 @@ export function PrintersPage() {
               {visiblePrinters.map((printer) => (
                 <Paper key={printer.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
                   <Stack spacing={1.2}>
-                    <Typography fontWeight={700}>{printer.name}</Typography>
-                    <Typography color="text.secondary">{printer.brand || '-'}</Typography>
+                    <Typography fontWeight={700}>{capitalizeFirstLetter(printer.name)}</Typography>
+                    <Typography color="text.secondary">{capitalizeFirstLetter(printer.brand || '-')}</Typography>
                     <Typography color="text.secondary">Uso: {printer.usageLevel}</Typography>
                     <Typography color="text.secondary">Custo: {printer.machineCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
                     <Typography color="text.secondary">Retorno: {printer.returnMonths} meses</Typography>
@@ -140,8 +141,8 @@ export function PrintersPage() {
               <TableBody>
                 {visiblePrinters.map((printer) => (
                   <TableRow key={printer.id} hover>
-                    <TableCell sx={{ py: 1.5 }}><Typography fontWeight={700}>{printer.name}</Typography></TableCell>
-                    <TableCell sx={{ py: 1.5 }}>{printer.brand || '-'}</TableCell>
+                    <TableCell sx={{ py: 1.5 }}><Typography fontWeight={700}>{capitalizeFirstLetter(printer.name)}</Typography></TableCell>
+                    <TableCell sx={{ py: 1.5 }}>{capitalizeFirstLetter(printer.brand || '-')}</TableCell>
                     <TableCell sx={{ py: 1.5, textTransform: 'capitalize' }}>{printer.usageLevel}</TableCell>
                     <TableCell sx={{ py: 1.5 }}>{printer.machineCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                     <TableCell sx={{ py: 1.5 }}>{printer.returnMonths} meses</TableCell>

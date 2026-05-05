@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageSection } from '../components/PageSection';
 import { usersApi } from '../services/api';
+import { capitalizeFirstLetter } from '../services/text';
 
 export function UsersPage() {
   const navigate = useNavigate();
@@ -66,10 +67,10 @@ export function UsersPage() {
               <Paper key={user.id} sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.65)' }}>
                 <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="center">
                   <div>
-                    <Typography fontWeight={700}>{user.fullName}</Typography>
+                    <Typography fontWeight={700}>{capitalizeFirstLetter(user.fullName)}</Typography>
                     <Typography color="text.secondary">{user.email}</Typography>
-                    <Typography color="text.secondary">Perfil: {user.role}</Typography>
-                    {user.supplierName ? <Typography color="text.secondary">Fornecedor: {user.supplierName}</Typography> : null}
+                    <Typography color="text.secondary">Perfil: {capitalizeFirstLetter(user.role)}</Typography>
+                    {user.supplierName ? <Typography color="text.secondary">Fornecedor: {capitalizeFirstLetter(user.supplierName)}</Typography> : null}
                   </div>
                   <Stack direction="row" spacing={1}>
                     <IconButton color="primary" onClick={() => navigate(`/usuarios/${user.id}/editar`)}><EditRoundedIcon /></IconButton>
