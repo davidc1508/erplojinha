@@ -287,7 +287,7 @@ export function FairFormPage() {
                       </Grid>
                     </Grid>
                     {form.registrationInstallments.map((installment, index) => (
-                      <Grid container spacing={1.5} key={`${index}-${installment.dueDateUtc}`} alignItems="center">
+                      <Grid container spacing={1.5} key={index} alignItems="center">
                         <Grid item xs={12} md={4}>
                           <TextField
                             label={`Vencimento parcela ${index + 1}`}
@@ -322,12 +322,12 @@ export function FairFormPage() {
               <TextField label="Local" value={form.location} onChange={(event) => updateField('location', event.target.value)} />
               <TextField label="Observações" multiline minRows={4} value={form.notes} onChange={(event) => updateField('notes', event.target.value)} />
               {form.endDateUtc < form.eventDateUtc ? <Alert severity="error">A data final nao pode ser anterior a data inicial.</Alert> : null}
-              {installmentDifference !== 0 ? <Alert severity="error">A soma das parcelas precisa fechar exatamente em {formatCurrency(form.registrationFee)}.</Alert> : null}
+              {form.registrationFee > 0 && installmentDifference !== 0 ? <Alert severity="error">A soma das parcelas precisa fechar exatamente em {formatCurrency(form.registrationFee)}.</Alert> : null}
               <Alert severity="info">Custo final da lojinha: {formatCurrency(form.registrationFee / 2)}.</Alert>
               <Alert severity="info">Pendência total de fornecedores: {formatCurrency(form.registrationFee / 2)} ({selectedSuppliers.length === 0 ? 'sem fornecedores' : `${formatCurrency(supplierMonthlyEstimate)} por fornecedor na composição atual`}).</Alert>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => mutation.mutate()} disabled={mutation.isLoading || form.endDateUtc < form.eventDateUtc || installmentDifference !== 0}>
+                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => mutation.mutate()} disabled={mutation.isLoading || form.endDateUtc < form.eventDateUtc || (form.registrationFee > 0 && installmentDifference !== 0)}>
                   {mutation.isLoading ? 'Salvando...' : isEditing ? 'Atualizar feira' : 'Cadastrar feira'}
                 </Button>
                 <Button variant="outlined" onClick={() => navigate('/feiras', { state: { preserveState: true } })}>
