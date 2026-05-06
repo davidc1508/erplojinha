@@ -18,7 +18,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CurrencyField } from '../components/CurrencyField';
 import { PageSection } from '../components/PageSection';
@@ -49,6 +49,59 @@ function getErrorMessage(error: unknown, fallback: string) {
 
   return fallback;
 }
+
+interface InstallmentRowProps {
+  index: number;
+  installment: { dueDateUtc: string; amount: number };
+  canRemove: boolean;
+  onDueDateChange: (value: string) => void;
+  onAmountChange: (value: number) => void;
+  onRemove: () => void;
+}
+
+const InstallmentRow = memo(function InstallmentRow({
+  index,
+  installment,
+  canRemove,
+  onDueDateChange,
+  onAmountChange,
+  onRemove
+}: InstallmentRowProps) {
+  const [dueDateDraft, setDueDateDraft] = useState(installment.dueDateUtc);
+
+  useEffect(() => {
+    setDueDateDraft(installment.dueDateUtc);
+  }, [installment.dueDateUtc]);
+
+  return (
+    <Grid container spacing={1.5} alignItems="center">
+      <Grid item xs={12} md={4}>
+        <TextField
+          label={`Vencimento parcela ${index + 1}`}
+          type="date"
+          value={dueDateDraft}
+          onChange={(event) => setDueDateDraft(event.target.value)}
+          onBlur={() => onDueDateChange(dueDateDraft)}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+      </Grid>
+      <Grid item xs={10} md={4}>
+        <CurrencyField
+          label={`Valor parcela ${index + 1}`}
+          value={installment.amount}
+          onValueChange={onAmountChange}
+          fullWidth
+        />
+      </Grid>
+      <Grid item xs={2} md={1}>
+        <IconButton color="error" onClick={onRemove} disabled={!canRemove}>
+          <DeleteOutlineRoundedIcon />
+        </IconButton>
+      </Grid>
+    </Grid>
+  );
+});
 
 export function FairFormPage() {
   const { id } = useParams();
@@ -287,31 +340,15 @@ export function FairFormPage() {
                       </Grid>
                     </Grid>
                     {form.registrationInstallments.map((installment, index) => (
-                      <Grid container spacing={1.5} key={index} alignItems="center">
-                        <Grid item xs={12} md={4}>
-                          <TextField
-                            label={`Vencimento parcela ${index + 1}`}
-                            type="date"
-                            value={installment.dueDateUtc}
-                            onChange={(event) => updateInstallment(index, 'dueDateUtc', event.target.value)}
-                            InputLabelProps={{ shrink: true }}
-                            fullWidth
-                          />
-                        </Grid>
-                        <Grid item xs={10} md={4}>
-                          <CurrencyField
-                            label={`Valor parcela ${index + 1}`}
-                            value={installment.amount}
-                            onValueChange={(value) => updateInstallment(index, 'amount', value)}
-                            fullWidth
-                          />
-                        </Grid>
-                        <Grid item xs={2} md={1}>
-                          <IconButton color="error" onClick={() => removeInstallment(index)} disabled={form.registrationInstallments.length === 1}>
-                            <DeleteOutlineRoundedIcon />
-                          </IconButton>
-                        </Grid>
-                      </Grid>
+                      <InstallmentRow
+                        key={index}
+                        index={index}
+                        installment={installment}
+                        canRemove={form.registrationInstallments.length > 1}
+                        onDueDateChange={(value) => updateInstallment(index, 'dueDateUtc', value)}
+                        onAmountChange={(value) => updateInstallment(index, 'amount', value)}
+                        onRemove={() => removeInstallment(index)}
+                      />
                     ))}
                     <Button variant="outlined" startIcon={<AddRoundedIcon />} onClick={addInstallment} sx={{ alignSelf: 'flex-start' }}>
                       Adicionar parcela

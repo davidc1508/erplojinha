@@ -124,7 +124,7 @@ public sealed class FairRequestValidator : AbstractValidator<FairRequest>
         RuleForEach(x => x.RegistrationInstallments).ChildRules(item =>
         {
             item.RuleFor(x => x.DueDateUtc).NotEmpty();
-            item.RuleFor(x => x.Amount).GreaterThan(0);
+            item.RuleFor(x => x.Amount).GreaterThanOrEqualTo(0);
         });
         RuleFor(x => x)
             .Must(x => decimal.Round(x.RegistrationInstallments.Sum(item => item.Amount), 2, MidpointRounding.AwayFromZero)
