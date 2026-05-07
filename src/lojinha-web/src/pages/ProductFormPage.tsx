@@ -203,7 +203,7 @@ export function ProductFormPage() {
         commissionPercentage: Number(form.commissionPercentage),
         desiredMarkup: Number(form.desiredMarkup),
         costPrice: null,
-        isBudget: form.isBudget,
+        isBudget: isBudgetMode || form.isBudget,
         salePrice: form.salePrice === '' ? null : Number(form.salePrice)
       };
 
@@ -423,8 +423,8 @@ export function ProductFormPage() {
                   </Grid>
                   <Grid item xs={12}>
                     <FormControlLabel
-                      control={<Checkbox checked={form.isBudget} onChange={(event) => updateForm('isBudget', event.target.checked)} />}
-                      label="Salvar como orçamento"
+                      control={<Checkbox checked={isBudgetMode ? true : form.isBudget} onChange={(event) => updateForm('isBudget', event.target.checked)} disabled={isBudgetMode} />}
+                      label={isBudgetMode ? 'Cadastro fixo como orçamento nesta tela' : 'Salvar como orçamento'}
                     />
                   </Grid>
                   <Grid item xs={12} md={4}><TextField label="Acabamento (%)" type="number" value={form.finishingPercentage} onChange={(event) => updateForm('finishingPercentage', Number(event.target.value))} fullWidth /></Grid>

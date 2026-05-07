@@ -79,7 +79,7 @@ export function ProductsPage() {
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [listState, setListState] = usePreservedListState(`products-page:${session?.role ?? 'guest'}:${session?.supplierId ?? 'store'}`, defaultListState);
+  const [listState, setListState] = usePreservedListState(`products-page:${isBudgetMode ? 'budget' : 'product'}:${session?.role ?? 'guest'}:${session?.supplierId ?? 'store'}`, defaultListState);
   const { search, scopeFilter, categoryFilter, page, rowsPerPage, sortField, sortDirection } = listState;
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products', isSupplier ? 'catalog' : 'all', isBudgetMode ? 'budget' : 'product'],
