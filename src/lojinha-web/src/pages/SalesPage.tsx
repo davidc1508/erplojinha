@@ -38,7 +38,7 @@ export function SalesPage() {
   const [listState, setListState] = usePreservedListState(`sales-page:${session?.role ?? 'guest'}:${session?.supplierId ?? 'store'}`, defaultListState);
   const { search, startDate, endDate, categoryFilter, productSearch, fairSearch, paymentFilter, page, rowsPerPage, sortField, sortDirection } = listState;
   const { data: sales = [], isLoading: isLoadingSales } = useQuery({ queryKey: ['sales'], queryFn: salesApi.getAll });
-  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: productsApi.getAll });
+  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => productsApi.getAll() });
   const [feedback, setFeedback] = useState<string | null>(null);
   const [saleToDelete, setSaleToDelete] = useState<(typeof sales)[number] | null>(null);
 

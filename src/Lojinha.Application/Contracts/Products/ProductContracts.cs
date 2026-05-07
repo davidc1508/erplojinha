@@ -28,7 +28,8 @@ public sealed record ProductRequest(
     decimal AdditionalCost,
     decimal DesiredMarkup,
     decimal? CostPrice,
-    decimal? SalePrice);
+    decimal? SalePrice,
+    bool IsBudget = false);
 
 public sealed record ProductDto(
     Guid Id,

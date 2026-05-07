@@ -8,7 +8,7 @@ namespace Lojinha.Api.Services;
 
 public interface IProductService
 {
-    Task<IReadOnlyList<ProductDto>> GetAllAsync(Guid? scopedSupplierId = null, bool includeAllForSupplier = false, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProductDto>> GetAllAsync(Guid? scopedSupplierId = null, bool includeAllForSupplier = false, bool? isBudget = null, CancellationToken cancellationToken = default);
     Task<ProductDto?> GetByIdAsync(Guid id, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
     Task<ProductDto> CreateAsync(ProductRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
     Task<ProductDto?> UpdateAsync(Guid id, ProductRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
@@ -18,6 +18,7 @@ public interface IProductService
     Task<PriceSuggestionDto> PreviewPriceSuggestionAsync(ProductRequest request, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
     Task<ProductMetadataDto> GetMetadataAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
     Task<int> RecalculateSuggestedPricesAsync(CancellationToken cancellationToken = default);
+    Task<ProductDto?> ConvertBudgetToProductAsync(Guid id, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
 }
 
 public sealed class ProductService(
@@ -37,15 +38,22 @@ public sealed class ProductService(
         IRepository<ProductFilament> productFilamentRepository,
         IPricingService pricingService) : IProductService
     {
-    public async Task<IReadOnlyList<ProductDto>> GetAllAsync(Guid? scopedSupplierId = null, bool includeAllForSupplier = false, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ProductDto>> GetAllAsync(Guid? scopedSupplierId = null, bool includeAllForSupplier = false, bool? isBudget = null, CancellationToken cancellationToken = default)
         => await cache.GetOrCreateAsync(
-            AppCacheKeys.Products(scopedSupplierId, includeAllForSupplier),
+            AppCacheKeys.Products(scopedSupplierId, includeAllForSupplier) + $":budget:{(isBudget.HasValue ? (isBudget.Value ? "1" : "0") : "all")}",
             async token =>
             {
                 var products = await productRepository.GetAllDetailedAsync(token);
                 if (scopedSupplierId.HasValue && !includeAllForSupplier)
                 {
                     products = products.Where(product => product.SupplierId == scopedSupplierId.Value).ToList();
+                }
+
+                if (isBudget.HasValue)
+                {
+                    products = products
+                        .Where(product => (product.LifecycleStatus == ProductLifecycleStatus.Orcamento) == isBudget.Value)
+                        .ToList();
                 }
 
                 return (IReadOnlyList<ProductDto>)products.Select(Map).ToList();
@@ -81,6 +89,7 @@ public sealed class ProductService(
             TariffPerKwh = request.TariffPerKwh,
             FinishingPercentage = NormalizeFinishingPercentage(request.FinishingPercentage),
             CommissionPercentage = NormalizeCommissionPercentage(request.CommissionPercentage),
+                        LifecycleStatus = request.IsBudget ? ProductLifecycleStatus.Orcamento : ProductLifecycleStatus.Disponivel,
             PrinterProfileId = request.PrinterProfileId,
               EstimatedWeightGrams = request.Filaments.Count > 0 ? request.Filaments.Sum(f => f.WeightGrams) : 0m,
               DefaultMarketplaceFeeId = request.MarketplaceFeeId
@@ -189,6 +198,14 @@ public sealed class ProductService(
         product.TariffPerKwh = request.TariffPerKwh;
         product.FinishingPercentage = NormalizeFinishingPercentage(request.FinishingPercentage);
         product.CommissionPercentage = NormalizeCommissionPercentage(request.CommissionPercentage);
+        if (request.IsBudget)
+        {
+            product.LifecycleStatus = ProductLifecycleStatus.Orcamento;
+        }
+        else if (product.LifecycleStatus == ProductLifecycleStatus.Orcamento)
+        {
+            product.LifecycleStatus = ProductLifecycleStatus.Disponivel;
+        }
         product.PrinterProfileId = request.PrinterProfileId;
             product.EstimatedWeightGrams = request.Filaments.Count > 0 ? request.Filaments.Sum(f => f.WeightGrams) : 0m;
             product.DefaultMarketplaceFeeId = request.MarketplaceFeeId;
@@ -267,6 +284,26 @@ public sealed class ProductService(
         await productRepository.SaveChangesAsync(cancellationToken);
         await cacheInvalidationService.InvalidateProductReadModelsAsync(supplierId.HasValue ? [supplierId.Value] : [], cancellationToken);
         return true;
+    }
+
+    public async Task<ProductDto?> ConvertBudgetToProductAsync(Guid id, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
+    {
+        var product = await productRepository.GetDetailedByIdAsync(id, cancellationToken);
+        if (product is null || !IsProductVisible(product, scopedSupplierId))
+        {
+            return null;
+        }
+
+        if (product.LifecycleStatus == ProductLifecycleStatus.Orcamento)
+        {
+            product.LifecycleStatus = ProductLifecycleStatus.Disponivel;
+            productRepository.Update(product);
+            await auditRepository.AddAsync(CreateAudit(product, AuditAction.Updated, actor), cancellationToken);
+            await productRepository.SaveChangesAsync(cancellationToken);
+            await cacheInvalidationService.InvalidateProductReadModelsAsync(product.SupplierId.HasValue ? [product.SupplierId.Value] : [], cancellationToken);
+        }
+
+        return Map(product);
     }
 
     public async Task<PriceSuggestionDto?> GetPriceSuggestionAsync(Guid id, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)

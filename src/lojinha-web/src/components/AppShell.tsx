@@ -36,6 +36,7 @@ import SettingsSuggestRoundedIcon from '@mui/icons-material/SettingsSuggestRound
 import ChecklistRoundedIcon from '@mui/icons-material/ChecklistRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
+import RequestQuoteRoundedIcon from '@mui/icons-material/RequestQuoteRounded';
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -46,6 +47,7 @@ const collapsedDrawerWidth = 88;
 const navigation = [
   { label: 'Dashboard', path: '/', icon: <DashboardRoundedIcon /> },
   { label: 'Produtos', path: '/produtos', icon: <CategoryRoundedIcon /> },
+  { label: 'Orçamentos', path: '/orcamentos', icon: <RequestQuoteRoundedIcon /> },
   { label: 'Categorias', path: '/categorias', icon: <CategoryRoundedIcon /> },
   { label: 'Impressoras', path: '/impressoras', icon: <PrintRoundedIcon /> },
   { label: 'Insumos', path: '/insumos', icon: <WarehouseRoundedIcon /> },
@@ -79,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const currentDrawerWidth = useMemo(() => (isMobile ? drawerWidth : collapsed ? collapsedDrawerWidth : drawerWidth), [collapsed, isMobile]);
   const visibleNavigation = useMemo(() => {
     if (session?.role === 'Supplier') {
-      return navigation.filter((item) => ['/', '/produtos', '/categorias', '/impressoras', '/insumos', '/estoque', '/vendas', '/feiras', '/financeiro', '/listas-operacionais', '/projetos', '/personalizados'].includes(item.path));
+      return navigation.filter((item) => ['/', '/produtos', '/orcamentos', '/categorias', '/impressoras', '/insumos', '/estoque', '/vendas', '/feiras', '/financeiro', '/listas-operacionais', '/projetos', '/personalizados'].includes(item.path));
     }
 
     return navigation;

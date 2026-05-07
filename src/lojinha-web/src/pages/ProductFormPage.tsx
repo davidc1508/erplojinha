@@ -17,7 +17,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CurrencyField } from '../components/CurrencyField';
 import { SearchSelectField } from '../components/SearchSelectField';
 import { useAuth } from '../hooks/useAuth';
@@ -46,7 +46,8 @@ const emptyForm = {
   filaments: [{ filamentProfileId: '', weightGrams: 0 }] as { filamentProfileId: string; weightGrams: number }[],
   marketplaceFeeId: '',
   desiredMarkup: 2.7,
-  salePrice: ''
+  salePrice: '',
+  isBudget: false
 };
 
 function formatCurrency(value: number) {
@@ -66,11 +67,13 @@ export function ProductFormPage() {
   const isSupplier = session?.role === 'Supplier';
   const { id } = useParams();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const isBudgetMode = location.pathname.startsWith('/orcamentos');
   const cloneFromId = !id ? searchParams.get('clonar') : null;
   const isEditing = Boolean(id);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ ...emptyForm });
+  const [form, setForm] = useState({ ...emptyForm, isBudget: isBudgetMode });
   const [feedback, setFeedback] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [duration, setDuration] = useState(() => minutesToDurationParts(emptyForm.estimatedPrintTimeMinutes));
@@ -118,7 +121,8 @@ export function ProductFormPage() {
         filaments: (product.filaments ?? []).map((f) => ({ filamentProfileId: f.filamentProfileId, weightGrams: f.weightGrams })),
       marketplaceFeeId: product.marketplaceFeeId ?? '',
       desiredMarkup: product.desiredMarkup,
-      salePrice: String(product.salePrice)
+      salePrice: String(product.salePrice),
+      isBudget: product.lifecycleStatus === 'Orcamento'
     });
     setDuration(minutesToDurationParts(product.estimatedPrintTimeMinutes));
     setDirty(false);
@@ -150,11 +154,18 @@ export function ProductFormPage() {
         filaments: (cloneSource.filaments ?? []).map((f) => ({ filamentProfileId: f.filamentProfileId, weightGrams: f.weightGrams })),
       marketplaceFeeId: cloneSource.marketplaceFeeId ?? '',
       desiredMarkup: cloneSource.desiredMarkup,
-      salePrice: String(cloneSource.salePrice)
+      salePrice: String(cloneSource.salePrice),
+      isBudget: cloneSource.lifecycleStatus === 'Orcamento' || isBudgetMode
     });
     setDuration(minutesToDurationParts(cloneSource.estimatedPrintTimeMinutes));
     setDirty(true);
-  }, [cloneSource]);
+  }, [cloneSource, isBudgetMode]);
+
+  useEffect(() => {
+    if (!isEditing && !cloneFromId) {
+      setForm((current) => ({ ...current, isBudget: isBudgetMode }));
+    }
+  }, [cloneFromId, isBudgetMode, isEditing]);
 
   useEffect(() => {
     if (!isEditing && isSupplier && session?.supplierId && form.supplierId !== session.supplierId) {
@@ -192,6 +203,7 @@ export function ProductFormPage() {
         commissionPercentage: Number(form.commissionPercentage),
         desiredMarkup: Number(form.desiredMarkup),
         costPrice: null,
+        isBudget: form.isBudget,
         salePrice: form.salePrice === '' ? null : Number(form.salePrice)
       };
 
@@ -202,7 +214,7 @@ export function ProductFormPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['product', id] });
-      navigate('/produtos', { state: { preserveState: true } });
+      navigate(form.isBudget ? '/orcamentos' : '/produtos', { state: { preserveState: true } });
     },
     onError: () => {
       setFeedback('Nao foi possivel salvar o produto com os dados informados.');
@@ -267,10 +279,10 @@ export function ProductFormPage() {
     <Stack spacing={3}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
         <div>
-          <Typography variant="h4">{isEditing ? 'Editar produto' : 'Novo produto'}</Typography>
+          <Typography variant="h4">{isEditing ? (form.isBudget ? 'Editar orçamento' : 'Editar produto') : (isBudgetMode ? 'Novo orçamento' : 'Novo produto')}</Typography>
           <Typography color="text.secondary">Cadastro em tela separada, com cálculo de preço atualizado durante a digitação.</Typography>
         </div>
-        <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/produtos', { state: { preserveState: true } })}>
+        <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(isBudgetMode ? '/orcamentos' : '/produtos', { state: { preserveState: true } })}>
           Voltar para listagem
         </Button>
       </Stack>
@@ -409,6 +421,12 @@ export function ProductFormPage() {
                       label="Gerar despesa de produção quando o produto entrar em estoque"
                     />
                   </Grid>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={<Checkbox checked={form.isBudget} onChange={(event) => updateForm('isBudget', event.target.checked)} />}
+                      label="Salvar como orçamento"
+                    />
+                  </Grid>
                   <Grid item xs={12} md={4}><TextField label="Acabamento (%)" type="number" value={form.finishingPercentage} onChange={(event) => updateForm('finishingPercentage', Number(event.target.value))} fullWidth /></Grid>
                   <Grid item xs={12} md={4}><TextField label="Comissão (%)" type="number" value={form.commissionPercentage} onChange={(event) => updateForm('commissionPercentage', Number(event.target.value))} fullWidth /></Grid>
                   <Grid item xs={12} md={4}><CurrencyField label="Custo adicional" value={form.additionalCost} onValueChange={(value) => updateForm('additionalCost', value)} fullWidth /></Grid>
@@ -422,7 +440,7 @@ export function ProductFormPage() {
                 <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum}>
                   {saveMutation.isLoading ? 'Salvando...' : isEditing ? 'Atualizar produto' : 'Cadastrar produto'}
                 </Button>
-                <Button variant="outlined" onClick={() => navigate('/produtos', { state: { preserveState: true } })}>
+                <Button variant="outlined" onClick={() => navigate(form.isBudget ? '/orcamentos' : '/produtos', { state: { preserveState: true } })}>
                   Cancelar
                 </Button>
               </Stack>

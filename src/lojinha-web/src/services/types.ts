@@ -4,7 +4,7 @@ export type FinancialClassification = 'Fixed' | 'Variable';
 export type InventoryItemType = 'Product' | 'Supply';
 export type InventoryMovementType = 'Entry' | 'Exit' | 'Sale' | 'Adjustment';
 export type FairStatus = 'Awaiting' | 'Open' | 'Finalized' | 'Cancelled';
-export type ProductLifecycleStatus = 'Disponivel' | 'EmProducao';
+export type ProductLifecycleStatus = 'Disponivel' | 'EmProducao' | 'Orcamento';
 export type OperationalItemPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type RestockTaskStatus = 'Open' | 'InProgress' | 'Completed' | 'Cancelled';
 

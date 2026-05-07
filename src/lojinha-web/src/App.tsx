@@ -40,6 +40,9 @@ function ProtectedApp() {
         <Route path="/produtos" element={<ProductsPage />} />
         <Route path="/produtos/novo" element={<ProductFormPage />} />
         <Route path="/produtos/:id/editar" element={<ProductFormPage />} />
+        <Route path="/orcamentos" element={<ProductsPage />} />
+        <Route path="/orcamentos/novo" element={<ProductFormPage />} />
+        <Route path="/orcamentos/:id/editar" element={<ProductFormPage />} />
         <Route path="/categorias" element={<CategoriesPage />} />
         <Route path="/impressoras" element={<PrintersPage />} />
         <Route path="/insumos" element={<SuppliesPage />} />

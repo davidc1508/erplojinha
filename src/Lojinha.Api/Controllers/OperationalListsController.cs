@@ -60,15 +60,29 @@ public sealed class OperationalListsController(IOperationalListService operation
     [HttpPost("todo")]
     public async Task<ActionResult<TodoItemDto>> CreateTodo([FromBody] TodoItemRequest request, CancellationToken cancellationToken)
     {
-        var created = await operationalListService.CreateTodoItemAsync(request, User.GetEmail(), ScopedSupplierId, cancellationToken);
-        return Ok(created);
+        try
+        {
+            var created = await operationalListService.CreateTodoItemAsync(request, User.GetEmail(), ScopedSupplierId, cancellationToken);
+            return Ok(created);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
     }
 
     [HttpPut("todo/{id:guid}")]
     public async Task<ActionResult<TodoItemDto>> UpdateTodo(Guid id, [FromBody] TodoItemRequest request, CancellationToken cancellationToken)
     {
-        var updated = await operationalListService.UpdateTodoItemAsync(id, request, User.GetEmail(), ScopedSupplierId, cancellationToken);
-        return updated is null ? NotFound() : Ok(updated);
+        try
+        {
+            var updated = await operationalListService.UpdateTodoItemAsync(id, request, User.GetEmail(), ScopedSupplierId, cancellationToken);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
     }
 
     [HttpDelete("todo/{id:guid}")]

@@ -16,6 +16,7 @@ import {
   TableRow,
   TableSortLabel,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme
@@ -24,9 +25,10 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import SyncAltRoundedIcon from '@mui/icons-material/SyncAltRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { SearchSelectField } from '../components/SearchSelectField';
 import { TableSkeleton } from '../components/TableSkeleton';
@@ -72,12 +74,17 @@ export function ProductsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
+  const location = useLocation();
+  const isBudgetMode = location.pathname.startsWith('/orcamentos');
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [listState, setListState] = usePreservedListState(`products-page:${session?.role ?? 'guest'}:${session?.supplierId ?? 'store'}`, defaultListState);
   const { search, scopeFilter, categoryFilter, page, rowsPerPage, sortField, sortDirection } = listState;
-  const { data: products = [], isLoading } = useQuery({ queryKey: ['products', isSupplier ? 'catalog' : 'all'], queryFn: () => isSupplier ? productsApi.getSalesCatalog() : productsApi.getAll() });
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ['products', isSupplier ? 'catalog' : 'all', isBudgetMode ? 'budget' : 'product'],
+    queryFn: () => isSupplier ? productsApi.getAll({ isBudget: isBudgetMode }) : productsApi.getAll({ isBudget: isBudgetMode })
+  });
   const { data: metadata } = useQuery({ queryKey: ['products-metadata'], queryFn: productsApi.getMetadata });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.getAll });
   const deleteMutation = useMutation({
@@ -89,6 +96,16 @@ export function ProductsPage() {
     },
     onError: () => {
       setFeedback('Nao foi possivel excluir o produto selecionado.');
+    }
+  });
+  const convertMutation = useMutation({
+    mutationFn: async (id: string) => productsApi.convertToProduct(id),
+    onSuccess: () => {
+      setFeedback('Orcamento transformado em produto com sucesso.');
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: () => {
+      setFeedback('Nao foi possivel transformar o orcamento em produto.');
     }
   });
 
@@ -179,7 +196,7 @@ export function ProductsPage() {
 
   return (
     <Stack spacing={3}>
-      <PageSection title="Produtos" subtitle="Catálogo com busca, filtro por categoria e paginação.">
+      <PageSection title={isBudgetMode ? 'Orçamentos' : 'Produtos'} subtitle={isBudgetMode ? 'Orçamentos com estrutura de produto e conversão em um clique.' : 'Catálogo com busca, filtro por categoria e paginação.'}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" sx={{ mb: 2.5 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ flex: 1 }}>
             <TextField
@@ -217,13 +234,13 @@ export function ProductsPage() {
               />
             </Stack>
           </Stack>
-          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/produtos/novo', { state: { preserveState: true } })}>
-            Novo produto
+          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate(isBudgetMode ? '/orcamentos/novo' : '/produtos/novo', { state: { preserveState: true } })}>
+            {isBudgetMode ? 'Novo orçamento' : 'Novo produto'}
           </Button>
         </Stack>
 
         <Typography color="text.secondary" sx={{ mb: 2 }}>
-          {filteredProducts.length} produto(s) encontrado(s)
+          {filteredProducts.length} {isBudgetMode ? 'orçamento(s)' : 'produto(s)'} encontrado(s)
         </Typography>
 
           {feedback ? <Alert severity="success" sx={{ mb: 2 }}>{feedback}</Alert> : null}
@@ -247,12 +264,21 @@ export function ProductsPage() {
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                       {canManageProduct(product) ? (
                         <>
-                          <IconButton color="default" onClick={() => navigate(`/produtos/novo?clonar=${product.id}`, { state: { preserveState: true } })} title="Duplicar produto">
+                          <IconButton color="default" onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })} title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
                             <ContentCopyRoundedIcon />
                           </IconButton>
-                          <IconButton color="primary" onClick={() => navigate(`/produtos/${product.id}/editar`, { state: { preserveState: true } })}>
+                          <IconButton color="primary" onClick={() => navigate(`${isBudgetMode ? '/orcamentos' : '/produtos'}/${product.id}/editar`, { state: { preserveState: true } })}>
                             <EditRoundedIcon />
                           </IconButton>
+                          {isBudgetMode ? (
+                            <Tooltip title="Transformar em produto">
+                              <span>
+                                <IconButton color="success" onClick={() => convertMutation.mutate(product.id)} disabled={convertMutation.isLoading}>
+                                  <SyncAltRoundedIcon />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          ) : null}
                           <IconButton color="error" onClick={() => setProductToDelete(product)}>
                             <DeleteOutlineRoundedIcon />
                           </IconButton>
@@ -299,12 +325,21 @@ export function ProductsPage() {
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap', pl: 0.5, pr: 0.5 }}>
                         {canManageProduct(product) ? (
                           <Stack direction="row" spacing={0.25} justifyContent="flex-end">
-                            <IconButton size="small" color="default" onClick={() => navigate(`/produtos/novo?clonar=${product.id}`, { state: { preserveState: true } })} title="Duplicar produto">
+                            <IconButton size="small" color="default" onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })} title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
                               <ContentCopyRoundedIcon />
                             </IconButton>
-                            <IconButton size="small" color="primary" onClick={() => navigate(`/produtos/${product.id}/editar`, { state: { preserveState: true } })}>
+                            <IconButton size="small" color="primary" onClick={() => navigate(`${isBudgetMode ? '/orcamentos' : '/produtos'}/${product.id}/editar`, { state: { preserveState: true } })}>
                               <EditRoundedIcon />
                             </IconButton>
+                            {isBudgetMode ? (
+                              <Tooltip title="Transformar em produto">
+                                <span>
+                                  <IconButton size="small" color="success" onClick={() => convertMutation.mutate(product.id)} disabled={convertMutation.isLoading}>
+                                    <SyncAltRoundedIcon />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            ) : null}
                             <IconButton size="small" color="error" onClick={() => setProductToDelete(product)}>
                               <DeleteOutlineRoundedIcon />
                             </IconButton>
@@ -332,8 +367,8 @@ export function ProductsPage() {
         </PageSection>
       <ConfirmDialog
         open={productToDelete !== null}
-        title="Excluir produto"
-        description={productToDelete ? `Deseja excluir o produto ${productToDelete.name}? Esta ação não pode ser desfeita.` : ''}
+        title={isBudgetMode ? 'Excluir orçamento' : 'Excluir produto'}
+        description={productToDelete ? `Deseja excluir o ${isBudgetMode ? 'orçamento' : 'produto'} ${productToDelete.name}? Esta ação não pode ser desfeita.` : ''}
         confirmLabel="Excluir"
         confirmColor="error"
         isLoading={deleteMutation.isLoading}

@@ -194,8 +194,8 @@ export const dashboardApi = {
 };
 
 export const productsApi = {
-  getAll: async () => {
-    const { data } = await api.get<Product[]>('/products');
+  getAll: async (params?: { isBudget?: boolean; includeAllForSupplier?: boolean }) => {
+    const { data } = await api.get<Product[]>('/products', { params });
     return data;
   },
   getSalesCatalog: async () => {
@@ -228,6 +228,10 @@ export const productsApi = {
   },
   update: async (id: string, payload: Record<string, unknown>) => {
     const { data } = await api.put<Product>(`/products/${id}`, payload);
+    return data;
+  },
+  convertToProduct: async (id: string) => {
+    const { data } = await api.post<Product>(`/products/${id}/convert-to-product`);
     return data;
   },
   remove: async (id: string) => {

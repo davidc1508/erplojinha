@@ -5,6 +5,7 @@ using Lojinha.Api.Contracts.CardFees;
 using Lojinha.Api.Contracts.Finance;
 using Lojinha.Api.Contracts.Fairs;
 using Lojinha.Api.Contracts.Inventory;
+using Lojinha.Api.Contracts.OperationalLists;
 using Lojinha.Api.Contracts.Products;
 using Lojinha.Api.Contracts.Recipes;
 using Lojinha.Api.Contracts.Sales;
@@ -108,6 +109,25 @@ public sealed class CreateFinancialEntryRequestValidator : AbstractValidator<Cre
         RuleFor(x => x.Category).NotEmpty().MaximumLength(120);
         RuleFor(x => x.Description).MaximumLength(250);
         RuleFor(x => x.Amount).GreaterThan(0);
+    }
+}
+
+public sealed class RestockItemRequestValidator : AbstractValidator<RestockItemRequest>
+{
+    public RestockItemRequestValidator()
+    {
+        RuleFor(x => x.ProductId).NotEmpty();
+        RuleFor(x => x.TargetQuantity).GreaterThan(0);
+        RuleFor(x => x.Notes).MaximumLength(500);
+    }
+}
+
+public sealed class TodoItemRequestValidator : AbstractValidator<TodoItemRequest>
+{
+    public TodoItemRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.Source).MaximumLength(500);
     }
 }
 

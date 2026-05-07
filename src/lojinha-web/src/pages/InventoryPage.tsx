@@ -19,7 +19,7 @@ export function InventoryPage() {
   const rowsPerPage = 8;
   const queryClient = useQueryClient();
   const { data: movements = [] } = useQuery({ queryKey: ['inventory'], queryFn: inventoryApi.getMovements });
-  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: productsApi.getAll });
+  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => productsApi.getAll() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.getAll });
   const { data: metadata } = useQuery({ queryKey: ['products-metadata'], queryFn: productsApi.getMetadata, enabled: !isSupplier });
   const [feedback, setFeedback] = useState<string | null>(null);

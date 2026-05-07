@@ -50,7 +50,8 @@ public enum SaleStatus
 public enum ProductLifecycleStatus
 {
     Disponivel = 1,
-    EmProducao = 2
+    EmProducao = 2,
+    Orcamento = 3
 }
 
 public enum FairStatus

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Button,
+  Chip,
   Grid,
   IconButton,
   MenuItem,
@@ -75,6 +76,49 @@ function toDateInput(value?: string) {
   return value.slice(0, 10);
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as { response?: { data?: { message?: string } } }).response;
+    if (response?.data?.message) {
+      return response.data.message;
+    }
+  }
+
+  return fallback;
+}
+
+function priorityChipColor(value: OperationalItemPriority): 'default' | 'warning' | 'error' | 'success' {
+  if (value === 'Urgent') {
+    return 'error';
+  }
+
+  if (value === 'High') {
+    return 'warning';
+  }
+
+  if (value === 'Low') {
+    return 'success';
+  }
+
+  return 'default';
+}
+
+function restockStatusChipColor(value: RestockTaskStatus): 'default' | 'warning' | 'error' | 'success' {
+  if (value === 'Completed') {
+    return 'success';
+  }
+
+  if (value === 'Cancelled') {
+    return 'error';
+  }
+
+  if (value === 'InProgress') {
+    return 'warning';
+  }
+
+  return 'default';
+}
+
 export function OperationalListsPage() {
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'warning'; message: string } | null>(null);
@@ -83,7 +127,7 @@ export function OperationalListsPage() {
   const [restockToDelete, setRestockToDelete] = useState<{ id: string; productName: string } | null>(null);
   const [todoToDelete, setTodoToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: productsApi.getAll });
+  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => productsApi.getAll() });
   const { data: restockItems = [] } = useQuery({ queryKey: ['operational-restock'], queryFn: operationalListsApi.getRestockItems });
   const { data: todoItems = [] } = useQuery({ queryKey: ['operational-todo'], queryFn: operationalListsApi.getTodoItems });
 
@@ -111,7 +155,7 @@ export function OperationalListsPage() {
       setRestockForm(emptyRestockForm);
       await queryClient.invalidateQueries({ queryKey: ['operational-restock'] });
     },
-    onError: () => setFeedback({ severity: 'warning', message: 'Não foi possível salvar o item de reposição.' })
+    onError: (error) => setFeedback({ severity: 'warning', message: getErrorMessage(error, 'Não foi possível salvar o item de reposição.') })
   });
 
   const deleteRestockMutation = useMutation({
@@ -120,7 +164,7 @@ export function OperationalListsPage() {
       setFeedback({ severity: 'success', message: 'Item de reposição removido.' });
       await queryClient.invalidateQueries({ queryKey: ['operational-restock'] });
     },
-    onError: () => setFeedback({ severity: 'warning', message: 'Não foi possível remover o item de reposição.' })
+    onError: (error) => setFeedback({ severity: 'warning', message: getErrorMessage(error, 'Não foi possível remover o item de reposição.') })
   });
 
   const saveTodoMutation = useMutation({
@@ -142,7 +186,7 @@ export function OperationalListsPage() {
       setTodoForm(emptyTodoForm);
       await queryClient.invalidateQueries({ queryKey: ['operational-todo'] });
     },
-    onError: () => setFeedback({ severity: 'warning', message: 'Não foi possível salvar o item a fazer.' })
+    onError: (error) => setFeedback({ severity: 'warning', message: getErrorMessage(error, 'Não foi possível salvar o item a fazer.') })
   });
 
   const deleteTodoMutation = useMutation({
@@ -151,7 +195,7 @@ export function OperationalListsPage() {
       setFeedback({ severity: 'success', message: 'Item a fazer removido.' });
       await queryClient.invalidateQueries({ queryKey: ['operational-todo'] });
     },
-    onError: () => setFeedback({ severity: 'warning', message: 'Não foi possível remover o item a fazer.' })
+    onError: (error) => setFeedback({ severity: 'warning', message: getErrorMessage(error, 'Não foi possível remover o item a fazer.') })
   });
 
   function editRestock(item: OperationalRestockItem) {
@@ -185,8 +229,8 @@ export function OperationalListsPage() {
       {feedback ? <Alert severity={feedback.severity}>{feedback.message}</Alert> : null}
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Reposição</Typography><Typography variant="h5">{restockItems.length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Itens a fazer</Typography><Typography variant="h5">{todoItems.length}</Typography></Paper></Grid>
+        <Grid item xs={12} md={6}><Paper sx={{ p: 2.2, borderRadius: 3, background: 'linear-gradient(135deg, rgba(123,207,192,0.22), rgba(255,255,255,0.72))' }}><Typography color="text.secondary">Reposição</Typography><Typography variant="h5">{restockItems.length}</Typography></Paper></Grid>
+        <Grid item xs={12} md={6}><Paper sx={{ p: 2.2, borderRadius: 3, background: 'linear-gradient(135deg, rgba(245,178,197,0.24), rgba(255,255,255,0.72))' }}><Typography color="text.secondary">Itens a fazer</Typography><Typography variant="h5">{todoItems.length}</Typography></Paper></Grid>
       </Grid>
 
       <PageSection title="Reposição de produtos" subtitle="Planejamento rápido para o que precisa voltar ao estoque.">
@@ -288,8 +332,8 @@ export function OperationalListsPage() {
                     <TableCell>{item.productName}</TableCell>
                     <TableCell>{item.productCategory || '-'}</TableCell>
                     <TableCell>{item.targetQuantity}</TableCell>
-                    <TableCell>{priorityLabel(item.priority)}</TableCell>
-                    <TableCell>{restockStatusLabel(item.status)}</TableCell>
+                    <TableCell><Chip size="small" label={priorityLabel(item.priority)} color={priorityChipColor(item.priority)} /></TableCell>
+                    <TableCell><Chip size="small" label={restockStatusLabel(item.status)} color={restockStatusChipColor(item.status)} /></TableCell>
                     <TableCell>{item.dueDateUtc ? new Date(item.dueDateUtc).toLocaleDateString('pt-BR') : '-'}</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       <IconButton color="primary" onClick={() => editRestock(item)}><EditRoundedIcon /></IconButton>
@@ -368,7 +412,7 @@ export function OperationalListsPage() {
                   <TableRow key={item.id} hover>
                     <TableCell>{item.name}</TableCell>
                     <TableCell>{item.source || '-'}</TableCell>
-                    <TableCell>{priorityLabel(item.priority)}</TableCell>
+                    <TableCell><Chip size="small" label={priorityLabel(item.priority)} color={priorityChipColor(item.priority)} /></TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       <IconButton color="primary" onClick={() => editTodo(item)}><EditRoundedIcon /></IconButton>
                       <IconButton color="error" onClick={() => setTodoToDelete({ id: item.id, name: item.name })}><DeleteOutlineRoundedIcon /></IconButton>

@@ -15,8 +15,8 @@ public sealed class ProductsController(IProductService productService) : Control
     private Guid? ScopedSupplierId => User.IsInRole(UserRole.Supplier.ToString()) ? User.GetSupplierId() : null;
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<ProductDto>>> GetAll([FromQuery] bool includeAllForSupplier = false, CancellationToken cancellationToken = default)
-        => Ok(await productService.GetAllAsync(ScopedSupplierId, includeAllForSupplier, cancellationToken));
+    public async Task<ActionResult<IReadOnlyList<ProductDto>>> GetAll([FromQuery] bool includeAllForSupplier = false, [FromQuery] bool? isBudget = null, CancellationToken cancellationToken = default)
+        => Ok(await productService.GetAllAsync(ScopedSupplierId, includeAllForSupplier, isBudget, cancellationToken));
 
     [HttpGet("metadata")]
     public async Task<ActionResult<ProductMetadataDto>> GetMetadata(CancellationToken cancellationToken)
@@ -92,5 +92,12 @@ public sealed class ProductsController(IProductService productService) : Control
         {
             return Conflict(new { message = exception.Message });
         }
+    }
+
+    [HttpPost("{id:guid}/convert-to-product")]
+    public async Task<ActionResult<ProductDto>> ConvertToProduct(Guid id, CancellationToken cancellationToken)
+    {
+        var product = await productService.ConvertBudgetToProductAsync(id, User.GetEmail(), ScopedSupplierId, cancellationToken);
+        return product is null ? NotFound() : Ok(product);
     }
 }

@@ -169,6 +169,8 @@ public sealed class OperationalListService(
 
     public async Task<TodoItemDto> CreateTodoItemAsync(TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
     {
+        ValidateTodoRequest(request);
+
         var entity = new OperationalTodoItem
         {
             Name = request.Name.Trim(),
@@ -185,6 +187,8 @@ public sealed class OperationalListService(
 
     public async Task<TodoItemDto?> UpdateTodoItemAsync(Guid id, TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
     {
+        ValidateTodoRequest(request);
+
         var entity = ApplyScope(todoRepository.Query(), scopedSupplierId)
             .FirstOrDefault(item => item.Id == id);
 
@@ -230,6 +234,24 @@ public sealed class OperationalListService(
         if (value <= 0)
         {
             throw new InvalidOperationException("Quantidade alvo deve ser maior que zero.");
+        }
+    }
+
+    private static void ValidateTodoRequest(TodoItemRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new InvalidOperationException("Nome do item a fazer e obrigatorio.");
+        }
+
+        if (request.Name.Trim().Length > 150)
+        {
+            throw new InvalidOperationException("Nome do item a fazer nao pode ultrapassar 150 caracteres.");
+        }
+
+        if ((request.Source ?? string.Empty).Trim().Length > 500)
+        {
+            throw new InvalidOperationException("Fonte nao pode ultrapassar 500 caracteres.");
         }
     }
 
