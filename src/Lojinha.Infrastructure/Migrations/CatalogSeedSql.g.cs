@@ -198,7 +198,6 @@ SELECT * FROM jsonb_to_recordset(CAST($json${NormalizeJsonKeys(PRODUCTS_JSON)}$j
     wholesaleMarkup numeric,
     retailMarkup numeric,
     resellerMarkup numeric,
-    itemsPerPlate integer,
     recipeItemQuantity numeric,
     createdAtUtc timestamptz,
     updatedAtUtc timestamptz
@@ -206,7 +205,7 @@ SELECT * FROM jsonb_to_recordset(CAST($json${NormalizeJsonKeys(PRODUCTS_JSON)}$j
 
 INSERT INTO public.""Products"" (
     ""Id"",""Name"",""Sku"",""Description"",""CategoryId"",""CostPrice"",""SalePrice"",""SuggestedPrice"",""ProfitMargin"",""CurrentStock"",""MinimumStock"",
-    ""ItemsPerPlate"",""EstimatedPrintTimeMinutes"",""EstimatedWeightGrams"",""LengthMetersUsed"",""TariffPerKwh"",""FinishingPercentage"",""PrinterProfileId"",""FilamentProfileId"",
+    ""EstimatedPrintTimeMinutes"",""EstimatedWeightGrams"",""LengthMetersUsed"",""TariffPerKwh"",""FinishingPercentage"",""PrinterProfileId"",""FilamentProfileId"",
     ""DefaultMarketplaceFeeId"",""CreatedAtUtc"",""UpdatedAtUtc"")
 SELECT
     sp.id,
@@ -220,7 +219,6 @@ SELECT
     CASE WHEN sp.salePrice <= 0 THEN 0 ELSE ROUND((sp.salePrice - sp.costPrice) / sp.salePrice, 4) END,
     sp.currentStock,
     sp.minimumStock,
-    sp.itemsPerPlate,
     sp.estimatedPrintTimeMinutes,
     sp.estimatedWeightGrams,
     sp.lengthMetersUsed,
@@ -246,7 +244,6 @@ ON CONFLICT (""Sku"") DO UPDATE SET
     ""ProfitMargin"" = EXCLUDED.""ProfitMargin"",
     ""CurrentStock"" = EXCLUDED.""CurrentStock"",
     ""MinimumStock"" = EXCLUDED.""MinimumStock"",
-    ""ItemsPerPlate"" = EXCLUDED.""ItemsPerPlate"",
     ""EstimatedPrintTimeMinutes"" = EXCLUDED.""EstimatedPrintTimeMinutes"",
     ""EstimatedWeightGrams"" = EXCLUDED.""EstimatedWeightGrams"",
     ""LengthMetersUsed"" = EXCLUDED.""LengthMetersUsed"",

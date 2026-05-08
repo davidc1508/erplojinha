@@ -15,6 +15,7 @@ public interface IOperationalListService
     Task<TodoItemDto> CreateTodoItemAsync(TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<TodoItemDto?> UpdateTodoItemAsync(Guid id, TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<bool> DeleteTodoItemAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+    Task<int> ConsumeRestockTargetAsync(Guid productId, decimal quantityAdded, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default);
 }
 
 public sealed class OperationalListService(
@@ -221,6 +222,77 @@ public sealed class OperationalListService(
         await auditRepository.AddAsync(CreateAudit(nameof(OperationalTodoItem), entity.Id, AuditAction.Deleted, actor, entity), cancellationToken);
         await todoRepository.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    public async Task<int> ConsumeRestockTargetAsync(Guid productId, decimal quantityAdded, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default)
+    {
+        if (quantityAdded <= 0)
+        {
+            return 0;
+        }
+
+        var rows = ApplyScope(restockRepository.Query(), scopedSupplierId)
+            .Where(item => item.ProductId == productId && item.Status != RestockTaskStatus.Completed && item.Status != RestockTaskStatus.Cancelled)
+            .OrderByDescending(item => item.Priority)
+            .ThenBy(item => item.CreatedAtUtc)
+            .ToList();
+
+        if (rows.Count == 0)
+        {
+            return 0;
+        }
+
+        var remainingQuantity = quantityAdded;
+        var affected = 0;
+
+        foreach (var item in rows)
+        {
+            if (remainingQuantity <= 0)
+            {
+                break;
+            }
+
+            if (item.TargetQuantity <= remainingQuantity)
+            {
+                remainingQuantity -= item.TargetQuantity;
+                restockRepository.Remove(item);
+                await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), item.Id, AuditAction.Deleted, actor, new
+                {
+                    item.ProductId,
+                    item.OwnerSupplierId,
+                    item.TargetQuantity,
+                    ConsumedQuantity = quantityAdded,
+                    RemainingQuantity = remainingQuantity
+                }), cancellationToken);
+                affected++;
+                continue;
+            }
+
+            item.TargetQuantity -= remainingQuantity;
+            if (item.Status == RestockTaskStatus.Open)
+            {
+                item.Status = RestockTaskStatus.InProgress;
+            }
+
+            restockRepository.Update(item);
+            await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), item.Id, AuditAction.Updated, actor, new
+            {
+                item.ProductId,
+                item.OwnerSupplierId,
+                item.TargetQuantity,
+                ConsumedQuantity = quantityAdded,
+                RemainingQuantity = 0m
+            }), cancellationToken);
+            remainingQuantity = 0;
+            affected++;
+        }
+
+        if (affected > 0)
+        {
+            await restockRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return affected;
     }
 
     private static IQueryable<OperationalRestockItem> ApplyScope(IQueryable<OperationalRestockItem> query, Guid? scopedSupplierId)

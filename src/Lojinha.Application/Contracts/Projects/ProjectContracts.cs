@@ -90,3 +90,43 @@ public sealed record ProjectDto(
     decimal? PersonalizedQuotedPriceBRL = null,
     Guid? PersonalizedGeneratedProductId = null,
     Guid? PersonalizedSaleId = null);
+
+public sealed record ProjectProductDraftPrinterUsageDto(
+    string PrinterName,
+    Guid? PrinterProfileId,
+    decimal TimeRealMinutes);
+
+public sealed record ProjectProductDraftMaterialUsageDto(
+    Guid FilamentProfileId,
+    string FilamentName,
+    decimal WeightGrams,
+    decimal WeightPercentage);
+
+public sealed record ProjectProductDraftDto(
+    Guid ProjectId,
+    Guid? ExistingProductId,
+    string ProjectName,
+    string Name,
+    string Sku,
+    string Description,
+    Guid? CategoryId,
+    Guid? SupplierId,
+    bool GenerateProductionExpenseOnStockEntry,
+    decimal CurrentStock,
+    decimal MinimumStock,
+    int ItemsPerPlate,
+    decimal EstimatedPrintTimeMinutes,
+    decimal HeightCentimeters,
+    decimal LengthMetersUsed,
+    decimal TariffPerKwh,
+    decimal FinishingPercentage,
+    decimal CommissionPercentage,
+    Guid? PrinterProfileId,
+    IReadOnlyList<ProjectStepFilamentDto> Filaments,
+    Guid? MarketplaceFeeId,
+    decimal AdditionalCost,
+    decimal FailureAdditionalCost,
+    decimal DesiredMarkup,
+    decimal? SalePrice,
+    IReadOnlyList<ProjectProductDraftPrinterUsageDto> PrinterUsages,
+    IReadOnlyList<ProjectProductDraftMaterialUsageDto> MaterialUsages);

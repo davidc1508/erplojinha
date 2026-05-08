@@ -21,12 +21,12 @@ import {
 } from '@mui/material';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PageSection } from '../components/PageSection';
 import { SearchSelectField } from '../components/SearchSelectField';
-import { productsApi, projectsApi } from '../services/api';
+import { operationalListsApi, productsApi, projectsApi } from '../services/api';
 import { Project, ProjectStatus } from '../services/types';
 
 const statusColors: Record<ProjectStatus, 'default' | 'primary' | 'success' | 'error'> = {
@@ -45,7 +45,10 @@ const statusLabels: Record<ProjectStatus, string> = {
 
 export function ProjectsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const todoItemId = searchParams.get('todoItemId');
+  const todoName = searchParams.get('todoName') ?? '';
   const [openDialog, setOpenDialog] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -67,10 +70,25 @@ export function ProjectsPage() {
 
   const createMutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) => projectsApi.create(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
+
+      if (todoItemId) {
+        try {
+          await operationalListsApi.removeTodoItem(todoItemId);
+        }
+        catch {
+          // Keep project creation successful even if todo cleanup fails.
+        }
+        await queryClient.invalidateQueries({ queryKey: ['operational-todo'] });
+      }
+
       setOpenDialog(false);
       setFormData({ name: '', description: '', productId: '' });
+
+      if (todoItemId) {
+        setSearchParams({}, { replace: true });
+      }
     }
   });
 
@@ -93,6 +111,19 @@ export function ProjectsPage() {
   const handleDeleteProject = (id: string) => {
     setDeleteTargetId(id);
   };
+
+  useEffect(() => {
+    if (!todoItemId) {
+      return;
+    }
+
+    setOpenDialog(true);
+    if (todoName.trim().length > 0) {
+      setFormData((current) => current.name.trim().length > 0
+        ? current
+        : { ...current, name: todoName });
+    }
+  }, [todoItemId, todoName]);
 
   if (isLoading) {
     return <Typography color="text.secondary">Carregando projetos...</Typography>;
@@ -170,6 +201,7 @@ export function ProjectsPage() {
         <DialogTitle>Novo projeto</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           {createMutation.isError ? <Alert severity="error" sx={{ mb: 2 }}>Erro ao criar projeto.</Alert> : null}
+          {todoItemId ? <Alert severity="info" sx={{ mb: 2 }}>Ao criar o projeto, este item será removido da lista de itens a fazer.</Alert> : null}
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Nome do projeto" value={formData.name} onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))} fullWidth />
             <SearchSelectField

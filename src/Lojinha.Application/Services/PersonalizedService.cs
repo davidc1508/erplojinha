@@ -34,7 +34,8 @@ public sealed class PersonalizedService(
     IRepository<AuditLog> auditRepository,
     IProjectService projectService,
     IProductService productService,
-    ISalesService salesService) : IPersonalizedService
+    ISalesService salesService,
+    IOperationalListService operationalListService) : IPersonalizedService
 {
     private const string EncomendaCategoryName = "Encomenda";
 
@@ -387,6 +388,11 @@ public sealed class PersonalizedService(
         }, cancellationToken);
 
         await productRepository.SaveChangesAsync(cancellationToken);
+
+        if (request.ProducedQuantity > 0)
+        {
+            await operationalListService.ConsumeRestockTargetAsync(product.Id, request.ProducedQuantity, product.SupplierId, actor, cancellationToken);
+        }
 
         return await BuildProjectResponseAsync(projectId, actor, scopedSupplierId, cancellationToken);
     }

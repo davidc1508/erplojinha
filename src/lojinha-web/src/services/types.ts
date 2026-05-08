@@ -98,7 +98,7 @@ export interface Product {
   commissionPercentage: number;
   additionalCost: number;
   printerProfileId?: string;
-    filaments: ProductFilamentItem[];
+  filaments: ProductFilamentItem[];
   printer?: string;
   marketplaceFeeId?: string;
   marketplace?: string;
@@ -416,6 +416,49 @@ export interface Project {
   personalizedQuotedPriceBRL?: number;
   personalizedGeneratedProductId?: string;
   personalizedSaleId?: string;
+}
+
+export interface ProjectProductDraftPrinterUsage {
+  printerName: string;
+  printerProfileId?: string;
+  timeRealMinutes: number;
+}
+
+export interface ProjectProductDraftMaterialUsage {
+  filamentProfileId: string;
+  filamentName: string;
+  weightGrams: number;
+  weightPercentage: number;
+}
+
+export interface ProjectProductDraft {
+  projectId: string;
+  existingProductId?: string;
+  projectName: string;
+  name: string;
+  sku: string;
+  description: string;
+  categoryId?: string;
+  supplierId?: string;
+  generateProductionExpenseOnStockEntry: boolean;
+  currentStock: number;
+  minimumStock: number;
+  itemsPerPlate: number;
+  estimatedPrintTimeMinutes: number;
+  heightCentimeters: number;
+  lengthMetersUsed: number;
+  tariffPerKwh: number;
+  finishingPercentage: number;
+  commissionPercentage: number;
+  printerProfileId?: string;
+  filaments: ProjectStepFilamentItem[];
+  marketplaceFeeId?: string;
+  additionalCost: number;
+  failureAdditionalCost: number;
+  desiredMarkup: number;
+  salePrice?: number;
+  printerUsages: ProjectProductDraftPrinterUsage[];
+  materialUsages: ProjectProductDraftMaterialUsage[];
 }
 
 export interface PersonalizedPricingTier {

@@ -1,4 +1,5 @@
 using Lojinha.Api.Contracts.Projects;
+using Lojinha.Api.Contracts.Products;
 using Lojinha.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,6 +44,26 @@ public sealed class ProjectsController(IProjectService projectService) : Control
             return NotFound();
 
         return Ok(project);
+    }
+
+    [HttpGet("{id}/product-draft")]
+    public async Task<IActionResult> GetProductDraft(Guid id, CancellationToken cancellationToken)
+    {
+        var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
+        var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+
+        try
+        {
+            var draft = await projectService.GetProductDraftAsync(id, supplierId, cancellationToken);
+            if (draft is null)
+                return NotFound();
+
+            return Ok(draft);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPut("{id}")]
@@ -183,65 +204,128 @@ public sealed class ProjectsController(IProjectService projectService) : Control
 
     // Conclusão de Projeto
     [HttpPut("{id}/conclude")]
-        public async Task<IActionResult> ConcludeProject(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> ConcludeProject(Guid id, CancellationToken cancellationToken)
+    {
+        var actor = User.FindFirst("sub")?.Value ?? "unknown";
+        var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
+        var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+
+        try
         {
-            var actor = User.FindFirst("sub")?.Value ?? "unknown";
-            var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
-            var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+            var project = await projectService.ConcludeProjectAsync(id, actor, supplierId, cancellationToken);
+            if (project is null)
+                return NotFound();
 
-            try
-            {
-                var project = await projectService.ConcludeProjectAsync(id, actor, supplierId, cancellationToken);
-                if (project is null)
-                    return NotFound();
-
-                return Ok(project);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            return Ok(project);
         }
-
-        [HttpPut("{projectId}/steps/{stepId}/complete")]
-        public async Task<IActionResult> CompleteStep(Guid projectId, Guid stepId, ProjectStepAttemptCompleteRequest request, CancellationToken cancellationToken)
+        catch (InvalidOperationException ex)
         {
-            var actor = User.FindFirst("sub")?.Value ?? "unknown";
-            var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
-            var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
-
-            try
-            {
-                var step = await projectService.CompleteStepAsync(projectId, stepId, request, actor, supplierId, cancellationToken);
-                if (step is null)
-                    return NotFound();
-
-                return Ok(step);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpPut("{projectId}/steps/{stepId}/fail")]
-        public async Task<IActionResult> FailStep(Guid projectId, Guid stepId, ProjectStepAttemptFailRequest request, CancellationToken cancellationToken)
-        {
-            var actor = User.FindFirst("sub")?.Value ?? "unknown";
-            var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
-            var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
-
-            try
-            {
-                var step = await projectService.FailStepAsync(projectId, stepId, request, actor, supplierId, cancellationToken);
-                if (step is null)
-                    return NotFound();
-
-                return Ok(step);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            return BadRequest(ex.Message);
         }
     }
+
+    [HttpPost("{id}/conclude-with-product")]
+    public async Task<IActionResult> ConcludeWithProduct(Guid id, [FromBody] ProductRequest request, CancellationToken cancellationToken)
+    {
+        var actor = User.FindFirst("sub")?.Value ?? "unknown";
+        var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
+        var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+
+        try
+        {
+            var project = await projectService.ConcludeProjectWithProductAsync(id, request, actor, supplierId, cancellationToken);
+            if (project is null)
+                return NotFound();
+
+            return Ok(project);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{id}/duplicate")]
+    public async Task<IActionResult> DuplicateProject(Guid id, CancellationToken cancellationToken)
+    {
+        var actor = User.FindFirst("sub")?.Value ?? "unknown";
+        var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
+        var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+
+        try
+        {
+            var project = await projectService.DuplicateProjectAsync(id, actor, supplierId, cancellationToken);
+            if (project is null)
+                return NotFound();
+
+            return Ok(project);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPut("{id}/reopen")]
+    public async Task<IActionResult> ReopenProject(Guid id, CancellationToken cancellationToken)
+    {
+        var actor = User.FindFirst("sub")?.Value ?? "unknown";
+        var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
+        var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+
+        try
+        {
+            var project = await projectService.ReopenProjectAsync(id, actor, supplierId, cancellationToken);
+            if (project is null)
+                return NotFound();
+
+            return Ok(project);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPut("{projectId}/steps/{stepId}/complete")]
+    public async Task<IActionResult> CompleteStep(Guid projectId, Guid stepId, ProjectStepAttemptCompleteRequest request, CancellationToken cancellationToken)
+    {
+        var actor = User.FindFirst("sub")?.Value ?? "unknown";
+        var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
+        var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+
+        try
+        {
+            var step = await projectService.CompleteStepAsync(projectId, stepId, request, actor, supplierId, cancellationToken);
+            if (step is null)
+                return NotFound();
+
+            return Ok(step);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPut("{projectId}/steps/{stepId}/fail")]
+    public async Task<IActionResult> FailStep(Guid projectId, Guid stepId, ProjectStepAttemptFailRequest request, CancellationToken cancellationToken)
+    {
+        var actor = User.FindFirst("sub")?.Value ?? "unknown";
+        var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
+        var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+
+        try
+        {
+            var step = await projectService.FailStepAsync(projectId, stepId, request, actor, supplierId, cancellationToken);
+            if (step is null)
+                return NotFound();
+
+            return Ok(step);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+}

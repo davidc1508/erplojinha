@@ -17,6 +17,7 @@ import type {
   ProductCategory,
   PrinterProfile,
   Project,
+  ProjectProductDraft,
   ProjectStep,
   ProjectStepAttempt,
   PersonalizedPricingTier,
@@ -441,6 +442,10 @@ export const projectsApi = {
     const { data } = await api.get<Project>(`/projects/${id}`);
     return data;
   },
+  getProductDraft: async (id: string) => {
+    const { data } = await api.get<ProjectProductDraft>(`/projects/${id}/product-draft`);
+    return data;
+  },
   create: async (payload: Record<string, unknown>) => {
     const { data } = await api.post<Project>('/projects', payload);
     return data;
@@ -478,16 +483,27 @@ export const projectsApi = {
   conclude: async (id: string) => {
     const { data } = await api.put<Project>(`/projects/${id}/conclude`);
     return data;
+  },
+  concludeWithProduct: async (id: string, payload: Record<string, unknown>) => {
+    const { data } = await api.post<Project>(`/projects/${id}/conclude-with-product`, payload);
+    return data;
+  },
+  duplicate: async (id: string) => {
+    const { data } = await api.post<Project>(`/projects/${id}/duplicate`);
+    return data;
+  },
+  reopen: async (id: string) => {
+    const { data } = await api.put<Project>(`/projects/${id}/reopen`);
+    return data;
+  },
+  completeStep: async (projectId: string, stepId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.put<ProjectStep>(`/projects/${projectId}/steps/${stepId}/complete`, payload);
+    return data;
+  },
+  failStep: async (projectId: string, stepId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.put<ProjectStep>(`/projects/${projectId}/steps/${stepId}/fail`, payload);
+    return data;
   }
-  ,
-    completeStep: async (projectId: string, stepId: string, payload: Record<string, unknown>) => {
-      const { data } = await api.put<ProjectStep>(`/projects/${projectId}/steps/${stepId}/complete`, payload);
-      return data;
-    },
-    failStep: async (projectId: string, stepId: string, payload: Record<string, unknown>) => {
-      const { data } = await api.put<ProjectStep>(`/projects/${projectId}/steps/${stepId}/fail`, payload);
-      return data;
-    }
 };
 
 export const personalizadosApi = {

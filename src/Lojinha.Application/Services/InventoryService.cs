@@ -18,7 +18,8 @@ public sealed class InventoryService(
     IRepository<Product> productRepository,
     IRepository<Supply> supplyRepository,
     IRepository<FinancialEntry> financeRepository,
-    IRepository<AuditLog> auditRepository) : IInventoryService
+    IRepository<AuditLog> auditRepository,
+    IOperationalListService operationalListService) : IInventoryService
 {
     public async Task<IReadOnlyList<InventoryMovementDto>> GetRecentAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
@@ -48,6 +49,7 @@ public sealed class InventoryService(
     {
         string itemName;
         Guid? affectedSupplierId = null;
+        var stockIncrease = request.Type is InventoryMovementType.Entry or InventoryMovementType.Adjustment ? request.Quantity : 0m;
 
         if (request.ItemType == InventoryItemType.Product)
         {
@@ -104,6 +106,11 @@ public sealed class InventoryService(
         await inventoryRepository.SaveChangesAsync(cancellationToken);
         if (request.ItemType == InventoryItemType.Product)
         {
+            if (stockIncrease > 0m)
+            {
+                await operationalListService.ConsumeRestockTargetAsync(request.ItemId, stockIncrease, affectedSupplierId, actor, cancellationToken);
+            }
+
             var supplierIds = affectedSupplierId.HasValue ? new[] { affectedSupplierId.Value } : [];
             await cacheInvalidationService.InvalidateProductReadModelsAsync(supplierIds, cancellationToken);
             await cacheInvalidationService.InvalidateDashboardAsync(supplierIds, cancellationToken);

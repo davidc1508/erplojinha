@@ -29,9 +29,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ProjectStepAttempt> ProjectStepAttempts => Set<ProjectStepAttempt>();
     public DbSet<PersonalizedPricingTier> PersonalizedPricingTiers => Set<PersonalizedPricingTier>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
-        public DbSet<ProductFilament> ProductFilaments => Set<ProductFilament>();
-        public DbSet<ProjectStepFilament> ProjectStepFilaments => Set<ProjectStepFilament>();
-        public DbSet<ProjectStepAttemptFilament> ProjectStepAttemptFilaments => Set<ProjectStepAttemptFilament>();
+    public DbSet<ProductFilament> ProductFilaments => Set<ProductFilament>();
+    public DbSet<ProjectStepFilament> ProjectStepFilaments => Set<ProjectStepFilament>();
+    public DbSet<ProjectStepAttemptFilament> ProjectStepAttemptFilaments => Set<ProjectStepAttemptFilament>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

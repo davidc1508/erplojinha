@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Lojinha.Api.Contracts.Projects;
+using Lojinha.Api.Contracts.Products;
 using Lojinha.Api.Entities;
 using Lojinha.Api.Repositories;
 
@@ -22,11 +23,15 @@ public interface IProjectService
     Task<ProjectStepAttemptDto?> CompleteAttemptAsync(Guid projectId, Guid stepId, Guid attemptId, ProjectStepAttemptCompleteRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<ProjectStepAttemptDto?> FailAttemptAsync(Guid projectId, Guid stepId, Guid attemptId, ProjectStepAttemptFailRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     
+    Task<ProjectProductDraftDto?> GetProductDraftAsync(Guid id, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<ProjectDto?> ConcludeProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+    Task<ProjectDto?> ConcludeProjectWithProductAsync(Guid id, ProductRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+    Task<ProjectDto?> DuplicateProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+    Task<ProjectDto?> ReopenProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
 
-        Task<ProjectStepDto?> CompleteStepAsync(Guid projectId, Guid stepId, ProjectStepAttemptCompleteRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
-        Task<ProjectStepDto?> FailStepAsync(Guid projectId, Guid stepId, ProjectStepAttemptFailRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
-    }
+    Task<ProjectStepDto?> CompleteStepAsync(Guid projectId, Guid stepId, ProjectStepAttemptCompleteRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+    Task<ProjectStepDto?> FailStepAsync(Guid projectId, Guid stepId, ProjectStepAttemptFailRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+}
 
 public sealed class ProjectService(
     IRepository<Project> projectRepository,
@@ -37,7 +42,8 @@ public sealed class ProjectService(
     IRepository<ProjectStepAttemptFilament> attemptFilamentRepository,
     IRepository<FilamentProfile> filamentRepository,
     IRepository<PrinterProfile> printerProfileRepository,
-    IRepository<AuditLog> auditRepository) : IProjectService
+    IRepository<AuditLog> auditRepository,
+    IProductService productService) : IProjectService
 {
 public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default)
     {
@@ -394,6 +400,114 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         return MapAttempt(attempt);
     }
 
+    public async Task<ProjectProductDraftDto?> GetProductDraftAsync(Guid id, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+    {
+        var project = ApplyScope(projectRepository.Query(), scopedSupplierId)
+            .FirstOrDefault(p => p.Id == id);
+
+        if (project is null)
+            return null;
+
+        await HydrateProjectsAsync([project], cancellationToken);
+
+        var concludedSteps = project.Steps
+            .Where(step => step.Status == ProjectStepStatus.Concluida)
+            .OrderBy(step => step.Order)
+            .ToList();
+
+        if (concludedSteps.Count == 0)
+        {
+            throw new InvalidOperationException("O projeto precisa ter ao menos uma mesa concluida para gerar o produto.");
+        }
+
+        var completedAttempts = concludedSteps
+            .SelectMany(step => step.Attempts)
+            .Where(attempt => attempt.Status == ProjectStepAttemptStatus.Concluida)
+            .ToList();
+
+        var failedAttempts = concludedSteps
+            .SelectMany(step => step.Attempts)
+            .Where(attempt => attempt.Status == ProjectStepAttemptStatus.Falhada)
+            .ToList();
+
+        var printerUsages = completedAttempts
+            .GroupBy(attempt => attempt.PrinterUsed.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var printerProfile = printerProfileRepository.Query()
+                    .FirstOrDefault(printer => printer.Name == group.First().PrinterUsed);
+                return new ProjectProductDraftPrinterUsageDto(
+                    group.First().PrinterUsed,
+                    printerProfile?.Id,
+                    group.Sum(attempt => attempt.TimeRealMinutes));
+            })
+            .OrderByDescending(item => item.TimeRealMinutes)
+            .ToList();
+
+        var materialUsages = completedAttempts
+            .SelectMany(attempt => attempt.FilamentsUsed)
+            .GroupBy(filament => filament.FilamentProfileId)
+            .Select(group =>
+            {
+                var totalWeight = group.Sum(item => item.WeightGrams);
+                var filamentName = group.First().FilamentProfile?.Name ?? string.Empty;
+                return new
+                {
+                    group.Key,
+                    FilamentName = filamentName,
+                    WeightGrams = totalWeight
+                };
+            })
+            .OrderByDescending(item => item.WeightGrams)
+            .ToList();
+
+        var totalMaterialWeight = materialUsages.Sum(item => item.WeightGrams);
+        var materialDraft = materialUsages
+            .Select(item => new ProjectProductDraftMaterialUsageDto(
+                item.Key,
+                item.FilamentName,
+                item.WeightGrams,
+                totalMaterialWeight <= 0 ? 0 : decimal.Round((item.WeightGrams / totalMaterialWeight) * 100m, 2)))
+            .ToList();
+
+        var existingProduct = project.ProductId.HasValue
+            ? await productService.GetByIdAsync(project.ProductId.Value, scopedSupplierId, cancellationToken)
+            : null;
+
+        var dominantPrinterProfileId = printerUsages.FirstOrDefault(item => item.PrinterProfileId.HasValue)?.PrinterProfileId;
+        var estimatedPrintTime = concludedSteps.Sum(step => step.TimeEstimatedMinutes);
+        var failureAdditionalCost = decimal.Round(ComputeFailureAdditionalCost(failedAttempts), 2);
+
+        return new ProjectProductDraftDto(
+            project.Id,
+            project.ProductId,
+            project.Name,
+            existingProduct?.Name ?? project.Name,
+            existingProduct?.Sku ?? string.Empty,
+            existingProduct?.Description ?? project.Description,
+            existingProduct?.CategoryId,
+            existingProduct?.SupplierId ?? project.OwnerSupplierId,
+            existingProduct?.GenerateProductionExpenseOnStockEntry ?? false,
+            existingProduct?.CurrentStock ?? 0,
+            existingProduct?.MinimumStock ?? 2,
+            existingProduct?.ItemsPerPlate ?? 1,
+            estimatedPrintTime,
+            existingProduct?.HeightCentimeters ?? 0,
+            existingProduct?.LengthMetersUsed ?? 0,
+            existingProduct?.TariffPerKwh ?? DefaultTariffPerKwh,
+            existingProduct?.FinishingPercentage ?? 2,
+            existingProduct?.CommissionPercentage ?? 0,
+            existingProduct?.PrinterProfileId ?? dominantPrinterProfileId,
+            materialDraft.Select(item => new ProjectStepFilamentDto(item.FilamentProfileId, item.FilamentName, item.WeightGrams)).ToList(),
+            existingProduct?.MarketplaceFeeId,
+            existingProduct?.AdditionalCost ?? 0,
+            failureAdditionalCost,
+            existingProduct?.DesiredMarkup ?? 2.7m,
+            existingProduct?.SalePrice,
+            printerUsages,
+            materialDraft);
+    }
+
     public async Task<ProjectDto?> ConcludeProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
     {
         var project = ApplyScope(projectRepository.Query(), scopedSupplierId)
@@ -402,17 +516,143 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         if (project is null)
             return null;
 
-        // Verificar se todas as mesas estão concluídas
         var steps = stepRepository.Query()
             .Where(s => s.ProjectId == id)
             .ToList();
 
-        var allCompleted = steps.All(s => s.Status == ProjectStepStatus.Concluida);
-        if (!allCompleted)
-            throw new InvalidOperationException("Todas as etapas precisam estar concluídas para finalizar o projeto.");
+        EnsureProjectCanBeConcluded(steps, requireLinkedProduct: true, project.ProductId.HasValue);
 
         project.Status = ProjectStatus.Concluido;
         project.ConcludedAtUtc = DateTime.UtcNow;
+
+        projectRepository.Update(project);
+        await auditRepository.AddAsync(CreateAudit(project.Id, AuditAction.Updated, actor, project), cancellationToken);
+        await projectRepository.SaveChangesAsync(cancellationToken);
+
+        return Map(project);
+    }
+
+    public async Task<ProjectDto?> ConcludeProjectWithProductAsync(Guid id, ProductRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+    {
+        var project = ApplyScope(projectRepository.Query(), scopedSupplierId)
+            .FirstOrDefault(p => p.Id == id);
+
+        if (project is null)
+            return null;
+
+        await HydrateProjectsAsync([project], cancellationToken);
+        EnsureProjectCanBeConcluded(project.Steps.ToList(), requireLinkedProduct: false, hasLinkedProduct: project.ProductId.HasValue);
+
+        ProductDto product;
+        if (project.ProductId.HasValue)
+        {
+            product = await productService.UpdateAsync(project.ProductId.Value, request, actor, scopedSupplierId, cancellationToken)
+                ?? throw new InvalidOperationException("Nao foi possivel atualizar o produto vinculado ao projeto.");
+        }
+        else
+        {
+            product = await productService.CreateAsync(request, actor, scopedSupplierId, cancellationToken);
+        }
+
+        project.ProductId = product.Id;
+        project.Status = ProjectStatus.Concluido;
+        project.ConcludedAtUtc = DateTime.UtcNow;
+        projectRepository.Update(project);
+        await auditRepository.AddAsync(CreateAudit(project.Id, AuditAction.Updated, actor, project), cancellationToken);
+        await projectRepository.SaveChangesAsync(cancellationToken);
+
+        await HydrateProjectsAsync([project], cancellationToken);
+        return Map(project);
+    }
+
+    public async Task<ProjectDto?> DuplicateProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+    {
+        var sourceProject = ApplyScope(projectRepository.Query(), scopedSupplierId)
+            .FirstOrDefault(p => p.Id == id);
+
+        if (sourceProject is null)
+            return null;
+
+        if (sourceProject.Status != ProjectStatus.Concluido)
+        {
+            throw new InvalidOperationException("A duplicacao e permitida apenas para projetos concluidos.");
+        }
+
+        await HydrateProjectsAsync([sourceProject], cancellationToken);
+
+        var duplicatedProject = new Project
+        {
+            Name = $"{sourceProject.Name} (nova execucao)",
+            Description = sourceProject.Description,
+            Status = ProjectStatus.Planejado,
+            OwnerSupplierId = sourceProject.OwnerSupplierId,
+            ProductId = sourceProject.ProductId,
+            TimeEstimatedMinutes = 0,
+            WeightEstimatedGrams = 0,
+            TimeCompletedMinutes = 0,
+            WeightCompletedGrams = 0,
+            TimeLostToFailuresMinutes = 0,
+            WeightLostToFailuresGrams = 0,
+            ProgressPercentage = 0
+        };
+
+        await projectRepository.AddAsync(duplicatedProject, cancellationToken);
+        await auditRepository.AddAsync(CreateAudit(duplicatedProject.Id, AuditAction.Created, actor, duplicatedProject), cancellationToken);
+        await projectRepository.SaveChangesAsync(cancellationToken);
+
+        foreach (var step in sourceProject.Steps.OrderBy(item => item.Order))
+        {
+            var duplicatedStep = new ProjectStep
+            {
+                ProjectId = duplicatedProject.Id,
+                Name = step.Name,
+                Order = step.Order,
+                TimeEstimatedMinutes = step.TimeEstimatedMinutes,
+                WeightEstimatedGrams = step.WeightEstimatedGrams,
+                PrinterPlanned = step.PrinterPlanned,
+                Status = ProjectStepStatus.Pendente
+            };
+
+            await stepRepository.AddAsync(duplicatedStep, cancellationToken);
+            await auditRepository.AddAsync(CreateAudit(duplicatedStep.Id, AuditAction.Created, actor, duplicatedStep), cancellationToken);
+            await stepRepository.SaveChangesAsync(cancellationToken);
+
+            foreach (var filament in step.FilamentsPlanned)
+            {
+                await stepFilamentRepository.AddAsync(new ProjectStepFilament
+                {
+                    StepId = duplicatedStep.Id,
+                    FilamentProfileId = filament.FilamentProfileId,
+                    WeightGrams = filament.WeightGrams
+                }, cancellationToken);
+            }
+
+            if (step.FilamentsPlanned.Count > 0)
+            {
+                await stepFilamentRepository.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        await RecalculateProjectTotalsAsync(duplicatedProject.Id, cancellationToken);
+        await HydrateProjectsAsync([duplicatedProject], cancellationToken);
+        return Map(duplicatedProject);
+    }
+
+    public async Task<ProjectDto?> ReopenProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+    {
+        var project = ApplyScope(projectRepository.Query(), scopedSupplierId)
+            .FirstOrDefault(p => p.Id == id);
+
+        if (project is null)
+            return null;
+
+        if (project.Status != ProjectStatus.Concluido)
+        {
+            throw new InvalidOperationException("A reabertura e permitida apenas para projetos concluidos.");
+        }
+
+        project.Status = ProjectStatus.EmAndamento;
+        project.ConcludedAtUtc = null;
 
         projectRepository.Update(project);
         await auditRepository.AddAsync(CreateAudit(project.Id, AuditAction.Updated, actor, project), cancellationToken);
@@ -716,6 +956,65 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         {
             throw new InvalidOperationException("Produto vinculado nao pertence ao seu perfil.");
         }
+    }
+
+    private static void EnsureProjectCanBeConcluded(IReadOnlyList<ProjectStep> steps, bool requireLinkedProduct, bool hasLinkedProduct)
+    {
+        if (steps.Count == 0)
+        {
+            throw new InvalidOperationException("Adicione ao menos uma mesa antes de finalizar o projeto.");
+        }
+
+        var hasPendingSteps = steps.Any(step => step.Status is not (ProjectStepStatus.Concluida or ProjectStepStatus.Cancelada));
+        if (hasPendingSteps)
+        {
+            throw new InvalidOperationException("Todas as etapas precisam estar concluidas ou canceladas para finalizar o projeto.");
+        }
+
+        if (!steps.Any(step => step.Status == ProjectStepStatus.Concluida))
+        {
+            throw new InvalidOperationException("O projeto precisa ter ao menos uma etapa concluida para gerar o produto.");
+        }
+
+        if (requireLinkedProduct && !hasLinkedProduct)
+        {
+            throw new InvalidOperationException("Finalize o produto a partir da tela de pre-cadastro do projeto antes de concluir o projeto.");
+        }
+    }
+
+    private decimal ComputeFailureAdditionalCost(IReadOnlyList<ProjectStepAttempt> failedAttempts)
+    {
+        if (failedAttempts.Count == 0)
+        {
+            return 0;
+        }
+
+        return failedAttempts.Sum(attempt =>
+        {
+            var printerProfile = string.IsNullOrWhiteSpace(attempt.PrinterUsed)
+                ? null
+                : printerProfileRepository.Query().FirstOrDefault(printer => printer.Name == attempt.PrinterUsed);
+
+            var materialCost = attempt.FilamentsUsed
+                .Where(item => item.FilamentProfile is not null && item.FilamentProfile.SpoolWeightKg > 0)
+                .Sum(item =>
+                {
+                    var lostWeight = attempt.WeightLostGrams > 0 && attempt.WeightRealGrams > 0
+                        ? item.WeightGrams * (attempt.WeightLostGrams / attempt.WeightRealGrams)
+                        : item.WeightGrams;
+
+                    return (lostWeight / (item.FilamentProfile!.SpoolWeightKg * 1000m)) * item.FilamentProfile.CostBRL;
+                });
+
+            var lostHours = attempt.TimeLostMinutes / 60m;
+            var wearLevel = GetWearLevel(printerProfile?.UsageLevel);
+            var energyCost = lostHours * (printerProfile?.PowerKw ?? 0m) * DefaultTariffPerKwh;
+            var maintenanceCost = printerProfile is null
+                ? 0m
+                : ((printerProfile.MachineCost * wearLevel) / Math.Max(1m, printerProfile.WorkHoursPerDay * printerProfile.WorkingDaysPerMonth * 12m)) * lostHours;
+
+            return materialCost + energyCost + maintenanceCost;
+        });
     }
 
     private static IQueryable<Project> ApplyScope(IQueryable<Project> query, Guid? scopedSupplierId)

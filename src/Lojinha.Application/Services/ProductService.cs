@@ -35,8 +35,9 @@ public sealed class ProductService(
     IRepository<MarketplaceFee> marketplaceRepository,
     IRepository<Supply> supplyRepository,
     IRepository<AuditLog> auditRepository,
-        IRepository<ProductFilament> productFilamentRepository,
-        IPricingService pricingService) : IProductService
+    IRepository<ProductFilament> productFilamentRepository,
+    IPricingService pricingService,
+    IOperationalListService operationalListService) : IProductService
     {
     public async Task<IReadOnlyList<ProductDto>> GetAllAsync(Guid? scopedSupplierId = null, bool includeAllForSupplier = false, bool? isBudget = null, CancellationToken cancellationToken = default)
         => await cache.GetOrCreateAsync(
@@ -143,21 +144,25 @@ public sealed class ProductService(
 
         await auditRepository.AddAsync(CreateAudit(product, AuditAction.Created, actor), cancellationToken);
         await productRepository.SaveChangesAsync(cancellationToken);
+        if (product.CurrentStock > 0)
+        {
+            await operationalListService.ConsumeRestockTargetAsync(product.Id, product.CurrentStock, product.SupplierId, actor, cancellationToken);
+        }
         await cacheInvalidationService.InvalidateProductReadModelsAsync(product.SupplierId.HasValue ? [product.SupplierId.Value] : [], cancellationToken);
 
-            foreach (var item in request.Filaments)
+        foreach (var item in request.Filaments)
+        {
+            await productFilamentRepository.AddAsync(new ProductFilament
             {
-                await productFilamentRepository.AddAsync(new ProductFilament
-                {
-                    ProductId = product.Id,
-                    FilamentProfileId = item.FilamentProfileId,
-                    WeightGrams = item.WeightGrams
-                }, cancellationToken);
-            }
-            if (request.Filaments.Count > 0)
-            {
-                await productFilamentRepository.SaveChangesAsync(cancellationToken);
-            }
+                ProductId = product.Id,
+                FilamentProfileId = item.FilamentProfileId,
+                WeightGrams = item.WeightGrams
+            }, cancellationToken);
+        }
+        if (request.Filaments.Count > 0)
+        {
+            await productFilamentRepository.SaveChangesAsync(cancellationToken);
+        }
 
         var loaded = await productRepository.GetDetailedByIdAsync(product.Id, cancellationToken) ?? product;
         return Map(loaded);
@@ -177,6 +182,7 @@ public sealed class ProductService(
         }
 
         var previousSupplierId = product.SupplierId;
+        var previousStock = product.CurrentStock;
 
         var category = await categoryRepository.GetByIdAsync(request.CategoryId, cancellationToken)
             ?? throw new InvalidOperationException("Categoria não encontrada para gerar o SKU do produto.");
@@ -236,6 +242,11 @@ public sealed class ProductService(
 
         await auditRepository.AddAsync(CreateAudit(product, AuditAction.Updated, actor), cancellationToken);
         await productRepository.SaveChangesAsync(cancellationToken);
+        var stockIncrease = product.CurrentStock - previousStock;
+        if (stockIncrease > 0)
+        {
+            await operationalListService.ConsumeRestockTargetAsync(product.Id, stockIncrease, product.SupplierId, actor, cancellationToken);
+        }
             await ReplaceProductFilamentsAsync(product.Id, request.Filaments, cancellationToken);
         await cacheInvalidationService.InvalidateProductReadModelsAsync(
             new[] { previousSupplierId, product.SupplierId }.Where(supplierId => supplierId.HasValue).Select(supplierId => supplierId!.Value),
@@ -426,7 +437,11 @@ public sealed class ProductService(
             };
 
             var pricing = await BuildPricingAsync(product, recipe, cancellationToken);
+            product.CostPrice = pricing.TotalCost;
             product.SuggestedPrice = pricing.SuggestedPrice;
+            product.ProfitMargin = product.SalePrice <= 0m
+                ? 0m
+                : decimal.Round((product.SalePrice - product.CostPrice) / product.SalePrice, 4);
             productRepository.Update(product);
         }
 
@@ -498,9 +513,9 @@ public sealed class ProductService(
             DenormalizeCommissionPercentage(product.CommissionPercentage),
             product.Recipe?.AdditionalCosts ?? 0m,
             product.PrinterProfileId,
-                product.Filaments
-                    .Select(f => new ProductFilamentDto(f.FilamentProfileId, f.FilamentProfile?.Name ?? string.Empty, f.WeightGrams))
-                    .ToList(),
+            product.Filaments
+                .Select(f => new ProductFilamentDto(f.FilamentProfileId, f.FilamentProfile?.Name ?? string.Empty, f.WeightGrams))
+                .ToList(),
             product.PrinterProfile?.Name,
             product.DefaultMarketplaceFee?.Name,
             product.DefaultMarketplaceFeeId,

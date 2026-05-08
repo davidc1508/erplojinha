@@ -14,12 +14,16 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
+import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
+import SchemaRoundedIcon from '@mui/icons-material/SchemaRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PageSection } from '../components/PageSection';
 import { operationalListsApi, productsApi } from '../services/api';
@@ -78,9 +82,21 @@ function toDateInput(value?: string) {
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (typeof error === 'object' && error !== null && 'response' in error) {
-    const response = (error as { response?: { data?: { message?: string } } }).response;
+    const response = (error as { response?: { data?: { message?: string; title?: string; errors?: Record<string, string[]> } } }).response;
     if (response?.data?.message) {
       return response.data.message;
+    }
+
+    const validationErrors = response?.data?.errors;
+    if (validationErrors) {
+      const firstError = Object.values(validationErrors).flat().find((value) => Boolean(value));
+      if (firstError) {
+        return firstError;
+      }
+    }
+
+    if (response?.data?.title) {
+      return response.data.title;
     }
   }
 
@@ -120,6 +136,7 @@ function restockStatusChipColor(value: RestockTaskStatus): 'default' | 'warning'
 }
 
 export function OperationalListsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'warning'; message: string } | null>(null);
   const [restockForm, setRestockForm] = useState(emptyRestockForm);
@@ -352,7 +369,7 @@ export function OperationalListsPage() {
         </Stack>
       </PageSection>
 
-      <PageSection title="Itens a fazer" subtitle="Backlog de novos itens e ideias de produção.">
+      <PageSection title="Itens a fazer" subtitle="Backlog de novos itens e ideias de produção, com atalho para criar produto ou projeto.">
         <Stack spacing={2}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
@@ -414,6 +431,22 @@ export function OperationalListsPage() {
                     <TableCell>{item.source || '-'}</TableCell>
                     <TableCell><Chip size="small" label={priorityLabel(item.priority)} color={priorityChipColor(item.priority)} /></TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <Tooltip title="Criar produto a partir deste item">
+                        <IconButton
+                          color="success"
+                          onClick={() => navigate(`/produtos/novo?todoItemId=${item.id}&todoName=${encodeURIComponent(item.name)}`, { state: { preserveState: true } })}
+                        >
+                          <AddCircleOutlineRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Criar projeto a partir deste item">
+                        <IconButton
+                          color="secondary"
+                          onClick={() => navigate(`/projetos?todoItemId=${item.id}&todoName=${encodeURIComponent(item.name)}`, { state: { preserveState: true } })}
+                        >
+                          <SchemaRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
                       <IconButton color="primary" onClick={() => editTodo(item)}><EditRoundedIcon /></IconButton>
                       <IconButton color="error" onClick={() => setTodoToDelete({ id: item.id, name: item.name })}><DeleteOutlineRoundedIcon /></IconButton>
                     </TableCell>

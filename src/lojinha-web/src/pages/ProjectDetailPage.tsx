@@ -28,10 +28,12 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded';
 import ReportProblemRoundedIcon from '@mui/icons-material/ReportProblemRounded';
+import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -64,6 +66,7 @@ export function ProjectDetailPage() {
   const [openEditStepDialog, setOpenEditStepDialog] = useState(false);
   const [openFailStepDialog, setOpenFailStepDialog] = useState(false);
   const [deleteStepId, setDeleteStepId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   const [stepForm, setStepForm] = useState({
     name: '',
@@ -132,10 +135,36 @@ export function ProjectDetailPage() {
       setFailDuration(minutesToDurationParts(0));
     }
   });
+  const duplicateProjectMutation = useMutation({
+    mutationFn: () => projectsApi.duplicate(id!),
+    onSuccess: (duplicatedProject) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      navigate(`/projetos/${duplicatedProject.id}`, { state: { preserveState: true } });
+    },
+    onError: () => {
+      setActionFeedback('Nao foi possivel duplicar o projeto.');
+    }
+  });
+  const reopenProjectMutation = useMutation({
+    mutationFn: () => projectsApi.reopen(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      setActionFeedback('Projeto reaberto com sucesso.');
+    },
+    onError: () => {
+      setActionFeedback('Nao foi possivel reabrir o projeto.');
+    }
+  });
   const concludeProjectMutation = useMutation({
     mutationFn: () => projectsApi.conclude(id!),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project', id] });
+      setActionFeedback('Projeto concluido com sucesso.');
+    },
+    onError: () => {
+      setActionFeedback('Nao foi possivel concluir o projeto.');
     }
   });
 
@@ -216,6 +245,12 @@ export function ProjectDetailPage() {
   if (!project) {
     return <Alert severity="error">Projeto não encontrado.</Alert>;
   }
+
+  const normalizedProjectStatus = project.status
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const isProjectConcluded = normalizedProjectStatus === 'concluido';
 
   const sortedByCreatedSteps = [...project.steps].sort((left, right) => {
     const leftTime = new Date(left.createdAtUtc).getTime();
@@ -380,17 +415,19 @@ export function ProjectDetailPage() {
     <Stack spacing={3}>
       {/* Cabeçalho */}
       <Stack direction="row" alignItems="center" spacing={2}>
-        <IconButton onClick={() => navigate('/projetos')} size="small"><ArrowBackIcon /></IconButton>
+        <IconButton onClick={() => navigate('/projetos', { state: { preserveState: true } })} size="small"><ArrowBackIcon /></IconButton>
         <Box sx={{ flex: 1 }}>
           <Typography variant="h4" fontWeight={700}>{project.name}</Typography>
           <Typography variant="body2" color="text.secondary">Produto: {productName}</Typography>
         </Box>
         <Chip
           label={project.status}
-          color={project.status === 'Concluido' ? 'success' : project.status === 'EmAndamento' ? 'info' : 'default'}
+          color={isProjectConcluded ? 'success' : project.status === 'EmAndamento' ? 'info' : 'default'}
           size="medium"
         />
       </Stack>
+
+      {actionFeedback ? <Alert severity="info" onClose={() => setActionFeedback(null)}>{actionFeedback}</Alert> : null}
 
       <Card variant="outlined">
         <CardContent>
@@ -405,14 +442,47 @@ export function ProjectDetailPage() {
                 <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => { resetStepForm(); setSelectedStep(null); setOpenAddStepDialog(true); }}>
                   Nova mesa
                 </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<TaskAltRoundedIcon />}
-                  onClick={() => concludeProjectMutation.mutate()}
-                  disabled={concludeProjectMutation.isLoading || totalSteps === 0 || project.steps.some((step) => step.status !== 'Concluida')}
-                >
-                  Concluir projeto
-                </Button>
+                {isProjectConcluded ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<ContentCopyRoundedIcon />}
+                    onClick={() => duplicateProjectMutation.mutate()}
+                    disabled={duplicateProjectMutation.isLoading}
+                  >
+                    Duplicar projeto
+                  </Button>
+                ) : null}
+                {isProjectConcluded ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<RestartAltRoundedIcon />}
+                    onClick={() => reopenProjectMutation.mutate()}
+                    disabled={reopenProjectMutation.isLoading}
+                  >
+                    Reabrir projeto
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outlined"
+                    startIcon={<TaskAltRoundedIcon />}
+                    onClick={() => {
+                      if (project.productId) {
+                        concludeProjectMutation.mutate();
+                        return;
+                      }
+
+                      navigate(`/produtos/novo?projeto=${project.id}`, { state: { preserveState: true } });
+                    }}
+                    disabled={
+                      concludeProjectMutation.isLoading
+                      || totalSteps === 0
+                      || project.steps.some((step) => step.status !== 'Concluida' && step.status !== 'Cancelada')
+                      || !project.steps.some((step) => step.status === 'Concluida')
+                    }
+                  >
+                    Concluir projeto
+                  </Button>
+                )}
               </Stack>
             </Stack>
 

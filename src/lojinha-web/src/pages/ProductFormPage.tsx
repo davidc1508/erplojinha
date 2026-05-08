@@ -8,6 +8,7 @@ import {
   FormControlLabel,
   IconButton,
   MenuItem,
+  Paper,
   Stack,
   TextField,
   Typography
@@ -22,7 +23,7 @@ import { CurrencyField } from '../components/CurrencyField';
 import { SearchSelectField } from '../components/SearchSelectField';
 import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
-import { productsApi } from '../services/api';
+import { operationalListsApi, productsApi, projectsApi } from '../services/api';
 import { durationPartsToMinutes, minutesToDurationParts } from '../services/product';
 
 const emptyForm = {
@@ -70,6 +71,10 @@ export function ProductFormPage() {
   const location = useLocation();
   const isBudgetMode = location.pathname.startsWith('/orcamentos');
   const cloneFromId = !id ? searchParams.get('clonar') : null;
+  const projectId = !id ? searchParams.get('projeto') : null;
+  const todoItemId = !id ? searchParams.get('todoItemId') : null;
+  const todoName = !id ? searchParams.get('todoName') : null;
+  const isProjectDraftMode = Boolean(projectId);
   const isEditing = Boolean(id);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -77,6 +82,9 @@ export function ProductFormPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [duration, setDuration] = useState(() => minutesToDurationParts(emptyForm.estimatedPrintTimeMinutes));
+  const [projectDraftBaseAdditionalCost, setProjectDraftBaseAdditionalCost] = useState<number | null>(null);
+  const [projectDraftFailureCost, setProjectDraftFailureCost] = useState(0);
+  const [includeProjectFailures, setIncludeProjectFailures] = useState(false);
 
   const { data: metadata } = useQuery({ queryKey: ['products-metadata'], queryFn: productsApi.getMetadata });
   const { data: product } = useQuery({
@@ -88,6 +96,11 @@ export function ProductFormPage() {
     queryKey: ['product', cloneFromId],
     queryFn: () => productsApi.getById(cloneFromId!),
     enabled: Boolean(cloneFromId)
+  });
+  const { data: projectDraft } = useQuery({
+    queryKey: ['project-product-draft', projectId],
+    queryFn: () => projectsApi.getProductDraft(projectId!),
+    enabled: Boolean(projectId) && !isEditing && !cloneFromId
   });
   const { data: priceHistory = [] } = useQuery({
     queryKey: ['product-price-history', id],
@@ -118,7 +131,7 @@ export function ProductFormPage() {
       commissionPercentage: product.commissionPercentage,
       additionalCost: product.additionalCost,
       printerProfileId: product.printerProfileId ?? '',
-        filaments: (product.filaments ?? []).map((f) => ({ filamentProfileId: f.filamentProfileId, weightGrams: f.weightGrams })),
+      filaments: (product.filaments ?? []).map((f) => ({ filamentProfileId: f.filamentProfileId, weightGrams: f.weightGrams })),
       marketplaceFeeId: product.marketplaceFeeId ?? '',
       desiredMarkup: product.desiredMarkup,
       salePrice: String(product.salePrice),
@@ -151,7 +164,7 @@ export function ProductFormPage() {
       commissionPercentage: cloneSource.commissionPercentage,
       additionalCost: cloneSource.additionalCost,
       printerProfileId: cloneSource.printerProfileId ?? '',
-        filaments: (cloneSource.filaments ?? []).map((f) => ({ filamentProfileId: f.filamentProfileId, weightGrams: f.weightGrams })),
+      filaments: (cloneSource.filaments ?? []).map((f) => ({ filamentProfileId: f.filamentProfileId, weightGrams: f.weightGrams })),
       marketplaceFeeId: cloneSource.marketplaceFeeId ?? '',
       desiredMarkup: cloneSource.desiredMarkup,
       salePrice: String(cloneSource.salePrice),
@@ -162,10 +175,64 @@ export function ProductFormPage() {
   }, [cloneSource, isBudgetMode]);
 
   useEffect(() => {
+    if (!projectDraft) {
+      return;
+    }
+
+    setProjectDraftBaseAdditionalCost(projectDraft.additionalCost);
+    setProjectDraftFailureCost(projectDraft.failureAdditionalCost);
+    setIncludeProjectFailures(false);
+    setForm({
+      name: projectDraft.name,
+      sku: projectDraft.sku,
+      description: projectDraft.description,
+      categoryId: projectDraft.categoryId ?? '',
+      supplierId: projectDraft.supplierId ?? '',
+      generateProductionExpenseOnStockEntry: projectDraft.generateProductionExpenseOnStockEntry,
+      currentStock: projectDraft.currentStock,
+      minimumStock: projectDraft.minimumStock,
+      itemsPerPlate: projectDraft.itemsPerPlate,
+      estimatedPrintTimeMinutes: projectDraft.estimatedPrintTimeMinutes,
+      heightCentimeters: projectDraft.heightCentimeters,
+      lengthMetersUsed: projectDraft.lengthMetersUsed,
+      tariffPerKwh: projectDraft.tariffPerKwh,
+      finishingPercentage: projectDraft.finishingPercentage,
+      commissionPercentage: projectDraft.commissionPercentage,
+      additionalCost: projectDraft.additionalCost,
+      printerProfileId: projectDraft.printerProfileId ?? '',
+      filaments: projectDraft.filaments.map((item: { filamentProfileId: string; weightGrams: number }) => ({ filamentProfileId: item.filamentProfileId, weightGrams: item.weightGrams })),
+      marketplaceFeeId: projectDraft.marketplaceFeeId ?? '',
+      desiredMarkup: projectDraft.desiredMarkup,
+      salePrice: projectDraft.salePrice ? String(projectDraft.salePrice) : '',
+      isBudget: false
+    });
+    setDuration(minutesToDurationParts(projectDraft.estimatedPrintTimeMinutes));
+    setDirty(true);
+  }, [projectDraft]);
+
+  useEffect(() => {
     if (!isEditing && !cloneFromId) {
       setForm((current) => ({ ...current, isBudget: isBudgetMode }));
     }
   }, [cloneFromId, isBudgetMode, isEditing]);
+
+  useEffect(() => {
+    if (isEditing || cloneFromId || projectId || !todoName || form.name.trim().length > 0) {
+      return;
+    }
+
+    setForm((current) => ({ ...current, name: capitalizeFirstLetter(todoName) }));
+    setDirty(true);
+  }, [cloneFromId, form.name, isEditing, projectId, todoName]);
+
+  useEffect(() => {
+    if (!isProjectDraftMode || projectDraftBaseAdditionalCost === null) {
+      return;
+    }
+
+    const nextAdditionalCost = projectDraftBaseAdditionalCost + (includeProjectFailures ? projectDraftFailureCost : 0);
+    setForm((current) => current.additionalCost === nextAdditionalCost ? current : { ...current, additionalCost: nextAdditionalCost });
+  }, [includeProjectFailures, isProjectDraftMode, projectDraftBaseAdditionalCost, projectDraftFailureCost]);
 
   useEffect(() => {
     if (!isEditing && isSupplier && session?.supplierId && form.supplierId !== session.supplierId) {
@@ -178,7 +245,7 @@ export function ProductFormPage() {
     categoryId: form.categoryId || null,
     supplierId: (isSupplier ? session?.supplierId : form.supplierId) || null,
     printerProfileId: form.printerProfileId || null,
-      filaments: form.filaments.filter((f) => f.filamentProfileId),
+    filaments: form.filaments.filter((f) => f.filamentProfileId),
     marketplaceFeeId: form.marketplaceFeeId || null,
     costPrice: null,
     commissionPercentage: Number(form.commissionPercentage),
@@ -198,7 +265,7 @@ export function ProductFormPage() {
         categoryId: form.categoryId,
         supplierId: (isSupplier ? session?.supplierId : form.supplierId) || null,
         printerProfileId: form.printerProfileId || null,
-          filaments: form.filaments.filter((f) => f.filamentProfileId),
+        filaments: form.filaments.filter((f) => f.filamentProfileId),
         marketplaceFeeId: form.marketplaceFeeId || null,
         commissionPercentage: Number(form.commissionPercentage),
         desiredMarkup: Number(form.desiredMarkup),
@@ -209,15 +276,37 @@ export function ProductFormPage() {
 
       return isEditing
         ? productsApi.update(id!, payload)
-        : productsApi.create(payload);
+        : isProjectDraftMode
+          ? projectsApi.concludeWithProduct(projectId!, payload)
+          : productsApi.create(payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['product', id] });
+
+      if (!isEditing && todoItemId) {
+        try {
+          await operationalListsApi.removeTodoItem(todoItemId);
+        }
+        catch {
+          // Keep flow resilient even if todo removal fails.
+        }
+        await queryClient.invalidateQueries({ queryKey: ['operational-todo'] });
+      }
+
+      if (isProjectDraftMode) {
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+        navigate(`/projetos/${projectId}`, { state: { preserveState: true } });
+        return;
+      }
+
       navigate(form.isBudget ? '/orcamentos' : '/produtos', { state: { preserveState: true } });
     },
     onError: () => {
-      setFeedback('Nao foi possivel salvar o produto com os dados informados.');
+      setFeedback(isProjectDraftMode
+        ? 'Nao foi possivel concluir o projeto com o produto informado.'
+        : 'Nao foi possivel salvar o produto com os dados informados.');
     }
   });
 
@@ -225,27 +314,24 @@ export function ProductFormPage() {
     ? (product?.salePrice ?? 0)
     : Number(form.salePrice);
 
-  const displayedSuggestedPrice = dirty
-    ? (pricing?.suggestedPrice ?? product?.suggestedPrice ?? 0)
-    : (product?.suggestedPrice ?? pricing?.suggestedPrice ?? 0);
-  const displayedCalculatedCost = dirty
-    ? (pricing?.totalCost ?? product?.costPrice ?? 0)
-    : (product?.costPrice ?? pricing?.totalCost ?? 0);
-  const displayedFinalPriceWithoutCommission = effectiveSalePrice;
-  const displayedFinalPriceWithCommission = dirty
-    ? (pricing?.finalPriceWithCommission
-      ?? (displayedFinalPriceWithoutCommission * (1 + Number(form.commissionPercentage || 0) / 100)))
-    : (displayedFinalPriceWithoutCommission * (1 + Number(form.commissionPercentage || 0) / 100));
-  const estimatedProfit = displayedFinalPriceWithoutCommission - displayedCalculatedCost;
-  const minimumAllowedSalePrice = displayedCalculatedCost * 2;
+  const liveCost = pricing?.totalCost ?? product?.costPrice ?? 0;
+  const estimatedProfit = effectiveSalePrice - liveCost;
+  const minimumAllowedSalePrice = liveCost * 2;
   const hasMarkupBelowMinimum = Number(form.desiredMarkup) < 2;
   const hasMissingCategory = form.categoryId === '';
   const hasManualPriceBelowMinimum = form.salePrice !== '' && Number(form.salePrice) < minimumAllowedSalePrice;
 
   function updateForm(field: keyof typeof emptyForm, value: string | number | boolean) {
     setDirty(true);
+    if (field === 'additionalCost' && isProjectDraftMode) {
+      setProjectDraftBaseAdditionalCost(Number(value) - (includeProjectFailures ? projectDraftFailureCost : 0));
+    }
     setForm((current) => ({ ...current, [field]: value }));
   }
+
+  const backTarget = isProjectDraftMode
+    ? `/projetos/${projectId}`
+    : (isBudgetMode ? '/orcamentos' : '/produtos');
 
   function updateDurationPart(field: keyof typeof duration, value: number) {
     const nextDuration = {
@@ -279,10 +365,10 @@ export function ProductFormPage() {
     <Stack spacing={3}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
         <div>
-          <Typography variant="h4">{isEditing ? (form.isBudget ? 'Editar orçamento' : 'Editar produto') : (isBudgetMode ? 'Novo orçamento' : 'Novo produto')}</Typography>
-          <Typography color="text.secondary">Cadastro em tela separada, com cálculo de preço atualizado durante a digitação.</Typography>
+          <Typography variant="h4">{isProjectDraftMode ? 'Pré-cadastro do produto do projeto' : isEditing ? (form.isBudget ? 'Editar orçamento' : 'Editar produto') : (isBudgetMode ? 'Novo orçamento' : 'Novo produto')}</Typography>
+          <Typography color="text.secondary">{isProjectDraftMode ? 'Revise os dados consolidados do projeto antes de concluir e vincular o produto.' : 'Cadastro em tela separada, com cálculo de preço atualizado durante a digitação.'}</Typography>
         </div>
-        <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(isBudgetMode ? '/orcamentos' : '/produtos', { state: { preserveState: true } })}>
+        <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(backTarget, { state: { preserveState: true } })}>
           Voltar para listagem
         </Button>
       </Stack>
@@ -291,6 +377,38 @@ export function ProductFormPage() {
       {hasMissingCategory ? <Alert severity="warning">Selecione uma categoria para calcular e salvar o produto.</Alert> : null}
       {hasMarkupBelowMinimum ? <Alert severity="warning">O markup desejado nao pode ser menor do que 2.</Alert> : null}
       {hasManualPriceBelowMinimum ? <Alert severity="warning">O preco final nao pode ser menor do que {formatCurrency(minimumAllowedSalePrice)}.</Alert> : null}
+
+      {isProjectDraftMode && projectDraft ? (
+        <PageSection title="Resumo do projeto" subtitle="Dados consolidados das mesas concluídas para preencher o produto final.">
+          <Stack spacing={2}>
+            <Typography color="text.secondary">Projeto: {projectDraft.projectName}{projectDraft.existingProductId ? ' • atualizará o produto já vinculado' : ' • criará um novo produto ao concluir'}</Typography>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
+                <Typography variant="caption" color="text.secondary">Impressoras consolidadas</Typography>
+                <Stack spacing={0.5} sx={{ mt: 1 }}>
+                  {projectDraft.printerUsages.map((item: { printerName: string; timeRealMinutes: number }) => (
+                    <Typography key={item.printerName}>{item.printerName}: {item.timeRealMinutes.toFixed(0)} min reais</Typography>
+                  ))}
+                  {projectDraft.printerUsages.length === 0 ? <Typography color="text.secondary">Sem impressoras consolidadas.</Typography> : null}
+                </Stack>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
+                <Typography variant="caption" color="text.secondary">Materiais consolidados</Typography>
+                <Stack spacing={0.5} sx={{ mt: 1 }}>
+                  {projectDraft.materialUsages.map((item: { filamentProfileId: string; filamentName: string; weightGrams: number; weightPercentage: number }) => (
+                    <Typography key={item.filamentProfileId}>{item.filamentName}: {item.weightGrams.toFixed(0)} g ({item.weightPercentage.toFixed(1)}%)</Typography>
+                  ))}
+                  {projectDraft.materialUsages.length === 0 ? <Typography color="text.secondary">Sem materiais consolidados.</Typography> : null}
+                </Stack>
+              </Paper>
+            </Stack>
+            <FormControlLabel
+              control={<Checkbox checked={includeProjectFailures} onChange={(event) => setIncludeProjectFailures(event.target.checked)} />}
+              label={`Incluir custos de falhas no custo adicional (${formatCurrency(projectDraftFailureCost)})`}
+            />
+          </Stack>
+        </PageSection>
+      ) : null}
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={8}>
@@ -423,8 +541,8 @@ export function ProductFormPage() {
                   </Grid>
                   <Grid item xs={12}>
                     <FormControlLabel
-                      control={<Checkbox checked={isBudgetMode ? true : form.isBudget} onChange={(event) => updateForm('isBudget', event.target.checked)} disabled={isBudgetMode} />}
-                      label={isBudgetMode ? 'Cadastro fixo como orçamento nesta tela' : 'Salvar como orçamento'}
+                      control={<Checkbox checked={isBudgetMode ? true : form.isBudget} onChange={(event) => updateForm('isBudget', event.target.checked)} disabled={isBudgetMode || isProjectDraftMode} />}
+                      label={isProjectDraftMode ? 'Produto final sempre salvo como produto disponível ao concluir o projeto' : isBudgetMode ? 'Cadastro fixo como orçamento nesta tela' : 'Salvar como orçamento'}
                     />
                   </Grid>
                   <Grid item xs={12} md={4}><TextField label="Acabamento (%)" type="number" value={form.finishingPercentage} onChange={(event) => updateForm('finishingPercentage', Number(event.target.value))} fullWidth /></Grid>
@@ -438,9 +556,9 @@ export function ProductFormPage() {
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum}>
-                  {saveMutation.isLoading ? 'Salvando...' : isEditing ? 'Atualizar produto' : 'Cadastrar produto'}
+                  {saveMutation.isLoading ? 'Salvando...' : isProjectDraftMode ? 'Concluir projeto e salvar produto' : isEditing ? 'Atualizar produto' : 'Cadastrar produto'}
                 </Button>
-                <Button variant="outlined" onClick={() => navigate(form.isBudget ? '/orcamentos' : '/produtos', { state: { preserveState: true } })}>
+                <Button variant="outlined" onClick={() => navigate(backTarget, { state: { preserveState: true } })}>
                   Cancelar
                 </Button>
               </Stack>
@@ -450,39 +568,30 @@ export function ProductFormPage() {
 
         <Grid item xs={12} lg={4}>
           <Stack spacing={3}>
-            <PageSection title="Resumo de preço" subtitle={dirty ? 'Preview recalculado com os dados atuais do formulário.' : 'Valores salvos do produto. O preview detalhado fica disponível abaixo para conferência.'}>
-              <Stack spacing={1.2}>
-                <Typography>Custo unitário calculado: {formatCurrency(displayedCalculatedCost)}</Typography>
-                <Typography>Custo total da placa: {formatCurrency(displayedCalculatedCost * Number(form.itemsPerPlate || 1))}</Typography>
-                <Typography>Preço sugerido unitário: {formatCurrency(displayedSuggestedPrice)}</Typography>
-                <Typography>Preço sugerido com comissão: {formatCurrency(pricing?.suggestedPriceWithCommission ?? displayedSuggestedPrice)}</Typography>
-                <Typography>Preço final sem comissão: {formatCurrency(displayedFinalPriceWithoutCommission)}</Typography>
-                <Typography>Lucro estimado: {formatCurrency(estimatedProfit)}</Typography>
-                <Typography>Preço final com comissão: {formatCurrency(displayedFinalPriceWithCommission)}</Typography>
-                <Typography>Comissão aplicada: {formatCurrency(pricing?.commissionAmount ?? 0)}</Typography>
-                <Typography>Custo adicional: {formatCurrency(Number(form.additionalCost || 0))}</Typography>
-                <Typography>Itens por placa: {Number(form.itemsPerPlate || 1)}</Typography>
-                <Typography>Acabamento informado: {Number(form.finishingPercentage).toFixed(2)}%</Typography>
-                <Typography>Comissão variável: {Number(form.commissionPercentage).toFixed(2)}%</Typography>
-                <Typography>Markup desejado: {Number(form.desiredMarkup).toFixed(2)}x</Typography>
-              </Stack>
-            </PageSection>
-
-            {pricing ? (
-              <PageSection title="Detalhamento do preview" subtitle="Cálculo sugerido sem taxa de marketplace no preço sugerido.">
+            <PageSection title="Preview de precificação" subtitle={dirty ? 'Calculado com os dados atuais do formulário.' : 'Calculado com os dados salvos. Edite o formulário para recalcular.'}>
+              {pricing ? (
                 <Stack spacing={1.2}>
-                  <Typography>Material: {formatCurrency(pricing?.materialCost ?? 0)}</Typography>
-                  <Typography>Energia: {formatCurrency(pricing?.energyCost ?? 0)}</Typography>
-                  <Typography>Manutenção: {formatCurrency(pricing?.maintenanceCost ?? 0)}</Typography>
-                  <Typography>Falhas: {formatCurrency(pricing?.failureCost ?? 0)}</Typography>
-                  <Typography>Acabamento: {formatCurrency(pricing?.finishingCost ?? 0)}</Typography>
-                  <Typography>Custo adicional: {formatCurrency(pricing?.additionalCosts ?? 0)}</Typography>
-                  <Typography>Preço base final unitário: {formatCurrency(pricing?.finalPriceWithoutCommission ?? 0)}</Typography>
-                  <Typography>Preço final com comissão: {formatCurrency(pricing?.finalPriceWithCommission ?? 0)}</Typography>
-                  <Typography>Preço com marketplace: {formatCurrency(pricing?.marketplaceAdjustedPrice ?? 0)}</Typography>
+                  <Typography fontWeight={600}>Custo calculado: {formatCurrency(pricing.totalCost)}</Typography>
+                  <Typography fontWeight={600}>Preço sugerido: {formatCurrency(pricing.suggestedPrice)}</Typography>
+                  {Number(form.commissionPercentage) > 0 ? (
+                    <Typography fontWeight={600}>Sugerido + comissão ({Number(form.commissionPercentage).toFixed(0)}%): {formatCurrency(pricing.suggestedPriceWithCommission)}</Typography>
+                  ) : null}
+                  <Divider />
+                  <Typography variant="body2" color="text.secondary">Material: {formatCurrency(pricing.materialCost)}</Typography>
+                  <Typography variant="body2" color="text.secondary">Energia: {formatCurrency(pricing.energyCost)}</Typography>
+                  <Typography variant="body2" color="text.secondary">Manutenção: {formatCurrency(pricing.maintenanceCost)}</Typography>
+                  <Typography variant="body2" color="text.secondary">Falhas: {formatCurrency(pricing.failureCost)}</Typography>
+                  <Typography variant="body2" color="text.secondary">Acabamento: {formatCurrency(pricing.finishingCost)}</Typography>
+                  {pricing.additionalCosts > 0 ? <Typography variant="body2" color="text.secondary">Custo adicional: {formatCurrency(pricing.additionalCosts)}</Typography> : null}
+                  {pricing.laborCost > 0 ? <Typography variant="body2" color="text.secondary">Mão de obra: {formatCurrency(pricing.laborCost)}</Typography> : null}
+                  {pricing.marketplaceAdjustedPrice > pricing.suggestedPrice ? (
+                    <Typography variant="body2" color="text.secondary">Com marketplace: {formatCurrency(pricing.marketplaceAdjustedPrice)}</Typography>
+                  ) : null}
                 </Stack>
-              </PageSection>
-            ) : null}
+              ) : (
+                <Typography color="text.secondary">Selecione uma categoria para visualizar o preview.</Typography>
+              )}
+            </PageSection>
 
             {isEditing ? (
               <PageSection title="Histórico de custo e preço" subtitle="Linha do tempo das alterações salvas para este produto.">

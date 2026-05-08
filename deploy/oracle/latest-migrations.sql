@@ -606,7 +606,6 @@ BEGIN
         wholesaleMarkup numeric,
         retailMarkup numeric,
         resellerMarkup numeric,
-        itemsPerPlate integer,
         recipeItemQuantity numeric,
         createdAtUtc timestamptz,
         updatedAtUtc timestamptz
@@ -614,7 +613,7 @@ BEGIN
 
     INSERT INTO public."Products" (
         "Id","Name","Sku","Description","CategoryId","CostPrice","SalePrice","SuggestedPrice","ProfitMargin","CurrentStock","MinimumStock",
-        "ItemsPerPlate","EstimatedPrintTimeMinutes","EstimatedWeightGrams","LengthMetersUsed","TariffPerKwh","FinishingPercentage","PrinterProfileId","FilamentProfileId",
+        "EstimatedPrintTimeMinutes","EstimatedWeightGrams","LengthMetersUsed","TariffPerKwh","FinishingPercentage","PrinterProfileId","FilamentProfileId",
         "DefaultMarketplaceFeeId","CreatedAtUtc","UpdatedAtUtc")
     SELECT
         sp.id,
@@ -628,7 +627,6 @@ BEGIN
         CASE WHEN sp.salePrice <= 0 THEN 0 ELSE ROUND((sp.salePrice - sp.costPrice) / sp.salePrice, 4) END,
         sp.currentStock,
         sp.minimumStock,
-        sp.itemsPerPlate,
         sp.estimatedPrintTimeMinutes,
         sp.estimatedWeightGrams,
         sp.lengthMetersUsed,
@@ -654,7 +652,6 @@ BEGIN
         "ProfitMargin" = EXCLUDED."ProfitMargin",
         "CurrentStock" = EXCLUDED."CurrentStock",
         "MinimumStock" = EXCLUDED."MinimumStock",
-        "ItemsPerPlate" = EXCLUDED."ItemsPerPlate",
         "EstimatedPrintTimeMinutes" = EXCLUDED."EstimatedPrintTimeMinutes",
         "EstimatedWeightGrams" = EXCLUDED."EstimatedWeightGrams",
         "LengthMetersUsed" = EXCLUDED."LengthMetersUsed",
@@ -920,7 +917,6 @@ BEGIN
         wholesaleMarkup numeric,
         retailMarkup numeric,
         resellerMarkup numeric,
-        itemsPerPlate integer,
         recipeItemQuantity numeric,
         createdAtUtc timestamptz,
         updatedAtUtc timestamptz
@@ -928,7 +924,7 @@ BEGIN
 
     INSERT INTO public."Products" (
         "Id","Name","Sku","Description","CategoryId","CostPrice","SalePrice","SuggestedPrice","ProfitMargin","CurrentStock","MinimumStock",
-        "ItemsPerPlate","EstimatedPrintTimeMinutes","EstimatedWeightGrams","LengthMetersUsed","TariffPerKwh","FinishingPercentage","PrinterProfileId","FilamentProfileId",
+        "EstimatedPrintTimeMinutes","EstimatedWeightGrams","LengthMetersUsed","TariffPerKwh","FinishingPercentage","PrinterProfileId","FilamentProfileId",
         "DefaultMarketplaceFeeId","CreatedAtUtc","UpdatedAtUtc")
     SELECT
         sp.id,
@@ -942,7 +938,6 @@ BEGIN
         CASE WHEN sp.salePrice <= 0 THEN 0 ELSE ROUND((sp.salePrice - sp.costPrice) / sp.salePrice, 4) END,
         sp.currentStock,
         sp.minimumStock,
-        sp.itemsPerPlate,
         sp.estimatedPrintTimeMinutes,
         sp.estimatedWeightGrams,
         sp.lengthMetersUsed,
@@ -968,7 +963,6 @@ BEGIN
         "ProfitMargin" = EXCLUDED."ProfitMargin",
         "CurrentStock" = EXCLUDED."CurrentStock",
         "MinimumStock" = EXCLUDED."MinimumStock",
-        "ItemsPerPlate" = EXCLUDED."ItemsPerPlate",
         "EstimatedPrintTimeMinutes" = EXCLUDED."EstimatedPrintTimeMinutes",
         "EstimatedWeightGrams" = EXCLUDED."EstimatedWeightGrams",
         "LengthMetersUsed" = EXCLUDED."LengthMetersUsed",
@@ -1225,7 +1219,6 @@ BEGIN
         wholesaleMarkup numeric,
         retailMarkup numeric,
         resellerMarkup numeric,
-        itemsPerPlate integer,
         recipeItemQuantity numeric,
         createdAtUtc timestamptz,
         updatedAtUtc timestamptz
@@ -1233,7 +1226,7 @@ BEGIN
 
     INSERT INTO public."Products" (
         "Id","Name","Sku","Description","CategoryId","CostPrice","SalePrice","SuggestedPrice","ProfitMargin","CurrentStock","MinimumStock",
-        "ItemsPerPlate","EstimatedPrintTimeMinutes","EstimatedWeightGrams","LengthMetersUsed","TariffPerKwh","FinishingPercentage","PrinterProfileId","FilamentProfileId",
+        "EstimatedPrintTimeMinutes","EstimatedWeightGrams","LengthMetersUsed","TariffPerKwh","FinishingPercentage","PrinterProfileId","FilamentProfileId",
         "DefaultMarketplaceFeeId","CreatedAtUtc","UpdatedAtUtc")
     SELECT
         sp.id,
@@ -1247,7 +1240,6 @@ BEGIN
         CASE WHEN sp.salePrice <= 0 THEN 0 ELSE ROUND((sp.salePrice - sp.costPrice) / sp.salePrice, 4) END,
         sp.currentStock,
         sp.minimumStock,
-        sp.itemsPerPlate,
         sp.estimatedPrintTimeMinutes,
         sp.estimatedWeightGrams,
         sp.lengthMetersUsed,
@@ -1273,7 +1265,6 @@ BEGIN
         "ProfitMargin" = EXCLUDED."ProfitMargin",
         "CurrentStock" = EXCLUDED."CurrentStock",
         "MinimumStock" = EXCLUDED."MinimumStock",
-        "ItemsPerPlate" = EXCLUDED."ItemsPerPlate",
         "EstimatedPrintTimeMinutes" = EXCLUDED."EstimatedPrintTimeMinutes",
         "EstimatedWeightGrams" = EXCLUDED."EstimatedWeightGrams",
         "LengthMetersUsed" = EXCLUDED."LengthMetersUsed",
@@ -1526,7 +1517,6 @@ BEGIN
         wholesaleMarkup numeric,
         retailMarkup numeric,
         resellerMarkup numeric,
-        itemsPerPlate integer,
         recipeItemQuantity numeric,
         createdAtUtc timestamptz,
         updatedAtUtc timestamptz
@@ -1534,7 +1524,7 @@ BEGIN
 
     INSERT INTO public."Products" (
         "Id","Name","Sku","Description","CategoryId","CostPrice","SalePrice","SuggestedPrice","ProfitMargin","CurrentStock","MinimumStock",
-        "ItemsPerPlate","EstimatedPrintTimeMinutes","EstimatedWeightGrams","LengthMetersUsed","TariffPerKwh","FinishingPercentage","PrinterProfileId","FilamentProfileId",
+        "EstimatedPrintTimeMinutes","EstimatedWeightGrams","LengthMetersUsed","TariffPerKwh","FinishingPercentage","PrinterProfileId","FilamentProfileId",
         "DefaultMarketplaceFeeId","CreatedAtUtc","UpdatedAtUtc")
     SELECT
         sp.id,
@@ -1548,7 +1538,6 @@ BEGIN
         CASE WHEN sp.salePrice <= 0 THEN 0 ELSE ROUND((sp.salePrice - sp.costPrice) / sp.salePrice, 4) END,
         sp.currentStock,
         sp.minimumStock,
-        sp.itemsPerPlate,
         sp.estimatedPrintTimeMinutes,
         sp.estimatedWeightGrams,
         sp.lengthMetersUsed,
@@ -1574,7 +1563,6 @@ BEGIN
         "ProfitMargin" = EXCLUDED."ProfitMargin",
         "CurrentStock" = EXCLUDED."CurrentStock",
         "MinimumStock" = EXCLUDED."MinimumStock",
-        "ItemsPerPlate" = EXCLUDED."ItemsPerPlate",
         "EstimatedPrintTimeMinutes" = EXCLUDED."EstimatedPrintTimeMinutes",
         "EstimatedWeightGrams" = EXCLUDED."EstimatedWeightGrams",
         "LengthMetersUsed" = EXCLUDED."LengthMetersUsed",
@@ -1967,6 +1955,829 @@ BEGIN
     IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421034552_AddSupplierScopeToFinancialEntries') THEN
     INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
     VALUES ('20260421034552_AddSupplierScopeToFinancialEntries', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421054921_AddFairDurationAndAwaitingStatus') THEN
+    DROP INDEX public."IX_Fairs_Name_EventDateUtc";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421054921_AddFairDurationAndAwaitingStatus') THEN
+    ALTER TABLE public."Fairs" ADD "EndDateUtc" timestamp with time zone NOT NULL DEFAULT TIMESTAMPTZ '-infinity';
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421054921_AddFairDurationAndAwaitingStatus') THEN
+    CREATE INDEX "IX_Fairs_Name_EventDateUtc_EndDateUtc" ON public."Fairs" ("Name", "EventDateUtc", "EndDateUtc");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421054921_AddFairDurationAndAwaitingStatus') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260421054921_AddFairDurationAndAwaitingStatus', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421124650_AddProductHeightCentimeters') THEN
+    ALTER TABLE public."Products" ADD "HeightCentimeters" numeric(18,2) NOT NULL DEFAULT 0.0;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421124650_AddProductHeightCentimeters') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260421124650_AddProductHeightCentimeters', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421215231_AddProductStockEntryExpenseAndNormalizeData') THEN
+    ALTER TABLE public."Products" ADD "GenerateProductionExpenseOnStockEntry" boolean NOT NULL DEFAULT FALSE;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421215231_AddProductStockEntryExpenseAndNormalizeData') THEN
+
+    UPDATE public."Products"
+    SET "Name" = upper(substring("Name" from 1 for 1)) || substring("Name" from 2)
+    WHERE "Name" IS NOT NULL
+        AND length("Name") > 0
+        AND substring("Name" from 1 for 1) <> upper(substring("Name" from 1 for 1));
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421215231_AddProductStockEntryExpenseAndNormalizeData') THEN
+
+    UPDATE public."Products"
+    SET "CurrentStock" = 0
+    WHERE "SupplierId" IS NULL
+        AND "CurrentStock" <> 0;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421215231_AddProductStockEntryExpenseAndNormalizeData') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260421215231_AddProductStockEntryExpenseAndNormalizeData', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421235900_ReclassifyFairSupplierPayablesAndPayments') THEN
+    UPDATE "FinancialEntries" AS supplier_entry
+    SET "Category" = 'Pagamento de cota de feira'
+    WHERE supplier_entry."SupplierId" IS NOT NULL
+      AND supplier_entry."Type" = 'Expense'
+      AND supplier_entry."Category" = 'Pendencia de pagamento em feiras'
+      AND EXISTS (
+            SELECT 1
+            FROM "FinancialEntries" AS store_entry
+            WHERE store_entry."SupplierId" IS NULL
+              AND store_entry."Type" = 'Income'
+              AND store_entry."Category" = 'Recebimento de fornecedores em feiras'
+              AND store_entry."Amount" = supplier_entry."Amount"
+              AND store_entry."OccurredOnUtc" = supplier_entry."OccurredOnUtc"
+              AND store_entry."Description" LIKE '%' || supplier_entry."Description"
+        );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421235900_ReclassifyFairSupplierPayablesAndPayments') THEN
+    UPDATE "FinancialEntries"
+    SET "Category" = 'Contas a pagar de feiras'
+    WHERE "SupplierId" IS NOT NULL
+      AND "Type" = 'Expense'
+      AND "Category" = 'Pendencia de pagamento em feiras';
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260421235900_ReclassifyFairSupplierPayablesAndPayments') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260421235900_ReclassifyFairSupplierPayablesAndPayments', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504133806_AddOperationalListsModule') THEN
+    CREATE TABLE public."OperationalRestockItems" (
+        "Id" uuid NOT NULL,
+        "ProductId" uuid NOT NULL,
+        "OwnerSupplierId" uuid,
+        "Priority" text NOT NULL,
+        "TargetQuantity" numeric(18,2) NOT NULL,
+        "Status" text NOT NULL,
+        "Notes" text NOT NULL,
+        "DueDateUtc" timestamp with time zone,
+        "CompletedAtUtc" timestamp with time zone,
+        "CreatedAtUtc" timestamp with time zone NOT NULL,
+        "UpdatedAtUtc" timestamp with time zone NOT NULL,
+        CONSTRAINT "PK_OperationalRestockItems" PRIMARY KEY ("Id"),
+        CONSTRAINT "FK_OperationalRestockItems_Products_ProductId" FOREIGN KEY ("ProductId") REFERENCES public."Products" ("Id") ON DELETE RESTRICT,
+        CONSTRAINT "FK_OperationalRestockItems_Suppliers_OwnerSupplierId" FOREIGN KEY ("OwnerSupplierId") REFERENCES public."Suppliers" ("Id") ON DELETE SET NULL
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504133806_AddOperationalListsModule') THEN
+    CREATE TABLE public."OperationalTodoItems" (
+        "Id" uuid NOT NULL,
+        "Name" text NOT NULL,
+        "OwnerSupplierId" uuid,
+        "Priority" text NOT NULL,
+        "Source" text NOT NULL,
+        "Notes" text NOT NULL,
+        "Status" text NOT NULL,
+        "DueDateUtc" timestamp with time zone,
+        "CompletedAtUtc" timestamp with time zone,
+        "CreatedAtUtc" timestamp with time zone NOT NULL,
+        "UpdatedAtUtc" timestamp with time zone NOT NULL,
+        CONSTRAINT "PK_OperationalTodoItems" PRIMARY KEY ("Id"),
+        CONSTRAINT "FK_OperationalTodoItems_Suppliers_OwnerSupplierId" FOREIGN KEY ("OwnerSupplierId") REFERENCES public."Suppliers" ("Id") ON DELETE SET NULL
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504133806_AddOperationalListsModule') THEN
+    CREATE INDEX "IX_OperationalRestockItems_OwnerSupplierId_Status_Priority" ON public."OperationalRestockItems" ("OwnerSupplierId", "Status", "Priority");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504133806_AddOperationalListsModule') THEN
+    CREATE INDEX "IX_OperationalRestockItems_ProductId" ON public."OperationalRestockItems" ("ProductId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504133806_AddOperationalListsModule') THEN
+    CREATE INDEX "IX_OperationalTodoItems_OwnerSupplierId_Status_Priority" ON public."OperationalTodoItems" ("OwnerSupplierId", "Status", "Priority");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504133806_AddOperationalListsModule') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260504133806_AddOperationalListsModule', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504135102_RemoveTodoItemNotesAndDueDate') THEN
+    ALTER TABLE public."OperationalTodoItems" DROP COLUMN "DueDateUtc";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504135102_RemoveTodoItemNotesAndDueDate') THEN
+    ALTER TABLE public."OperationalTodoItems" DROP COLUMN "Notes";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504135102_RemoveTodoItemNotesAndDueDate') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260504135102_RemoveTodoItemNotesAndDueDate', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504141904_AddProjectsModule') THEN
+    CREATE TABLE public."Projects" (
+        "Id" uuid NOT NULL,
+        "Name" text NOT NULL,
+        "Description" text NOT NULL,
+        "Material" text NOT NULL,
+        "FileReference" text NOT NULL,
+        "Notes" text NOT NULL,
+        "Priority" text NOT NULL,
+        "Status" text NOT NULL,
+        "OwnerSupplierId" uuid,
+        "CompletedAtUtc" timestamp with time zone,
+        "CreatedAtUtc" timestamp with time zone NOT NULL,
+        "UpdatedAtUtc" timestamp with time zone NOT NULL,
+        CONSTRAINT "PK_Projects" PRIMARY KEY ("Id"),
+        CONSTRAINT "FK_Projects_Suppliers_OwnerSupplierId" FOREIGN KEY ("OwnerSupplierId") REFERENCES public."Suppliers" ("Id")
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504141904_AddProjectsModule') THEN
+    CREATE INDEX "IX_Projects_OwnerSupplierId" ON public."Projects" ("OwnerSupplierId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504141904_AddProjectsModule') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260504141904_AddProjectsModule', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" DROP COLUMN "FileReference";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" DROP COLUMN "Material";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" DROP COLUMN "Notes";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" DROP COLUMN "Priority";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" RENAME COLUMN "CompletedAtUtc" TO "StartedAtUtc";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD "ConcludedAtUtc" timestamp with time zone;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD "ProductId" uuid;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD "ProgressPercentage" numeric(18,2) NOT NULL DEFAULT 0.0;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD "TimeCompletedMinutes" numeric(18,2) NOT NULL DEFAULT 0.0;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD "TimeEstimatedMinutes" numeric(18,2) NOT NULL DEFAULT 0.0;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD "TimeLostToFailuresMinutes" numeric(18,2) NOT NULL DEFAULT 0.0;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD "WeightCompletedGrams" numeric(18,2) NOT NULL DEFAULT 0.0;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD "WeightEstimatedGrams" numeric(18,2) NOT NULL DEFAULT 0.0;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD "WeightLostToFailuresGrams" numeric(18,2) NOT NULL DEFAULT 0.0;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    CREATE TABLE public."ProjectSteps" (
+        "Id" uuid NOT NULL,
+        "ProjectId" uuid NOT NULL,
+        "Name" text NOT NULL,
+        "Order" integer NOT NULL,
+        "TimeEstimatedMinutes" numeric(18,2) NOT NULL,
+        "WeightEstimatedGrams" numeric(18,2) NOT NULL,
+        "PrinterPlanned" text,
+        "MaterialPlanned" text,
+        "Status" text NOT NULL,
+        "CreatedAtUtc" timestamp with time zone NOT NULL,
+        "UpdatedAtUtc" timestamp with time zone NOT NULL,
+        CONSTRAINT "PK_ProjectSteps" PRIMARY KEY ("Id"),
+        CONSTRAINT "FK_ProjectSteps_Projects_ProjectId" FOREIGN KEY ("ProjectId") REFERENCES public."Projects" ("Id") ON DELETE CASCADE
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    CREATE TABLE public."ProjectStepAttempts" (
+        "Id" uuid NOT NULL,
+        "StepId" uuid NOT NULL,
+        "ProjectId" uuid NOT NULL,
+        "AttemptNumber" integer NOT NULL,
+        "PrinterUsed" text NOT NULL,
+        "MaterialUsed" text NOT NULL,
+        "TimeRealMinutes" numeric(18,2) NOT NULL,
+        "WeightRealGrams" numeric(18,2) NOT NULL,
+        "Status" text NOT NULL,
+        "TimeLostMinutes" numeric(18,2) NOT NULL,
+        "WeightLostGrams" numeric(18,2) NOT NULL,
+        "FailureReason" text,
+        "CreatedAtUtc" timestamp with time zone NOT NULL,
+        "UpdatedAtUtc" timestamp with time zone NOT NULL,
+        CONSTRAINT "PK_ProjectStepAttempts" PRIMARY KEY ("Id"),
+        CONSTRAINT "FK_ProjectStepAttempts_ProjectSteps_StepId" FOREIGN KEY ("StepId") REFERENCES public."ProjectSteps" ("Id") ON DELETE CASCADE,
+        CONSTRAINT "FK_ProjectStepAttempts_Projects_ProjectId" FOREIGN KEY ("ProjectId") REFERENCES public."Projects" ("Id") ON DELETE CASCADE
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    CREATE INDEX "IX_Projects_ProductId" ON public."Projects" ("ProductId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    CREATE INDEX "IX_ProjectStepAttempts_ProjectId" ON public."ProjectStepAttempts" ("ProjectId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    CREATE INDEX "IX_ProjectStepAttempts_StepId" ON public."ProjectStepAttempts" ("StepId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    CREATE INDEX "IX_ProjectSteps_ProjectId" ON public."ProjectSteps" ("ProjectId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    ALTER TABLE public."Projects" ADD CONSTRAINT "FK_Projects_Products_ProductId" FOREIGN KEY ("ProductId") REFERENCES public."Products" ("Id");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504142411_AddProjectsPhase2Module') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260504142411_AddProjectsPhase2Module', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    ALTER TABLE public."Products" DROP CONSTRAINT "FK_Products_FilamentProfiles_FilamentProfileId";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    DROP INDEX public."IX_Products_FilamentProfileId";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    ALTER TABLE public."ProjectSteps" DROP COLUMN "MaterialPlanned";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    ALTER TABLE public."ProjectStepAttempts" DROP COLUMN "MaterialUsed";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    CREATE TABLE public."ProductFilaments" (
+        "Id" uuid NOT NULL,
+        "ProductId" uuid NOT NULL,
+        "FilamentProfileId" uuid NOT NULL,
+        "WeightGrams" numeric(18,2) NOT NULL,
+        CONSTRAINT "PK_ProductFilaments" PRIMARY KEY ("Id"),
+        CONSTRAINT "FK_ProductFilaments_FilamentProfiles_FilamentProfileId" FOREIGN KEY ("FilamentProfileId") REFERENCES public."FilamentProfiles" ("Id") ON DELETE RESTRICT,
+        CONSTRAINT "FK_ProductFilaments_Products_ProductId" FOREIGN KEY ("ProductId") REFERENCES public."Products" ("Id") ON DELETE CASCADE
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    CREATE TABLE public."ProjectStepAttemptFilaments" (
+        "Id" uuid NOT NULL,
+        "AttemptId" uuid NOT NULL,
+        "FilamentProfileId" uuid NOT NULL,
+        "WeightGrams" numeric(18,2) NOT NULL,
+        CONSTRAINT "PK_ProjectStepAttemptFilaments" PRIMARY KEY ("Id"),
+        CONSTRAINT "FK_ProjectStepAttemptFilaments_FilamentProfiles_FilamentProfil~" FOREIGN KEY ("FilamentProfileId") REFERENCES public."FilamentProfiles" ("Id") ON DELETE RESTRICT,
+        CONSTRAINT "FK_ProjectStepAttemptFilaments_ProjectStepAttempts_AttemptId" FOREIGN KEY ("AttemptId") REFERENCES public."ProjectStepAttempts" ("Id") ON DELETE CASCADE
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    CREATE TABLE public."ProjectStepFilaments" (
+        "Id" uuid NOT NULL,
+        "StepId" uuid NOT NULL,
+        "FilamentProfileId" uuid NOT NULL,
+        "WeightGrams" numeric(18,2) NOT NULL,
+        CONSTRAINT "PK_ProjectStepFilaments" PRIMARY KEY ("Id"),
+        CONSTRAINT "FK_ProjectStepFilaments_FilamentProfiles_FilamentProfileId" FOREIGN KEY ("FilamentProfileId") REFERENCES public."FilamentProfiles" ("Id") ON DELETE RESTRICT,
+        CONSTRAINT "FK_ProjectStepFilaments_ProjectSteps_StepId" FOREIGN KEY ("StepId") REFERENCES public."ProjectSteps" ("Id") ON DELETE CASCADE
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    CREATE INDEX "IX_ProductFilaments_FilamentProfileId" ON public."ProductFilaments" ("FilamentProfileId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    CREATE INDEX "IX_ProductFilaments_ProductId" ON public."ProductFilaments" ("ProductId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    CREATE INDEX "IX_ProjectStepAttemptFilaments_AttemptId" ON public."ProjectStepAttemptFilaments" ("AttemptId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    CREATE INDEX "IX_ProjectStepAttemptFilaments_FilamentProfileId" ON public."ProjectStepAttemptFilaments" ("FilamentProfileId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    CREATE INDEX "IX_ProjectStepFilaments_FilamentProfileId" ON public."ProjectStepFilaments" ("FilamentProfileId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    CREATE INDEX "IX_ProjectStepFilaments_StepId" ON public."ProjectStepFilaments" ("StepId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+
+                    INSERT INTO public."ProductFilaments" ("Id", "ProductId", "FilamentProfileId", "WeightGrams")
+                    SELECT p."Id", p."Id", p."FilamentProfileId", COALESCE(p."EstimatedWeightGrams", 0)
+                    FROM public."Products" p
+                    WHERE p."FilamentProfileId" IS NOT NULL;
+                
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    ALTER TABLE public."Products" DROP COLUMN "FilamentProfileId";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260504155646_AddMultiFilament') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260504155646_AddMultiFilament', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    ALTER TABLE public."Projects" ADD "IsPersonalized" boolean NOT NULL DEFAULT FALSE;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    ALTER TABLE public."Projects" ADD "PersonalizedGeneratedProductId" uuid;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    ALTER TABLE public."Projects" ADD "PersonalizedIsPainted" boolean;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    ALTER TABLE public."Projects" ADD "PersonalizedQuotedPriceBRL" numeric;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    ALTER TABLE public."Projects" ADD "PersonalizedSaleId" uuid;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    ALTER TABLE public."Projects" ADD "PersonalizedSizeCm" numeric;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    ALTER TABLE public."Products" ADD "LifecycleStatus" text NOT NULL DEFAULT 'Disponivel';
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    UPDATE public."Products" SET "LifecycleStatus" = 'Disponivel' WHERE "LifecycleStatus" = '' OR "LifecycleStatus" IS NULL;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    CREATE TABLE public."PersonalizedPricingTiers" (
+        "Id" uuid NOT NULL,
+        "Order" integer NOT NULL,
+        "MinSizeCm" numeric(18,2) NOT NULL,
+        "MaxSizeCm" numeric,
+        "FinishedPriceBRL" numeric(18,2) NOT NULL,
+        "UnpaintedPriceBRL" numeric(18,2) NOT NULL,
+        "IsActive" boolean NOT NULL,
+        "CreatedAtUtc" timestamp with time zone NOT NULL,
+        "UpdatedAtUtc" timestamp with time zone NOT NULL,
+        CONSTRAINT "PK_PersonalizedPricingTiers" PRIMARY KEY ("Id")
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    CREATE UNIQUE INDEX "IX_PersonalizedPricingTiers_Order" ON public."PersonalizedPricingTiers" ("Order");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505124152_AddPersonalizedModule') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260505124152_AddPersonalizedModule', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505132548_PersonalizedRangeAndBudgetRejection') THEN
+    ALTER TABLE public."Projects" ADD "PersonalizedSizeMaxCm" numeric;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505132548_PersonalizedRangeAndBudgetRejection') THEN
+    ALTER TABLE public."Projects" ADD "PersonalizedSizeMinCm" numeric;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505132548_PersonalizedRangeAndBudgetRejection') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260505132548_PersonalizedRangeAndBudgetRejection', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505195418_RemoveTodoItemStatus') THEN
+    DROP INDEX public."IX_OperationalTodoItems_OwnerSupplierId_Status_Priority";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505195418_RemoveTodoItemStatus') THEN
+    ALTER TABLE public."OperationalTodoItems" DROP COLUMN "CompletedAtUtc";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505195418_RemoveTodoItemStatus') THEN
+    ALTER TABLE public."OperationalTodoItems" DROP COLUMN "Status";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505195418_RemoveTodoItemStatus') THEN
+    CREATE INDEX "IX_OperationalTodoItems_OwnerSupplierId_Priority" ON public."OperationalTodoItems" ("OwnerSupplierId", "Priority");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260505195418_RemoveTodoItemStatus') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260505195418_RemoveTodoItemStatus', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260508152544_AddProductPrinterUsages') THEN
+    CREATE TABLE public."ProductPrinterUsages" (
+        "Id" uuid NOT NULL,
+        "ProductId" uuid NOT NULL,
+        "PrinterProfileId" uuid NOT NULL,
+        "TimeRealMinutes" numeric(18,2) NOT NULL,
+        CONSTRAINT "PK_ProductPrinterUsages" PRIMARY KEY ("Id"),
+        CONSTRAINT "FK_ProductPrinterUsages_PrinterProfiles_PrinterProfileId" FOREIGN KEY ("PrinterProfileId") REFERENCES public."PrinterProfiles" ("Id") ON DELETE RESTRICT,
+        CONSTRAINT "FK_ProductPrinterUsages_Products_ProductId" FOREIGN KEY ("ProductId") REFERENCES public."Products" ("Id") ON DELETE CASCADE
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260508152544_AddProductPrinterUsages') THEN
+    CREATE INDEX "IX_ProductPrinterUsages_PrinterProfileId" ON public."ProductPrinterUsages" ("PrinterProfileId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260508152544_AddProductPrinterUsages') THEN
+    CREATE INDEX "IX_ProductPrinterUsages_ProductId" ON public."ProductPrinterUsages" ("ProductId");
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260508152544_AddProductPrinterUsages') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260508152544_AddProductPrinterUsages', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260508170923_20260508_RemoveProductPrinterUsages') THEN
+    DROP TABLE public."ProductPrinterUsages";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260508170923_20260508_RemoveProductPrinterUsages') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260508170923_20260508_RemoveProductPrinterUsages', '10.0.4');
     END IF;
 END $EF$;
 COMMIT;
