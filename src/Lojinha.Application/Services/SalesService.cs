@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Lojinha.Api.Caching;
+using Lojinha.Api.Contracts.OperationalLists;
 using Lojinha.Api.Domain.Services;
 using Lojinha.Api.Contracts.Sales;
 using Lojinha.Api.Entities;
@@ -23,7 +24,8 @@ public sealed class SalesService(
     IRepository<Supplier> supplierRepository,
     IRepository<CardFeeSettings> cardFeeSettingsRepository,
     IRepository<FinancialEntry> financeRepository,
-    IRepository<AuditLog> auditRepository) : ISalesService
+    IRepository<AuditLog> auditRepository,
+    IOperationalListService operationalListService) : ISalesService
 {
     public async Task<IReadOnlyList<SaleDto>> GetRecentAsync(string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
@@ -179,6 +181,35 @@ public sealed class SalesService(
             ChangedBy = actor,
             PayloadJson = JsonSerializer.Serialize(new { sale.PaymentMethod, Items = sale.Items.Count, sale.TotalAmount, sale.FeeAmount, sale.NetReceivedAmount })
         }, cancellationToken);
+
+        if (request.CreateTodoForProducedItems)
+        {
+            var soldProducts = sale.Items
+                .GroupBy(item => new { item.ProductId, item.SupplierId })
+                .Select(group => new
+                {
+                    ProductName = group.First().Product?.Name ?? string.Empty,
+                    SupplierId = group.Key.SupplierId,
+                    Quantity = group.Sum(item => item.Quantity)
+                })
+                .ToList();
+
+            foreach (var sold in soldProducts)
+            {
+                var itemName = sold.Quantity > 1
+                    ? $"{sold.ProductName} (repor {decimal.Round(sold.Quantity, 2)} un)"
+                    : sold.ProductName;
+                var source = fair is null
+                    ? $"Gerado automaticamente da venda {sale.Id}"
+                    : $"Gerado automaticamente da venda {sale.Id} na feira {fair.Name}";
+
+                await operationalListService.CreateTodoItemAsync(
+                    new TodoItemRequest(itemName, OperationalItemPriority.Medium, source),
+                    actor,
+                    sold.SupplierId,
+                    cancellationToken);
+            }
+        }
 
         await saleRepository.SaveChangesAsync(cancellationToken);
         var affectedSupplierIds = sale.Items.Where(item => item.SupplierId.HasValue).Select(item => item.SupplierId!.Value).Distinct().ToList();

@@ -27,6 +27,7 @@ public interface IProjectService
     Task<ProjectDto?> ConcludeProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<ProjectDto?> ConcludeProjectWithProductAsync(Guid id, ProductRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<ProjectDto?> DuplicateProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+    Task<ProjectDto?> StartProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<ProjectDto?> ReopenProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
 
     Task<ProjectStepDto?> CompleteStepAsync(Guid projectId, Guid stepId, ProjectStepAttemptCompleteRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
@@ -290,14 +291,7 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             await stepRepository.SaveChangesAsync(cancellationToken);
         }
 
-        var project = projectRepository.Query().FirstOrDefault(p => p.Id == projectId);
-        if (project is not null && project.Status == ProjectStatus.Planejado)
-        {
-            project.Status = ProjectStatus.EmAndamento;
-            project.StartedAtUtc = project.StartedAtUtc ?? DateTime.UtcNow;
-            projectRepository.Update(project);
-            await projectRepository.SaveChangesAsync(cancellationToken);
-        }
+        await EnsureProjectStartedAsync(projectId, actor, cancellationToken);
 
         return MapAttempt(attempt);
     }
@@ -334,6 +328,8 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
 
         await stepRepository.SaveChangesAsync(cancellationToken);
         await attemptRepository.SaveChangesAsync(cancellationToken);
+
+        await EnsureProjectStartedAsync(projectId, actor, cancellationToken);
 
         // Recalcular totais do projeto
         await RecalculateProjectTotalsAsync(projectId, cancellationToken);
@@ -661,6 +657,36 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         return Map(project);
     }
 
+    public async Task<ProjectDto?> StartProjectAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+    {
+        var project = ApplyScope(projectRepository.Query(), scopedSupplierId)
+            .FirstOrDefault(p => p.Id == id);
+
+        if (project is null)
+            return null;
+
+        if (project.Status == ProjectStatus.Cancelado)
+        {
+            throw new InvalidOperationException("Nao e possivel iniciar um projeto cancelado.");
+        }
+
+        if (project.Status == ProjectStatus.Concluido)
+        {
+            throw new InvalidOperationException("Nao e possivel iniciar um projeto concluido. Reabra o projeto antes.");
+        }
+
+        if (project.Status == ProjectStatus.Planejado)
+        {
+            project.Status = ProjectStatus.EmAndamento;
+            project.StartedAtUtc = project.StartedAtUtc ?? DateTime.UtcNow;
+            projectRepository.Update(project);
+            await auditRepository.AddAsync(CreateAudit(project.Id, AuditAction.Updated, actor, project), cancellationToken);
+            await projectRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return Map(project);
+    }
+
     public async Task<ProjectStepDto?> CompleteStepAsync(Guid projectId, Guid stepId, ProjectStepAttemptCompleteRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
     {
         var step = stepRepository.Query()
@@ -717,6 +743,8 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         stepRepository.Update(step);
         await stepRepository.SaveChangesAsync(cancellationToken);
         await attemptRepository.SaveChangesAsync(cancellationToken);
+
+        await EnsureProjectStartedAsync(projectId, actor, cancellationToken);
 
         await RecalculateProjectTotalsAsync(projectId, cancellationToken);
         return MapStep(step);
@@ -808,14 +836,7 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             await stepRepository.SaveChangesAsync(cancellationToken);
         }
 
-        var project = projectRepository.Query().FirstOrDefault(p => p.Id == projectId);
-        if (project is not null && project.Status == ProjectStatus.Planejado)
-        {
-            project.Status = ProjectStatus.EmAndamento;
-            project.StartedAtUtc = project.StartedAtUtc ?? DateTime.UtcNow;
-            projectRepository.Update(project);
-            await projectRepository.SaveChangesAsync(cancellationToken);
-        }
+        await EnsureProjectStartedAsync(projectId, actor, cancellationToken);
 
         await RecalculateProjectTotalsAsync(projectId, cancellationToken);
         return MapStep(step);
@@ -862,6 +883,21 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
 
         projectRepository.Update(project);
         await projectRepository.SaveChangesAsync();
+    }
+
+    private async Task EnsureProjectStartedAsync(Guid projectId, string actor, CancellationToken cancellationToken)
+    {
+        var project = projectRepository.Query().FirstOrDefault(p => p.Id == projectId);
+        if (project is null || project.Status != ProjectStatus.Planejado)
+        {
+            return;
+        }
+
+        project.Status = ProjectStatus.EmAndamento;
+        project.StartedAtUtc = project.StartedAtUtc ?? DateTime.UtcNow;
+        projectRepository.Update(project);
+        await auditRepository.AddAsync(CreateAudit(project.Id, AuditAction.Updated, actor, project), cancellationToken);
+        await projectRepository.SaveChangesAsync(cancellationToken);
     }
 
     private async Task HydrateProjectsAsync(IReadOnlyList<Project> projects, CancellationToken cancellationToken)

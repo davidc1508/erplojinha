@@ -1,4 +1,5 @@
 using Lojinha.Api.Caching;
+using Lojinha.Api.Contracts.OperationalLists;
 using Lojinha.Api.Data;
 using Lojinha.Api.Entities;
 using Lojinha.Api.Repositories;
@@ -39,7 +40,8 @@ public sealed class SalesServiceTests
             new Repository<Supplier>(dbContext),
             new Repository<CardFeeSettings>(dbContext),
             new Repository<FinancialEntry>(dbContext),
-            new Repository<AuditLog>(dbContext));
+            new Repository<AuditLog>(dbContext),
+            new NoOpOperationalListService());
 
         var sale = await service.CreateAsync(
             new Contracts.Sales.CreateSaleRequest(
@@ -88,7 +90,8 @@ public sealed class SalesServiceTests
             new Repository<Supplier>(dbContext),
             new Repository<CardFeeSettings>(dbContext),
             new Repository<FinancialEntry>(dbContext),
-            new Repository<AuditLog>(dbContext));
+            new Repository<AuditLog>(dbContext),
+            new NoOpOperationalListService());
 
         var sale = await service.CreateAsync(
             new Contracts.Sales.CreateSaleRequest(
@@ -127,5 +130,35 @@ public sealed class SalesServiceTests
         public Task InvalidateCatalogAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateMetadataAsync(IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateFairReadModelsAsync(Guid? fairId = null, IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class NoOpOperationalListService : IOperationalListService
+    {
+        public Task<IReadOnlyList<RestockItemDto>> GetRestockItemsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<RestockItemDto>>([]);
+
+        public Task<RestockItemDto> CreateRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<RestockItemDto?> UpdateRestockItemAsync(Guid id, RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult<RestockItemDto?>(null);
+
+        public Task<bool> DeleteRestockItemAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<IReadOnlyList<TodoItemDto>> GetTodoItemsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<TodoItemDto>>([]);
+
+        public Task<TodoItemDto> CreateTodoItemAsync(TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new TodoItemDto(Guid.NewGuid(), request.Name, scopedSupplierId, request.Priority, request.Source ?? string.Empty, DateTime.UtcNow, DateTime.UtcNow));
+
+        public Task<TodoItemDto?> UpdateTodoItemAsync(Guid id, TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult<TodoItemDto?>(null);
+
+        public Task<bool> DeleteTodoItemAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<int> ConsumeRestockTargetAsync(Guid productId, decimal quantityAdded, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
     }
 }

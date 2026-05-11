@@ -76,7 +76,19 @@ export const appTheme = createTheme({
       styleOverrides: {
         root: {
           borderCollapse: 'separate',
-          borderSpacing: 0
+          borderSpacing: 0,
+          width: '100%',
+          '@media (max-width:900px)': {
+            minWidth: 720
+          }
+        }
+      }
+    },
+    MuiTableContainer: {
+      styleOverrides: {
+        root: {
+          width: '100%',
+          overflowX: 'auto'
         }
       }
     },

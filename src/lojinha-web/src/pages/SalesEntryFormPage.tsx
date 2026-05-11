@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Grid, IconButton, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Button, Checkbox, FormControlLabel, Grid, IconButton, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
@@ -21,13 +21,14 @@ export function SalesEntryFormPage() {
   const { data: products = [] } = useQuery({ queryKey: ['products-sales-catalog'], queryFn: productsApi.getSalesCatalog });
   const { data: suppliers = [] } = useQuery({ queryKey: ['suppliers'], queryFn: suppliersApi.getAll, enabled: !isSupplier });
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [form, setForm] = useState({ paymentMethod: 'Pix', soldAtUtc: getTodayDateInputValue(), notes: '', items: [{ productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] });
+  const [form, setForm] = useState({ paymentMethod: 'Pix', soldAtUtc: getTodayDateInputValue(), notes: '', createTodoForProducedItems: false, items: [{ productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] });
 
   const mutation = useMutation({
     mutationFn: async () => salesApi.create({
       paymentMethod: form.paymentMethod,
       soldAtUtc: toUtcDateOnlyIso(form.soldAtUtc),
       notes: form.notes,
+      createTodoForProducedItems: form.createTodoForProducedItems,
       items: form.items.map((item) => ({
         productId: item.productId,
         supplierId: item.supplierId === '' ? null : item.supplierId,
@@ -46,6 +47,7 @@ export function SalesEntryFormPage() {
       await queryClient.invalidateQueries({ queryKey: ['finance-entries'] });
       await queryClient.invalidateQueries({ queryKey: ['finance-report'] });
       await queryClient.invalidateQueries({ queryKey: ['fairs'] });
+      await queryClient.invalidateQueries({ queryKey: ['operational-todo'] });
       navigate('/vendas', { state: { preserveState: true } });
     },
     onError: () => {
@@ -176,6 +178,10 @@ export function SalesEntryFormPage() {
               ))}
               <Button variant="outlined" onClick={() => setForm({ ...form, items: [...form.items, { productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] })}>Adicionar item</Button>
               <TextField label="Observações" multiline minRows={3} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
+              <FormControlLabel
+                control={<Checkbox checked={form.createTodoForProducedItems} onChange={(event) => setForm({ ...form, createTodoForProducedItems: event.target.checked })} />}
+                label="Gerar automaticamente item(s) em Itens a fazer para reposição do que foi vendido"
+              />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => mutation.mutate()} disabled={mutation.isLoading || form.items.some((item) => !item.productId)}>
                   Registrar venda

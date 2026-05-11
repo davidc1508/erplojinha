@@ -287,6 +287,27 @@ public sealed class ProjectsController(IProjectService projectService) : Control
         }
     }
 
+    [HttpPut("{id}/start")]
+    public async Task<IActionResult> StartProject(Guid id, CancellationToken cancellationToken)
+    {
+        var actor = User.FindFirst("sub")?.Value ?? "unknown";
+        var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
+        var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+
+        try
+        {
+            var project = await projectService.StartProjectAsync(id, actor, supplierId, cancellationToken);
+            if (project is null)
+                return NotFound();
+
+            return Ok(project);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPut("{projectId}/steps/{stepId}/complete")]
     public async Task<IActionResult> CompleteStep(Guid projectId, Guid stepId, ProjectStepAttemptCompleteRequest request, CancellationToken cancellationToken)
     {

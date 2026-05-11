@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Grid,
   IconButton,
   MenuItem,
@@ -50,7 +52,7 @@ export function FairDetailsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
-  const [saleForm, setSaleForm] = useState({ paymentMethod: 'Pix', soldAtUtc: getTodayDateInputValue(), notes: '', items: [{ productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] });
+  const [saleForm, setSaleForm] = useState({ paymentMethod: 'Pix', soldAtUtc: getTodayDateInputValue(), notes: '', createTodoForProducedItems: false, items: [{ productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] });
   const [breakEvenTicket, setBreakEvenTicket] = useState<number>(0);
   const [breakEvenMargin, setBreakEvenMargin] = useState<number>(45);
 
@@ -125,6 +127,7 @@ export function FairDetailsPage() {
         paymentMethod: saleForm.paymentMethod,
         soldAtUtc: toUtcDateOnlyIso(saleForm.soldAtUtc),
         notes: saleForm.notes,
+        createTodoForProducedItems: saleForm.createTodoForProducedItems,
         items: saleForm.items.map((item) => ({
           productId: item.productId,
           supplierId: item.supplierId === '' ? null : item.supplierId,
@@ -137,7 +140,7 @@ export function FairDetailsPage() {
     },
     onSuccess: async ({ keepOpen }) => {
       setFeedback({ severity: 'success', message: 'Venda lançada na feira.' });
-      setSaleForm({ paymentMethod: 'Pix', soldAtUtc: getTodayDateInputValue(), notes: '', items: [{ productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] });
+      setSaleForm({ paymentMethod: 'Pix', soldAtUtc: getTodayDateInputValue(), notes: '', createTodoForProducedItems: false, items: [{ productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] });
       if (!keepOpen) {
         setIsSaleModalOpen(false);
       }
@@ -151,6 +154,7 @@ export function FairDetailsPage() {
       await queryClient.invalidateQueries({ queryKey: ['finance-entries'] });
       await queryClient.invalidateQueries({ queryKey: ['finance-report'] });
       await queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      await queryClient.invalidateQueries({ queryKey: ['operational-todo'] });
     },
     onError: () => {
       setFeedback({ severity: 'error', message: 'Nao foi possivel registrar a venda para esta feira.' });
@@ -746,6 +750,10 @@ export function FairDetailsPage() {
             Adicionar item
           </Button>
           <TextField label="Observações" multiline minRows={3} value={saleForm.notes} onChange={(event) => setSaleForm({ ...saleForm, notes: event.target.value })} disabled={!canRegisterSale} />
+          <FormControlLabel
+            control={<Checkbox checked={saleForm.createTodoForProducedItems} onChange={(event) => setSaleForm({ ...saleForm, createTodoForProducedItems: event.target.checked })} disabled={!canRegisterSale} />}
+            label="Gerar automaticamente item(s) em Itens a fazer para reposição"
+          />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>

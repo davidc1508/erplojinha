@@ -83,7 +83,7 @@ export function ProductsPage() {
   const { search, scopeFilter, categoryFilter, page, rowsPerPage, sortField, sortDirection } = listState;
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products', isSupplier ? 'catalog' : 'all', isBudgetMode ? 'budget' : 'product'],
-    queryFn: () => isSupplier ? productsApi.getAll({ isBudget: isBudgetMode }) : productsApi.getAll({ isBudget: isBudgetMode })
+    queryFn: () => productsApi.getAll({ isBudget: isBudgetMode, includeAllForSupplier: isSupplier || undefined })
   });
   const { data: metadata } = useQuery({ queryKey: ['products-metadata'], queryFn: productsApi.getMetadata });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.getAll });

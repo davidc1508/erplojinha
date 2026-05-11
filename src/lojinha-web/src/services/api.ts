@@ -492,6 +492,10 @@ export const projectsApi = {
     const { data } = await api.post<Project>(`/projects/${id}/duplicate`);
     return data;
   },
+  start: async (id: string) => {
+    const { data } = await api.put<Project>(`/projects/${id}/start`);
+    return data;
+  },
   reopen: async (id: string) => {
     const { data } = await api.put<Project>(`/projects/${id}/reopen`);
     return data;

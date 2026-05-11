@@ -31,6 +31,7 @@ import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlin
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded';
 import ReportProblemRoundedIcon from '@mui/icons-material/ReportProblemRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
@@ -145,6 +146,17 @@ export function ProjectDetailPage() {
       setActionFeedback('Nao foi possivel duplicar o projeto.');
     }
   });
+  const startProjectMutation = useMutation({
+    mutationFn: () => projectsApi.start(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      setActionFeedback('Projeto iniciado com sucesso.');
+    },
+    onError: () => {
+      setActionFeedback('Nao foi possivel iniciar o projeto.');
+    }
+  });
   const reopenProjectMutation = useMutation({
     mutationFn: () => projectsApi.reopen(id!),
     onSuccess: () => {
@@ -251,6 +263,7 @@ export function ProjectDetailPage() {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
   const isProjectConcluded = normalizedProjectStatus === 'concluido';
+  const isProjectPlanned = normalizedProjectStatus === 'planejado';
 
   const sortedByCreatedSteps = [...project.steps].sort((left, right) => {
     const leftTime = new Date(left.createdAtUtc).getTime();
@@ -442,6 +455,16 @@ export function ProjectDetailPage() {
                 <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => { resetStepForm(); setSelectedStep(null); setOpenAddStepDialog(true); }}>
                   Nova mesa
                 </Button>
+                {!isProjectConcluded && isProjectPlanned ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<PlayArrowRoundedIcon />}
+                    onClick={() => startProjectMutation.mutate()}
+                    disabled={startProjectMutation.isLoading}
+                  >
+                    Iniciar projeto
+                  </Button>
+                ) : null}
                 {isProjectConcluded ? (
                   <Button
                     variant="outlined"
