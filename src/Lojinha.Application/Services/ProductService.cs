@@ -111,7 +111,7 @@ public sealed class ProductService(
             ResellerMarkup = request.DesiredMarkup
         };
 
-        await ApplyPricingAsync(product, recipe, request.SalePrice, cancellationToken);
+        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, cancellationToken);
 
         await productRepository.AddAsync(product, cancellationToken);
         await recipeRepository.AddAsync(recipe, cancellationToken);
@@ -232,7 +232,7 @@ public sealed class ProductService(
         recipe.AdditionalCosts = request.AdditionalCost;
         recipe.ResellerMarkup = request.DesiredMarkup;
 
-        await ApplyPricingAsync(product, recipe, request.SalePrice, cancellationToken);
+        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, cancellationToken);
 
         productRepository.Update(product);
         if (recipe.Id == Guid.Empty)
@@ -409,7 +409,7 @@ public sealed class ProductService(
             ResellerMarkup = request.DesiredMarkup
         };
 
-        return Map(await BuildPricingAsync(product, recipe, cancellationToken));
+        return Map(await BuildPricingAsync(product, recipe, request.Filaments, cancellationToken));
     }
 
     public async Task<ProductMetadataDto> GetMetadataAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
@@ -442,7 +442,7 @@ public sealed class ProductService(
                 ResellerMarkup = 2.7m
             };
 
-            var pricing = await BuildPricingAsync(product, recipe, cancellationToken);
+            var pricing = await BuildPricingAsync(product, recipe, null, cancellationToken);
             product.CostPrice = pricing.TotalCost;
             product.SuggestedPrice = pricing.SuggestedPrice;
             product.ProfitMargin = product.SalePrice <= 0m
@@ -458,9 +458,21 @@ public sealed class ProductService(
         return products.Count;
     }
 
-    private async Task ApplyPricingAsync(Product product, ProductRecipe recipe, decimal? manualSale, CancellationToken cancellationToken)
+    private async Task ApplyPricingAsync(Product product, ProductRecipe recipe, decimal? manualSale, IReadOnlyList<FilamentItemRequest>? requestFilaments, CancellationToken cancellationToken)
     {
-        var pricing = await BuildPricingAsync(product, recipe, cancellationToken);
+        // Pricing in ProductForm must be based on the same inputs shown in preview.
+        // Ignore recipe supply items here so material cost comes from selected filaments.
+        var pricingRecipe = new ProductRecipe
+        {
+            LaborHours = recipe.LaborHours,
+            LaborCostPerHour = recipe.LaborCostPerHour,
+            AdditionalCosts = recipe.AdditionalCosts,
+            WholesaleMarkup = recipe.WholesaleMarkup,
+            RetailMarkup = recipe.RetailMarkup,
+            ResellerMarkup = recipe.ResellerMarkup
+        };
+
+        var pricing = await BuildPricingAsync(product, pricingRecipe, requestFilaments, cancellationToken);
         product.CostPrice = pricing.TotalCost;
         product.SuggestedPrice = pricing.SuggestedPrice;
         var minimumSalePrice = decimal.Round(product.CostPrice * 2m, 2);
@@ -474,7 +486,7 @@ public sealed class ProductService(
         recipe.TotalCost = pricing.CompositionCost;
     }
 
-    private async Task<PricingSnapshot> BuildPricingAsync(Product product, ProductRecipe recipe, CancellationToken cancellationToken)
+    private async Task<PricingSnapshot> BuildPricingAsync(Product product, ProductRecipe recipe, IReadOnlyList<FilamentItemRequest>? requestFilaments, CancellationToken cancellationToken)
     {
         var printer = product.PrinterProfileId.HasValue
             ? await printerRepository.GetByIdAsync(product.PrinterProfileId.Value, cancellationToken)
@@ -483,12 +495,36 @@ public sealed class ProductService(
             ? await marketplaceRepository.GetByIdAsync(product.DefaultMarketplaceFeeId.Value, cancellationToken)
             : null;
 
-            var filaments = product.Filaments
-                .Where(f => f.FilamentProfile is not null)
-                .Select(f => (f.FilamentProfile!, f.WeightGrams))
-                .ToList();
+        var filaments = await ResolveFilamentsForPricingAsync(product, requestFilaments, cancellationToken);
+        return pricingService.Calculate(product, recipe, printer, filaments, marketplace);
+    }
 
-            return pricingService.Calculate(product, recipe, printer, filaments, marketplace);
+    private async Task<IReadOnlyList<(FilamentProfile filament, decimal weightGrams)>> ResolveFilamentsForPricingAsync(
+        Product product,
+        IReadOnlyList<FilamentItemRequest>? requestFilaments,
+        CancellationToken cancellationToken)
+    {
+        var requested = requestFilaments?
+            .Where(item => item.FilamentProfileId != Guid.Empty && item.WeightGrams > 0m)
+            .ToList();
+
+        if (requested is { Count: > 0 })
+        {
+            var profileIds = requested.Select(item => item.FilamentProfileId).Distinct().ToList();
+            var profilesById = filamentRepository.Query()
+                .Where(profile => profileIds.Contains(profile.Id))
+                .ToDictionary(profile => profile.Id);
+
+            return requested
+                .Where(item => profilesById.ContainsKey(item.FilamentProfileId))
+                .Select(item => (profilesById[item.FilamentProfileId], item.WeightGrams))
+                .ToList();
+        }
+
+        return product.Filaments
+            .Where(f => f.FilamentProfile is not null && f.WeightGrams > 0m)
+            .Select(f => (f.FilamentProfile!, f.WeightGrams))
+            .ToList();
     }
 
     private static void EnsurePrinterWhenFilaments(IReadOnlyList<FilamentItemRequest> filaments, Guid? printerProfileId)

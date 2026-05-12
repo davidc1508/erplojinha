@@ -5,14 +5,10 @@ namespace Lojinha.Api.Contracts.OperationalLists;
 public sealed record RestockItemRequest(
     Guid ProductId,
     decimal TargetQuantity,
-    OperationalItemPriority Priority,
-    RestockTaskStatus Status,
-    string? Notes,
-    DateTime? DueDateUtc);
+    string? Notes);
 
 public sealed record TodoItemRequest(
     string Name,
-    OperationalItemPriority Priority,
     string? Source);
 
 public sealed record RestockItemDto(

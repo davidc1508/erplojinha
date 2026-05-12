@@ -204,7 +204,7 @@ public sealed class SalesService(
                     : $"Gerado automaticamente da venda {sale.Id} na feira {fair.Name}";
 
                 await operationalListService.CreateTodoItemAsync(
-                    new TodoItemRequest(itemName, OperationalItemPriority.Medium, source),
+                    new TodoItemRequest(itemName, source),
                     actor,
                     sold.SupplierId,
                     cancellationToken);

@@ -9,6 +9,7 @@ namespace Lojinha.Api.Controllers;
 
 [ApiController]
 [Authorize(Roles = "Admin,Supplier")]
+[Route("api/operational-lists")]
 [Route("api/[controller]")]
 public sealed class OperationalListsController(IOperationalListService operationalListService) : ControllerBase
 {

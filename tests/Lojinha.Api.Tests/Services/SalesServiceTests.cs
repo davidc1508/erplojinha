@@ -150,7 +150,7 @@ public sealed class SalesServiceTests
             => Task.FromResult<IReadOnlyList<TodoItemDto>>([]);
 
         public Task<TodoItemDto> CreateTodoItemAsync(TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new TodoItemDto(Guid.NewGuid(), request.Name, scopedSupplierId, request.Priority, request.Source ?? string.Empty, DateTime.UtcNow, DateTime.UtcNow));
+            => Task.FromResult(new TodoItemDto(Guid.NewGuid(), request.Name, scopedSupplierId, OperationalItemPriority.Medium, request.Source ?? string.Empty, DateTime.UtcNow, DateTime.UtcNow));
 
         public Task<TodoItemDto?> UpdateTodoItemAsync(Guid id, TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
             => Task.FromResult<TodoItemDto?>(null);

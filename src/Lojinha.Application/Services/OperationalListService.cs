@@ -57,11 +57,11 @@ public sealed class OperationalListService(
             ProductId = request.ProductId,
             OwnerSupplierId = scopedSupplierId,
             TargetQuantity = request.TargetQuantity,
-            Priority = request.Priority,
-            Status = request.Status,
+            Priority = OperationalItemPriority.Medium,
+            Status = RestockTaskStatus.Open,
             Notes = request.Notes?.Trim() ?? string.Empty,
-            DueDateUtc = request.DueDateUtc,
-            CompletedAtUtc = request.Status == RestockTaskStatus.Completed ? DateTime.UtcNow : null
+            DueDateUtc = null,
+            CompletedAtUtc = null
         };
 
         await restockRepository.AddAsync(entity, cancellationToken);
@@ -111,11 +111,7 @@ public sealed class OperationalListService(
 
         entity.ProductId = request.ProductId;
         entity.TargetQuantity = request.TargetQuantity;
-        entity.Priority = request.Priority;
-        entity.Status = request.Status;
         entity.Notes = request.Notes?.Trim() ?? string.Empty;
-        entity.DueDateUtc = request.DueDateUtc;
-        entity.CompletedAtUtc = request.Status == RestockTaskStatus.Completed ? entity.CompletedAtUtc ?? DateTime.UtcNow : null;
 
         restockRepository.Update(entity);
         await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), entity.Id, AuditAction.Updated, actor, entity), cancellationToken);
@@ -176,7 +172,7 @@ public sealed class OperationalListService(
         {
             Name = request.Name.Trim(),
             OwnerSupplierId = scopedSupplierId,
-            Priority = request.Priority,
+            Priority = OperationalItemPriority.Medium,
             Source = request.Source?.Trim() ?? string.Empty
         };
 
@@ -199,7 +195,6 @@ public sealed class OperationalListService(
         }
 
         entity.Name = request.Name.Trim();
-        entity.Priority = request.Priority;
         entity.Source = request.Source?.Trim() ?? string.Empty;
 
         todoRepository.Update(entity);
