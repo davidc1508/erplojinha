@@ -77,7 +77,7 @@ export function ProductsPage() {
   const location = useLocation();
   const isBudgetMode = location.pathname.startsWith('/orcamentos');
   const queryClient = useQueryClient();
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [listState, setListState] = usePreservedListState(`products-page:${isBudgetMode ? 'budget' : 'product'}:${session?.role ?? 'guest'}:${session?.supplierId ?? 'store'}`, defaultListState);
   const { search, scopeFilter, categoryFilter, page, rowsPerPage, sortField, sortDirection } = listState;
@@ -89,23 +89,28 @@ export function ProductsPage() {
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.getAll });
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => productsApi.remove(id),
-    onSuccess: () => {
-      setFeedback('Produto excluido com sucesso.');
+    onSuccess: (_result, deletedId) => {
+      queryClient.setQueriesData(
+        { queryKey: ['products'] },
+        (current: Product[] | undefined) => (current ?? []).filter((product) => product.id !== deletedId)
+      );
+      setFeedback({ message: 'Produto excluido com sucesso.', severity: 'success' });
       setProductToDelete(null);
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
     onError: () => {
-      setFeedback('Nao foi possivel excluir o produto selecionado.');
+      setFeedback({ message: 'Nao foi possivel excluir o produto selecionado.', severity: 'error' });
+      setProductToDelete(null);
     }
   });
   const convertMutation = useMutation({
     mutationFn: async (id: string) => productsApi.convertToProduct(id),
     onSuccess: () => {
-      setFeedback('Orcamento transformado em produto com sucesso.');
+      setFeedback({ message: 'Orcamento transformado em produto com sucesso.', severity: 'success' });
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
     onError: () => {
-      setFeedback('Nao foi possivel transformar o orcamento em produto.');
+      setFeedback({ message: 'Nao foi possivel transformar o orcamento em produto.', severity: 'error' });
     }
   });
 
@@ -243,7 +248,7 @@ export function ProductsPage() {
           {filteredProducts.length} {isBudgetMode ? 'orçamento(s)' : 'produto(s)'} encontrado(s)
         </Typography>
 
-          {feedback ? <Alert severity="success" sx={{ mb: 2 }}>{feedback}</Alert> : null}
+          {feedback ? <Alert severity={feedback.severity} sx={{ mb: 2 }}>{feedback.message}</Alert> : null}
           {isLoading ? <TableSkeleton rows={8} columns={7} /> : isMobile ? (
             <Stack spacing={1.5}>
               {pagedProducts.map((product) => (

@@ -48,6 +48,9 @@ public sealed class ProductRequestValidator : AbstractValidator<ProductRequest>
         RuleFor(x => x.CommissionPercentage).InclusiveBetween(0, 1000);
         RuleFor(x => x.AdditionalCost).GreaterThanOrEqualTo(0);
         RuleFor(x => x.DesiredMarkup).GreaterThanOrEqualTo(2);
+        RuleFor(x => x)
+            .Must(x => !x.Filaments.Any(item => item.FilamentProfileId != Guid.Empty && item.WeightGrams > 0m) || x.PrinterProfileId.HasValue)
+            .WithMessage("Selecione uma impressora quando houver filamentos para manter o calculo de custo consistente.");
     }
 }
 

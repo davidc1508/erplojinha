@@ -264,6 +264,7 @@ export function ProjectDetailPage() {
     .toLowerCase();
   const isProjectConcluded = normalizedProjectStatus === 'concluido';
   const isProjectPlanned = normalizedProjectStatus === 'planejado';
+  const isProjectCanceled = normalizedProjectStatus === 'cancelado';
 
   const sortedByCreatedSteps = [...project.steps].sort((left, right) => {
     const leftTime = new Date(left.createdAtUtc).getTime();
@@ -455,14 +456,14 @@ export function ProjectDetailPage() {
                 <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => { resetStepForm(); setSelectedStep(null); setOpenAddStepDialog(true); }}>
                   Nova mesa
                 </Button>
-                {!isProjectConcluded && isProjectPlanned ? (
+                {!isProjectConcluded && !isProjectCanceled ? (
                   <Button
                     variant="outlined"
                     startIcon={<PlayArrowRoundedIcon />}
                     onClick={() => startProjectMutation.mutate()}
-                    disabled={startProjectMutation.isLoading}
+                    disabled={startProjectMutation.isLoading || !isProjectPlanned}
                   >
-                    Iniciar projeto
+                    {isProjectPlanned ? 'Iniciar projeto' : 'Projeto em andamento'}
                   </Button>
                 ) : null}
                 {isProjectConcluded ? (

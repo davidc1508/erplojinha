@@ -320,6 +320,7 @@ export function ProductFormPage() {
   const hasMarkupBelowMinimum = Number(form.desiredMarkup) < 2;
   const hasMissingCategory = form.categoryId === '';
   const hasManualPriceBelowMinimum = form.salePrice !== '' && Number(form.salePrice) < minimumAllowedSalePrice;
+  const hasMissingPrinterWithFilaments = form.filaments.filter(f => f.filamentProfileId).length > 0 && form.printerProfileId === '';
 
   function updateForm(field: keyof typeof emptyForm, value: string | number | boolean) {
     setDirty(true);
@@ -555,7 +556,7 @@ export function ProductFormPage() {
               </Stack>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum}>
+                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments} title={hasMissingPrinterWithFilaments ? 'Selecione uma impressora quando há filamentos' : undefined}>
                   {saveMutation.isLoading ? 'Salvando...' : isProjectDraftMode ? 'Concluir projeto e salvar produto' : isEditing ? 'Atualizar produto' : 'Cadastrar produto'}
                 </Button>
                 <Button variant="outlined" onClick={() => navigate(backTarget, { state: { preserveState: true } })}>
@@ -571,6 +572,20 @@ export function ProductFormPage() {
             <PageSection title="Preview de precificação" subtitle={dirty ? 'Calculado com os dados atuais do formulário.' : 'Calculado com os dados salvos. Edite o formulário para recalcular.'}>
               {pricing ? (
                 <Stack spacing={1.2}>
+                  {form.printerProfileId === '' && form.filaments.length > 0 ? (
+                    <Alert severity="warning">
+                      <strong>Aviso:</strong> Nenhuma impressora selecionada. Custo calculado apenas com material (filamento). Quando uma impressora for selecionada, serão inclusos custos de energia, manutenção e falhas.
+                    </Alert>
+                  ) : null}
+                  {isEditing && product && pricing.totalCost !== product.costPrice ? (
+                    <Alert severity="info">
+                      <strong>Divergência de custo:</strong> Persistido {formatCurrency(product.costPrice)} → Recalculado {formatCurrency(pricing.totalCost)}{form.printerProfileId === '' && product.printerProfileId ? ' (impressora foi adicionada após criação)' : ''}
+                      {!dirty ? ' • Clique em "Salvar" para atualizar.' : ''}
+                    </Alert>
+                  ) : null}
+                  {isEditing && product ? (
+                    <Typography fontWeight={600}>Custo persistido: {formatCurrency(product.costPrice)}</Typography>
+                  ) : null}
                   <Typography fontWeight={600}>Custo calculado: {formatCurrency(pricing.totalCost)}</Typography>
                   <Typography fontWeight={600}>Preço sugerido: {formatCurrency(pricing.suggestedPrice)}</Typography>
                   {Number(form.commissionPercentage) > 0 ? (

@@ -116,7 +116,10 @@ public sealed class AppCacheInvalidationService(IAppCache cache) : IAppCacheInva
 
     private static IEnumerable<string> BuildProductReadModelKeys(IEnumerable<Guid>? supplierIds)
     {
-        yield return AppCacheKeys.Products();
+        foreach (var key in ExpandProductListKeys(AppCacheKeys.Products()))
+        {
+            yield return key;
+        }
 
         foreach (var metadataKey in BuildMetadataKeys(supplierIds))
         {
@@ -130,8 +133,21 @@ public sealed class AppCacheInvalidationService(IAppCache cache) : IAppCacheInva
 
         foreach (var supplierId in supplierIds?.Distinct() ?? [])
         {
-            yield return AppCacheKeys.Products(supplierId);
+            foreach (var key in ExpandProductListKeys(AppCacheKeys.Products(supplierId)))
+            {
+                yield return key;
+            }
         }
+    }
+
+    private static IEnumerable<string> ExpandProductListKeys(string baseKey)
+    {
+        // Product list cache keys are persisted with budget suffix in ProductService.
+        // Invalidate all known variants to avoid stale results after create/update/delete.
+        yield return baseKey;
+        yield return $"{baseKey}:budget:all";
+        yield return $"{baseKey}:budget:0";
+        yield return $"{baseKey}:budget:1";
     }
 
     private static IEnumerable<string> BuildFairKeys(Guid? fairId, IEnumerable<Guid>? supplierIds)

@@ -70,6 +70,8 @@ public sealed class ProductService(
 
     public async Task<ProductDto> CreateAsync(ProductRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
+        EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
+
         var supplierId = scopedSupplierId ?? request.SupplierId;
         var category = await categoryRepository.GetByIdAsync(request.CategoryId, cancellationToken)
             ?? throw new InvalidOperationException("Categoria não encontrada para gerar o SKU do produto.");
@@ -109,7 +111,7 @@ public sealed class ProductService(
             ResellerMarkup = request.DesiredMarkup
         };
 
-        await ApplyPricingAsync(product, recipe, request.CostPrice, request.SalePrice, cancellationToken);
+        await ApplyPricingAsync(product, recipe, request.SalePrice, cancellationToken);
 
         await productRepository.AddAsync(product, cancellationToken);
         await recipeRepository.AddAsync(recipe, cancellationToken);
@@ -170,6 +172,8 @@ public sealed class ProductService(
 
     public async Task<ProductDto?> UpdateAsync(Guid id, ProductRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
+        EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
+
         var product = await productRepository.GetDetailedByIdAsync(id, cancellationToken);
         if (product is null || !IsProductVisible(product, scopedSupplierId))
         {
@@ -228,7 +232,7 @@ public sealed class ProductService(
         recipe.AdditionalCosts = request.AdditionalCost;
         recipe.ResellerMarkup = request.DesiredMarkup;
 
-        await ApplyPricingAsync(product, recipe, request.CostPrice, request.SalePrice, cancellationToken);
+        await ApplyPricingAsync(product, recipe, request.SalePrice, cancellationToken);
 
         productRepository.Update(product);
         if (recipe.Id == Guid.Empty)
@@ -356,6 +360,8 @@ public sealed class ProductService(
 
     public async Task<PriceSuggestionDto> PreviewPriceSuggestionAsync(ProductRequest request, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
+        EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
+
         var product = new Product
         {
             Name = NormalizeProductName(request.Name),
@@ -452,10 +458,10 @@ public sealed class ProductService(
         return products.Count;
     }
 
-    private async Task ApplyPricingAsync(Product product, ProductRecipe recipe, decimal? manualCost, decimal? manualSale, CancellationToken cancellationToken)
+    private async Task ApplyPricingAsync(Product product, ProductRecipe recipe, decimal? manualSale, CancellationToken cancellationToken)
     {
         var pricing = await BuildPricingAsync(product, recipe, cancellationToken);
-        product.CostPrice = manualCost ?? pricing.TotalCost;
+        product.CostPrice = pricing.TotalCost;
         product.SuggestedPrice = pricing.SuggestedPrice;
         var minimumSalePrice = decimal.Round(product.CostPrice * 2m, 2);
         product.SalePrice = manualSale ?? pricing.SuggestedPrice;
@@ -483,6 +489,15 @@ public sealed class ProductService(
                 .ToList();
 
             return pricingService.Calculate(product, recipe, printer, filaments, marketplace);
+    }
+
+    private static void EnsurePrinterWhenFilaments(IReadOnlyList<FilamentItemRequest> filaments, Guid? printerProfileId)
+    {
+        var hasFilaments = filaments.Any(item => item.FilamentProfileId != Guid.Empty && item.WeightGrams > 0m);
+        if (hasFilaments && !printerProfileId.HasValue)
+        {
+            throw new InvalidOperationException("Selecione uma impressora quando houver filamentos para manter o calculo de custo consistente.");
+        }
     }
 
     private static ProductDto Map(Product product)

@@ -53,7 +53,8 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             .OrderByDescending(p => p.CreatedAtUtc)
             .ToList();
 
-        await HydrateProjectsAsync(projects, cancellationToken);
+        // Listagem de projetos nao precisa hidratar etapas/tentativas completas.
+        // Isso reduz bastante o payload e o tempo de resposta em bases grandes.
         return projects.Select(Map).ToList();
     }
 
@@ -881,6 +882,21 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             project.ProgressPercentage = 0;
         }
 
+        // Garantia adicional: ao ter qualquer atividade/conclusao de mesa, o projeto
+        // deve sair de Planejado para EmAndamento mesmo que um fluxo anterior falhe.
+        if (project.Status == ProjectStatus.Planejado)
+        {
+            var hasWorkStarted = completedSteps.Count > 0
+                || steps.Any(s => s.Status == ProjectStepStatus.EmAndamento)
+                || attempts.Any(a => a.Status == ProjectStepAttemptStatus.EmAndamento || a.Status == ProjectStepAttemptStatus.Concluida || a.Status == ProjectStepAttemptStatus.Falhada);
+
+            if (hasWorkStarted)
+            {
+                project.Status = ProjectStatus.EmAndamento;
+                project.StartedAtUtc ??= DateTime.UtcNow;
+            }
+        }
+
         projectRepository.Update(project);
         await projectRepository.SaveChangesAsync();
     }
@@ -1090,8 +1106,15 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
     private static ProjectDto Map(Project p)
     {
         var steps = p.Steps.ToList();
-        var estimatedMaterial = steps.Sum(ComputeStepMaterialCost);
-        var estimatedTotal = steps.Sum(ComputeStepTotalCost);
+
+        // Quando a entidade nao esta hidratada (ex.: listagem), nao recalcula
+        // custos detalhados para evitar consultas pesadas no endpoint de lista.
+        var estimatedMaterial = steps.Count == 0
+            ? 0
+            : steps.Sum(ComputeStepMaterialCost);
+        var estimatedTotal = steps.Count == 0
+            ? 0
+            : steps.Sum(ComputeStepTotalCost);
         return new ProjectDto(
             p.Id,
             p.Name,
