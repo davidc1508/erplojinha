@@ -281,7 +281,7 @@ export function SalesEntryFormPage() {
               <TextField label="Observações" multiline minRows={3} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
               <FormControlLabel
                 control={<Checkbox checked={form.createTodoForProducedItems} onChange={(event) => setForm({ ...form, createTodoForProducedItems: event.target.checked })} />}
-                label="Gerar automaticamente item(s) em Itens a fazer para reposição do que foi vendido"
+                label="Gerar automaticamente item(s) em Reposição de produtos do que foi vendido"
               />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => mutation.mutate()} disabled={mutation.isLoading || form.items.some((item) => !item.productId || (item.isCommissionedSale && (!item.commissionSellerSupplierId || item.commissionAmount === '')))}>

@@ -864,7 +864,7 @@ export function FairDetailsPage() {
           <TextField label="Observações" multiline minRows={3} value={saleForm.notes} onChange={(event) => setSaleForm({ ...saleForm, notes: event.target.value })} disabled={!canRegisterSale} />
           <FormControlLabel
             control={<Checkbox checked={saleForm.createTodoForProducedItems} onChange={(event) => setSaleForm({ ...saleForm, createTodoForProducedItems: event.target.checked })} disabled={!canRegisterSale} />}
-            label="Gerar automaticamente item(s) em Itens a fazer para reposição"
+            label="Gerar automaticamente item(s) em Reposição de produtos"
           />
           </Stack>
         </DialogContent>

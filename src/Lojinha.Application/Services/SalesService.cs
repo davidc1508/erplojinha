@@ -31,6 +31,14 @@ public sealed class SalesService(
     public async Task<IReadOnlyList<SaleDto>> GetRecentAsync(string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
         var sales = (await saleRepository.GetRecentAsync(cancellationToken)).ToList();
+        var cardFeeSettings = await GetCardFeeSettingsAsync(cancellationToken);
+
+        foreach (var sale in sales)
+        {
+            // Keep legacy sales consistent with current commission and card-fee rules.
+            CardFeeSettingsService.RecalculateSaleAmounts(sale, cardFeeSettings);
+        }
+
         var authoredSaleIds = GetAuthoredSaleIds(actor, sales.Select(sale => sale.Id));
 
         if (scopedSupplierId.HasValue)
@@ -50,6 +58,9 @@ public sealed class SalesService(
         {
             return null;
         }
+
+        var cardFeeSettings = await GetCardFeeSettingsAsync(cancellationToken);
+        CardFeeSettingsService.RecalculateSaleAmounts(sale, cardFeeSettings);
 
         if (scopedSupplierId.HasValue && sale.Items.All(item => item.SupplierId != scopedSupplierId.Value))
         {
