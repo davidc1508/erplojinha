@@ -96,6 +96,7 @@ export interface Product {
   tariffPerKwh: number;
   finishingPercentage: number;
   commissionPercentage: number;
+  commissionedSalePrice: number;
   additionalCost: number;
   printerProfileId?: string;
   filaments: ProductFilamentItem[];
@@ -167,6 +168,10 @@ export interface SaleLine {
   supplierName?: string;
   lojinhaGainPercentage: number;
   lojinhaGainAmount: number;
+  isCommissionedSale: boolean;
+  commissionSellerSupplierId?: string;
+  commissionSellerSupplierName?: string;
+  commissionAmount: number;
 }
 
 export interface Sale {

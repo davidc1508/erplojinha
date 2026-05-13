@@ -20,6 +20,7 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { PersonalizadosPage } from './pages/PersonalizadosPage';
 import { SalesEntryFormPage } from './pages/SalesEntryFormPage';
+import { SaleDetailsPage } from './pages/SaleDetailsPage';
 import { SalesPage } from './pages/SalesPage';
 import { SupplyFormPage } from './pages/SupplyFormPage';
 import { SuppliesPage } from './pages/SuppliesPage';
@@ -51,6 +52,7 @@ function ProtectedApp() {
         <Route path="/estoque" element={<InventoryPage />} />
         <Route path="/vendas" element={<SalesPage />} />
         <Route path="/vendas/nova" element={<SalesEntryFormPage />} />
+        <Route path="/vendas/:id" element={<SaleDetailsPage />} />
         <Route path="/feiras" element={<FairsPage />} />
         <Route path="/feiras/:id" element={<FairDetailsPage />} />
         {!isSupplier ? <Route path="/feiras/nova" element={<FairFormPage />} /> : null}

@@ -2,11 +2,32 @@ using Lojinha.Api.Entities;
 
 namespace Lojinha.Api.Contracts.Sales;
 
-public sealed record SaleItemRequest(Guid ProductId, Guid? SupplierId, decimal Quantity, decimal? UnitPrice, decimal? LojinhaGainPercentage);
+public sealed record SaleItemRequest(
+    Guid ProductId,
+    Guid? SupplierId,
+    decimal Quantity,
+    decimal? UnitPrice,
+    decimal? LojinhaGainPercentage,
+    bool IsCommissionedSale = false,
+    Guid? CommissionSellerSupplierId = null,
+    decimal? CommissionAmount = null);
 
 public sealed record CreateSaleRequest(PaymentMethod PaymentMethod, DateTime? SoldAtUtc, string? Notes, IReadOnlyList<SaleItemRequest> Items, bool CreateTodoForProducedItems = false);
 
-public sealed record SaleLineDto(string ProductName, decimal Quantity, decimal UnitPrice, decimal CostPrice, decimal TotalPrice, Guid? SupplierId, string? SupplierName, decimal LojinhaGainPercentage, decimal LojinhaGainAmount);
+public sealed record SaleLineDto(
+    string ProductName,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal CostPrice,
+    decimal TotalPrice,
+    Guid? SupplierId,
+    string? SupplierName,
+    decimal LojinhaGainPercentage,
+    decimal LojinhaGainAmount,
+    bool IsCommissionedSale,
+    Guid? CommissionSellerSupplierId,
+    string? CommissionSellerSupplierName,
+    decimal CommissionAmount);
 
 public sealed record SaleDto(
     Guid Id,

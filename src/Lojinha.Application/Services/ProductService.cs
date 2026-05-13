@@ -448,6 +448,7 @@ public sealed class ProductService(
             product.ProfitMargin = product.SalePrice <= 0m
                 ? 0m
                 : decimal.Round((product.SalePrice - product.CostPrice) / product.SalePrice, 4);
+            product.CommissionedSalePrice = CalculateCommissionedSalePrice(product.SalePrice, product.CommissionPercentage);
             productRepository.Update(product);
         }
 
@@ -481,6 +482,8 @@ public sealed class ProductService(
         {
             throw new InvalidOperationException("O preco final nao pode ser menor do que o dobro do custo do produto.");
         }
+
+        product.CommissionedSalePrice = CalculateCommissionedSalePrice(product.SalePrice, product.CommissionPercentage);
 
         product.ProfitMargin = product.SalePrice <= 0m ? 0m : decimal.Round((product.SalePrice - product.CostPrice) / product.SalePrice, 4);
         recipe.TotalCost = pricing.CompositionCost;
@@ -562,6 +565,7 @@ public sealed class ProductService(
             product.TariffPerKwh,
             DenormalizeFinishingPercentage(product.FinishingPercentage),
             DenormalizeCommissionPercentage(product.CommissionPercentage),
+            product.CommissionedSalePrice,
             product.Recipe?.AdditionalCosts ?? 0m,
             product.PrinterProfileId,
             product.Filaments
@@ -692,10 +696,31 @@ public sealed class ProductService(
         => decimal.Round(value * 100m, 2, MidpointRounding.AwayFromZero);
 
     private static decimal NormalizeCommissionPercentage(decimal value)
-        => decimal.Round(Math.Max(0m, value), 2, MidpointRounding.AwayFromZero);
+        => decimal.Round(Math.Clamp(value, 0m, 99.99m), 2, MidpointRounding.AwayFromZero);
 
     private static decimal DenormalizeCommissionPercentage(decimal value)
-        => decimal.Round(Math.Max(0m, value), 2, MidpointRounding.AwayFromZero);
+        => decimal.Round(Math.Clamp(value, 0m, 99.99m), 2, MidpointRounding.AwayFromZero);
+
+    private static decimal CalculateCommissionedSalePrice(decimal finalPrice, decimal commissionPercentage)
+    {
+        if (finalPrice <= 0m)
+        {
+            return 0m;
+        }
+
+        var rate = commissionPercentage <= 0m ? 0m : commissionPercentage / 100m;
+        if (rate <= 0m)
+        {
+            return decimal.Round(finalPrice, 2, MidpointRounding.AwayFromZero);
+        }
+
+        if (rate >= 1m)
+        {
+            return 0m;
+        }
+
+        return decimal.Round(finalPrice / (1m - rate), 2, MidpointRounding.AwayFromZero);
+    }
 
     private static bool IsProductVisible(Product product, Guid? scopedSupplierId)
         => !scopedSupplierId.HasValue || product.SupplierId == scopedSupplierId.Value;

@@ -56,6 +56,7 @@ public sealed record ProductDto(
     decimal TariffPerKwh,
     decimal FinishingPercentage,
     decimal CommissionPercentage,
+    decimal CommissionedSalePrice,
     decimal AdditionalCost,
     Guid? PrinterProfileId,
     IReadOnlyList<ProductFilamentDto> Filaments,

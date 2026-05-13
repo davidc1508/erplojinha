@@ -182,6 +182,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasForeignKey(x => x.SupplierId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<SaleItem>()
+            .HasOne(x => x.CommissionSellerSupplier)
+            .WithMany()
+            .HasForeignKey(x => x.CommissionSellerSupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<Sale>()
             .HasOne(x => x.Fair)
             .WithMany(x => x.Sales)

@@ -20,8 +20,26 @@ export function SalesEntryFormPage() {
   const queryClient = useQueryClient();
   const { data: products = [] } = useQuery({ queryKey: ['products-sales-catalog'], queryFn: productsApi.getSalesCatalog });
   const { data: suppliers = [] } = useQuery({ queryKey: ['suppliers'], queryFn: suppliersApi.getAll, enabled: !isSupplier });
+  const sellerOptions = isSupplier
+    ? (session?.supplierId ? [{ id: session.supplierId, name: session.fullName ?? 'Meu fornecedor' }] : [])
+    : suppliers;
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [form, setForm] = useState({ paymentMethod: 'Pix', soldAtUtc: getTodayDateInputValue(), notes: '', createTodoForProducedItems: false, items: [{ productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] });
+  const [form, setForm] = useState({
+    paymentMethod: 'Pix',
+    soldAtUtc: getTodayDateInputValue(),
+    notes: '',
+    createTodoForProducedItems: false,
+    items: [{
+      productId: '',
+      supplierId: '',
+      quantity: 1,
+      unitPrice: '',
+      lojinhaGainPercentage: '',
+      isCommissionedSale: false,
+      commissionSellerSupplierId: isSupplier ? (session?.supplierId ?? '') : '',
+      commissionAmount: ''
+    }]
+  });
 
   const mutation = useMutation({
     mutationFn: async () => salesApi.create({
@@ -34,7 +52,14 @@ export function SalesEntryFormPage() {
         supplierId: item.supplierId === '' ? null : item.supplierId,
         quantity: Number(item.quantity),
         unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
-        lojinhaGainPercentage: item.lojinhaGainPercentage === '' ? null : Number(item.lojinhaGainPercentage)
+          lojinhaGainPercentage: item.lojinhaGainPercentage === '' ? null : Number(item.lojinhaGainPercentage),
+          isCommissionedSale: item.isCommissionedSale,
+          commissionSellerSupplierId: item.isCommissionedSale
+            ? (item.commissionSellerSupplierId === '' ? null : item.commissionSellerSupplierId)
+            : null,
+          commissionAmount: item.isCommissionedSale
+            ? (item.commissionAmount === '' ? null : Number(item.commissionAmount))
+            : null
       }))
     }),
     onSuccess: async () => {
@@ -108,8 +133,11 @@ export function SalesEntryFormPage() {
                           ...item,
                           productId,
                           supplierId: defaultSupplierId,
-                          unitPrice: selectedProduct ? String(selectedProduct.salePrice) : '',
-                          lojinhaGainPercentage: defaultSupplierId !== '' ? item.lojinhaGainPercentage : ''
+                          unitPrice: selectedProduct ? String(item.isCommissionedSale ? selectedProduct.commissionedSalePrice : selectedProduct.salePrice) : '',
+                          lojinhaGainPercentage: defaultSupplierId !== '' ? item.lojinhaGainPercentage : '',
+                          commissionAmount: selectedProduct && item.isCommissionedSale
+                            ? String(Math.max(0, selectedProduct.commissionedSalePrice - selectedProduct.salePrice))
+                            : ''
                         };
                         setForm({ ...form, items });
                       }}
@@ -132,11 +160,35 @@ export function SalesEntryFormPage() {
                     items[index] = { ...item, unitPrice: String(value) };
                     setForm({ ...form, items });
                   }} fullWidth /></Grid>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={<Checkbox checked={item.isCommissionedSale} onChange={(event) => {
+                        const selectedProduct = products.find((product) => product.id === item.productId);
+                        const nextIsCommissionedSale = event.target.checked;
+                        const items = [...form.items];
+                        items[index] = {
+                          ...item,
+                          isCommissionedSale: nextIsCommissionedSale,
+                          unitPrice: selectedProduct
+                            ? String(nextIsCommissionedSale ? selectedProduct.commissionedSalePrice : selectedProduct.salePrice)
+                            : item.unitPrice,
+                          commissionSellerSupplierId: nextIsCommissionedSale
+                            ? (item.commissionSellerSupplierId || (isSupplier ? (session?.supplierId ?? '') : ''))
+                            : '',
+                          commissionAmount: nextIsCommissionedSale && selectedProduct
+                            ? String(Math.max(0, selectedProduct.commissionedSalePrice - selectedProduct.salePrice))
+                            : ''
+                        };
+                        setForm({ ...form, items });
+                      }} />}
+                      label="Venda comissionada"
+                    />
+                  </Grid>
                   {!isSupplier ? (
                     <Grid item xs={12} md={6}>
                       <TextField
                         select
-                        label="Venda de fornecedor"
+                        label="Produto de fornecedor"
                         value={item.supplierId}
                         onChange={(event) => {
                           const supplierId = event.target.value;
@@ -158,6 +210,43 @@ export function SalesEntryFormPage() {
                       </TextField>
                     </Grid>
                   ) : null}
+                  {item.isCommissionedSale ? (
+                    <>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          select
+                          label="Fornecedor vendedor"
+                          value={item.commissionSellerSupplierId}
+                          onChange={(event) => {
+                            const items = [...form.items];
+                            items[index] = { ...item, commissionSellerSupplierId: event.target.value };
+                            setForm({ ...form, items });
+                          }}
+                          helperText="Fornecedor que realizou a venda comissionada."
+                          fullWidth
+                          disabled={isSupplier}
+                        >
+                          {!isSupplier ? <MenuItem value="">Selecione</MenuItem> : null}
+                          {sellerOptions.map((supplier) => (
+                            <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <CurrencyField
+                          label="Valor da comissão"
+                          value={item.commissionAmount === '' ? 0 : Number(item.commissionAmount)}
+                          onValueChange={(value) => {
+                            const items = [...form.items];
+                            items[index] = { ...item, commissionAmount: String(value) };
+                            setForm({ ...form, items });
+                          }}
+                          helperText="Campo livre. Esse valor será descontado no lançamento do vendedor."
+                          fullWidth
+                        />
+                      </Grid>
+                    </>
+                  ) : null}
                   {item.supplierId ? (
                     <Grid item xs={12} md={6}>
                       <TextField
@@ -176,14 +265,26 @@ export function SalesEntryFormPage() {
                   ) : null}
                 </Grid>
               ))}
-              <Button variant="outlined" onClick={() => setForm({ ...form, items: [...form.items, { productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] })}>Adicionar item</Button>
+              <Button variant="outlined" onClick={() => setForm({
+                ...form,
+                items: [...form.items, {
+                  productId: '',
+                  supplierId: '',
+                  quantity: 1,
+                  unitPrice: '',
+                  lojinhaGainPercentage: '',
+                  isCommissionedSale: false,
+                  commissionSellerSupplierId: isSupplier ? (session?.supplierId ?? '') : '',
+                  commissionAmount: ''
+                }]
+              })}>Adicionar item</Button>
               <TextField label="Observações" multiline minRows={3} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
               <FormControlLabel
                 control={<Checkbox checked={form.createTodoForProducedItems} onChange={(event) => setForm({ ...form, createTodoForProducedItems: event.target.checked })} />}
                 label="Gerar automaticamente item(s) em Itens a fazer para reposição do que foi vendido"
               />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => mutation.mutate()} disabled={mutation.isLoading || form.items.some((item) => !item.productId)}>
+                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => mutation.mutate()} disabled={mutation.isLoading || form.items.some((item) => !item.productId || (item.isCommissionedSale && (!item.commissionSellerSupplierId || item.commissionAmount === '')))}>
                   Registrar venda
                 </Button>
                 <Button variant="outlined" onClick={() => navigate('/vendas', { state: { preserveState: true } })}>Cancelar</Button>

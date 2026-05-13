@@ -71,9 +71,9 @@ public sealed class PricingService : IPricingService
         var resellerPrice = RoundPrice(totalCost * desiredMarkup);
         var commissionRate = product.CommissionPercentage <= 0m ? 0m : product.CommissionPercentage / 100m;
         var finalPriceWithoutCommission = product.SalePrice > 0m ? product.SalePrice : resellerPrice;
-        var commissionAmount = RoundPrice(finalPriceWithoutCommission * commissionRate);
-        var suggestedPriceWithCommission = RoundPrice(resellerPrice + (resellerPrice * commissionRate));
-        var finalPriceWithCommission = RoundPrice(finalPriceWithoutCommission + commissionAmount);
+        var suggestedPriceWithCommission = CalculateGrossFromNet(resellerPrice, commissionRate);
+        var finalPriceWithCommission = CalculateGrossFromNet(finalPriceWithoutCommission, commissionRate);
+        var commissionAmount = RoundPrice(Math.Max(0m, finalPriceWithCommission - finalPriceWithoutCommission));
         var marketplaceCommission = resellerPrice * (marketplace?.PercentageFee ?? 0m);
         var marketplaceAdjustedPrice = resellerPrice + marketplaceCommission + (marketplace?.FixedFee ?? 0m);
         var estimatedMargin = marketplaceAdjustedPrice <= 0m
@@ -107,6 +107,21 @@ public sealed class PricingService : IPricingService
     private static decimal RoundPrice(decimal value)
     {
         return value <= 0m ? 0m : decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+    }
+
+    private static decimal CalculateGrossFromNet(decimal netValue, decimal commissionRate)
+    {
+        if (netValue <= 0m || commissionRate <= 0m)
+        {
+            return RoundPrice(netValue);
+        }
+
+        if (commissionRate >= 1m)
+        {
+            return 0m;
+        }
+
+        return RoundPrice(netValue / (1m - commissionRate));
     }
 
     private static decimal GetWearLevel(string? usageLevel)

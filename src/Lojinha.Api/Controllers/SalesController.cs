@@ -18,6 +18,13 @@ public sealed class SalesController(ISalesService salesService) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<SaleDto>>> GetRecent(CancellationToken cancellationToken)
         => Ok(await salesService.GetRecentAsync(User.GetEmail(), ScopedSupplierId, cancellationToken));
 
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<SaleDto>> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        var sale = await salesService.GetByIdAsync(id, User.GetEmail(), ScopedSupplierId, cancellationToken);
+        return sale is null ? NotFound() : Ok(sale);
+    }
+
     [HttpPost]
     public async Task<ActionResult<SaleDto>> Create([FromBody] CreateSaleRequest request, CancellationToken cancellationToken)
     {

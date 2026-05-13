@@ -265,6 +265,7 @@ export function ProductsPage() {
                     </Stack>
                     <Typography color="text.secondary">Custo / sugerido: {formatCurrency(product.costPrice)} / {formatCurrency(product.suggestedPrice)}</Typography>
                     <Typography color="text.secondary">Final: {formatCurrency(product.salePrice)}</Typography>
+                    <Typography color="text.secondary">Comissionado: {formatCurrency(product.commissionedSalePrice)}</Typography>
                     <Typography color="text.secondary">Lucro estimado: {formatCurrency(getEstimatedProfit(product))}</Typography>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                       {canManageProduct(product) ? (
@@ -304,6 +305,7 @@ export function ProductsPage() {
                     <TableCell sx={{ width: '17%', whiteSpace: 'nowrap' }}>{renderSortLabel('supplier', 'Fornecedor')}</TableCell>
                     <TableCell sx={{ width: '16%', whiteSpace: 'nowrap' }}>Custo / sugerido</TableCell>
                     <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>{renderSortLabel('salePrice', 'Preço final')}</TableCell>
+                    <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>Preço comiss.</TableCell>
                     <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>{renderSortLabel('profit', 'Lucro estimado')}</TableCell>
                     <TableCell align="right" sx={{ width: '9%', whiteSpace: 'nowrap' }}>Ações</TableCell>
                   </TableRow>
@@ -326,6 +328,7 @@ export function ProductsPage() {
                         </Stack>
                       </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(product.salePrice)}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(product.commissionedSalePrice)}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(getEstimatedProfit(product))}</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap', pl: 0.5, pr: 0.5 }}>
                         {canManageProduct(product) ? (

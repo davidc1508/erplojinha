@@ -11,6 +11,7 @@ namespace Lojinha.Api.Services;
 public interface ISalesService
 {
     Task<IReadOnlyList<SaleDto>> GetRecentAsync(string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
+    Task<SaleDto?> GetByIdAsync(Guid id, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
     Task<SaleDto> CreateAsync(CreateSaleRequest request, string actor, Guid? scopedSupplierId = null, Guid? fairId = null, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(Guid id, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
 }
@@ -42,6 +43,23 @@ public sealed class SalesService(
         return sales.Select(sale => Map(sale, !scopedSupplierId.HasValue || authoredSaleIds.Contains(sale.Id))).ToList();
     }
 
+    public async Task<SaleDto?> GetByIdAsync(Guid id, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
+    {
+        var sale = await saleRepository.GetDetailedByIdAsync(id, cancellationToken);
+        if (sale is null)
+        {
+            return null;
+        }
+
+        if (scopedSupplierId.HasValue && sale.Items.All(item => item.SupplierId != scopedSupplierId.Value))
+        {
+            return null;
+        }
+
+        var canDelete = !scopedSupplierId.HasValue || CanDeleteSale(id, actor);
+        return Map(sale, canDelete);
+    }
+
     public async Task<SaleDto> CreateAsync(CreateSaleRequest request, string actor, Guid? scopedSupplierId = null, Guid? fairId = null, CancellationToken cancellationToken = default)
     {
         var soldAtUtc = NormalizeUtc(request.SoldAtUtc ?? DateTime.UtcNow);
@@ -54,7 +72,12 @@ public sealed class SalesService(
         }
 
         var productIds = request.Items.Select(x => x.ProductId).Distinct().ToHashSet();
-        var supplierIds = request.Items.Where(x => x.SupplierId.HasValue).Select(x => x.SupplierId!.Value).Distinct().ToHashSet();
+        var supplierIds = request.Items
+            .SelectMany(x => new[] { x.SupplierId, x.CommissionSellerSupplierId })
+            .Where(x => x.HasValue)
+            .Select(x => x!.Value)
+            .Distinct()
+            .ToHashSet();
         var products = (await productRepository.GetAllDetailedAsync(cancellationToken))
             .Where(product => productIds.Contains(product.Id))
             .ToDictionary(product => product.Id);
@@ -74,9 +97,24 @@ public sealed class SalesService(
                 throw new InvalidOperationException("Fornecedor não encontrado para a venda.");
             }
 
+            if (item.CommissionSellerSupplierId.HasValue && !suppliers.ContainsKey(item.CommissionSellerSupplierId.Value))
+            {
+                throw new InvalidOperationException("Fornecedor vendedor não encontrado para a venda comissionada.");
+            }
+
             if (fair is not null && item.SupplierId.HasValue && fair.Suppliers.All(link => link.SupplierId != item.SupplierId.Value))
             {
                 throw new InvalidOperationException("O fornecedor informado não está vinculado a esta feira.");
+            }
+
+            if (fair is not null && item.CommissionSellerSupplierId.HasValue && fair.Suppliers.All(link => link.SupplierId != item.CommissionSellerSupplierId.Value))
+            {
+                throw new InvalidOperationException("O fornecedor vendedor informado não está vinculado a esta feira.");
+            }
+
+            if (item.IsCommissionedSale && !item.CommissionSellerSupplierId.HasValue)
+            {
+                throw new InvalidOperationException("Selecione o fornecedor vendedor para a venda comissionada.");
             }
         }
 
@@ -106,6 +144,14 @@ public sealed class SalesService(
             var lojinhaGainAmount = selectedSupplierId.HasValue
                 ? decimal.Round(baseProfit * (lojinhaGainPercentage / 100m), 2)
                 : baseProfit;
+            var commissionSellerSupplier = item.CommissionSellerSupplierId.HasValue && suppliers.TryGetValue(item.CommissionSellerSupplierId.Value, out var commissionSeller)
+                ? commissionSeller
+                : null;
+            var defaultCommissionAmountPerUnit = Math.Max(0m, unitPrice - product.SalePrice);
+            var commissionAmountPerUnit = item.IsCommissionedSale
+                ? decimal.Round(Math.Max(0m, item.CommissionAmount ?? defaultCommissionAmountPerUnit), 2, MidpointRounding.AwayFromZero)
+                : 0m;
+            var commissionAmount = decimal.Round(commissionAmountPerUnit * item.Quantity, 2, MidpointRounding.AwayFromZero);
 
             sale.Items.Add(new SaleItem
             {
@@ -118,7 +164,11 @@ public sealed class SalesService(
                 CostPrice = product.CostPrice,
                 TotalPrice = totalPrice,
                 LojinhaGainPercentage = lojinhaGainPercentage,
-                LojinhaGainAmount = lojinhaGainAmount
+                LojinhaGainAmount = lojinhaGainAmount,
+                IsCommissionedSale = item.IsCommissionedSale,
+                CommissionSellerSupplierId = item.CommissionSellerSupplierId,
+                CommissionSellerSupplier = commissionSellerSupplier,
+                CommissionAmount = commissionAmount
             });
 
             product.DecreaseStock(item.Quantity);
@@ -173,6 +223,34 @@ public sealed class SalesService(
             }, cancellationToken);
         }
 
+        var commissionedPayoutsBySeller = sale.Items
+            .Where(item => item.IsCommissionedSale && item.CommissionSellerSupplierId.HasValue)
+            .GroupBy(item => item.CommissionSellerSupplierId!.Value)
+            .Select(group => new
+            {
+                SupplierId = group.Key,
+                Amount = decimal.Round(group.Sum(item => item.TotalPrice - item.CommissionAmount), 2, MidpointRounding.AwayFromZero)
+            })
+            .Where(item => item.Amount > 0m)
+            .ToList();
+
+        foreach (var payout in commissionedPayoutsBySeller)
+        {
+            await financeRepository.AddAsync(new FinancialEntry
+            {
+                Type = FinancialEntryType.Income,
+                Classification = FinancialClassification.Variable,
+                Category = fair is null ? "Venda comissionada" : "Venda comissionada em feira",
+                Description = fair is null
+                    ? $"Repasse liquido da venda {sale.Id}"
+                    : $"Repasse liquido da venda {sale.Id} na feira {fair.Name}",
+                Amount = payout.Amount,
+                OccurredOnUtc = sale.SoldAtUtc,
+                SupplierId = payout.SupplierId,
+                ReferenceId = sale.Id
+            }, cancellationToken);
+        }
+
         await auditRepository.AddAsync(new AuditLog
         {
             EntityName = nameof(Sale),
@@ -188,7 +266,7 @@ public sealed class SalesService(
                 .GroupBy(item => new { item.ProductId, item.SupplierId })
                 .Select(group => new
                 {
-                    ProductName = group.First().Product?.Name ?? string.Empty,
+                    ProductId = group.Key.ProductId,
                     SupplierId = group.Key.SupplierId,
                     Quantity = group.Sum(item => item.Quantity)
                 })
@@ -196,15 +274,12 @@ public sealed class SalesService(
 
             foreach (var sold in soldProducts)
             {
-                var itemName = sold.Quantity > 1
-                    ? $"{sold.ProductName} (repor {decimal.Round(sold.Quantity, 2)} un)"
-                    : sold.ProductName;
                 var source = fair is null
                     ? $"Gerado automaticamente da venda {sale.Id}"
                     : $"Gerado automaticamente da venda {sale.Id} na feira {fair.Name}";
 
-                await operationalListService.CreateTodoItemAsync(
-                    new TodoItemRequest(itemName, source),
+                await operationalListService.CreateRestockItemAsync(
+                    new RestockItemRequest(sold.ProductId, decimal.Round(sold.Quantity, 2), source),
                     actor,
                     sold.SupplierId,
                     cancellationToken);
@@ -326,7 +401,11 @@ public sealed class SalesService(
                 item.SupplierId,
                 item.Supplier?.Name ?? item.Product?.Supplier?.Name,
                 item.LojinhaGainPercentage,
-                item.LojinhaGainAmount)).ToList(),
+                item.LojinhaGainAmount,
+                item.IsCommissionedSale,
+                item.CommissionSellerSupplierId,
+                item.CommissionSellerSupplier?.Name,
+                item.CommissionAmount)).ToList(),
             canDelete);
 
     private HashSet<Guid> GetAuthoredSaleIds(string actor, IEnumerable<Guid> saleIds)

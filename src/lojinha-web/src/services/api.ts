@@ -300,6 +300,10 @@ export const salesApi = {
     const { data } = await api.get<Sale[]>('/sales');
     return data;
   },
+  getById: async (id: string) => {
+    const { data } = await api.get<Sale>(`/sales/${id}`);
+    return data;
+  },
   create: async (payload: Record<string, unknown>) => {
     const { data } = await api.post<Sale>('/sales', payload);
     return data;

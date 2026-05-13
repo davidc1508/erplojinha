@@ -45,7 +45,7 @@ public sealed class ProductRequestValidator : AbstractValidator<ProductRequest>
         RuleFor(x => x.HeightCentimeters).GreaterThanOrEqualTo(0);
         RuleFor(x => x.TariffPerKwh).GreaterThanOrEqualTo(0);
         RuleFor(x => x.FinishingPercentage).InclusiveBetween(0, 1000);
-        RuleFor(x => x.CommissionPercentage).InclusiveBetween(0, 1000);
+        RuleFor(x => x.CommissionPercentage).InclusiveBetween(0, 99.99m);
         RuleFor(x => x.AdditionalCost).GreaterThanOrEqualTo(0);
         RuleFor(x => x.DesiredMarkup).GreaterThanOrEqualTo(2);
         RuleFor(x => x)
@@ -101,6 +101,11 @@ public sealed class CreateSaleRequestValidator : AbstractValidator<CreateSaleReq
             item.RuleFor(x => x.ProductId).NotEmpty();
             item.RuleFor(x => x.Quantity).GreaterThan(0);
             item.RuleFor(x => x.LojinhaGainPercentage).InclusiveBetween(0, 100).When(x => x.LojinhaGainPercentage.HasValue);
+            item.RuleFor(x => x.CommissionAmount).GreaterThanOrEqualTo(0).When(x => x.CommissionAmount.HasValue);
+            item.RuleFor(x => x.CommissionSellerSupplierId)
+                .NotEmpty()
+                .When(x => x.IsCommissionedSale)
+                .WithMessage("Selecione o fornecedor vendedor para vendas comissionadas.");
         });
     }
 }

@@ -41,7 +41,7 @@ const emptyForm = {
   lengthMetersUsed: 5,
   tariffPerKwh: 0.95,
   finishingPercentage: 2,
-  commissionPercentage: 0,
+  commissionPercentage: 20,
   additionalCost: 0,
   printerProfileId: '',
   filaments: [{ filamentProfileId: '', weightGrams: 0 }] as { filamentProfileId: string; weightGrams: number }[],
@@ -313,6 +313,23 @@ export function ProductFormPage() {
   const effectiveSalePrice = form.salePrice === ''
     ? (product?.salePrice ?? 0)
     : Number(form.salePrice);
+  const effectiveCommissionPercentage = Number(form.commissionPercentage);
+  const effectiveCommissionedSalePrice = (() => {
+    const rate = effectiveCommissionPercentage <= 0 ? 0 : effectiveCommissionPercentage / 100;
+    if (effectiveSalePrice <= 0) {
+      return 0;
+    }
+
+    if (rate <= 0) {
+      return effectiveSalePrice;
+    }
+
+    if (rate >= 1) {
+      return 0;
+    }
+
+    return Number((effectiveSalePrice / (1 - rate)).toFixed(2));
+  })();
 
   const liveCost = pricing?.totalCost ?? product?.costPrice ?? 0;
   const estimatedProfit = effectiveSalePrice - liveCost;
@@ -551,6 +568,7 @@ export function ProductFormPage() {
                   <Grid item xs={12} md={4}><CurrencyField label="Custo adicional" value={form.additionalCost} onValueChange={(value) => updateForm('additionalCost', value)} fullWidth /></Grid>
                   <Grid item xs={12} md={4}><TextField label="Markup desejado" type="number" value={form.desiredMarkup} onChange={(event) => updateForm('desiredMarkup', Number(event.target.value))} helperText="Minimo de 2 (200%)." fullWidth /></Grid>
                   <Grid item xs={12} md={4}><CurrencyField label="Preço final de venda" value={form.salePrice === '' ? 0 : Number(form.salePrice)} onValueChange={(value) => updateForm('salePrice', String(value))} helperText={`Minimo: ${formatCurrency(minimumAllowedSalePrice)}`} fullWidth /></Grid>
+                  <Grid item xs={12} md={4}><CurrencyField label="Preço para venda comissionada" value={effectiveCommissionedSalePrice} onValueChange={() => undefined} helperText="Calculado automaticamente a partir do preço final e comissão." fullWidth disabled /></Grid>
                   <Grid item xs={12} md={4}><CurrencyField label="Lucro estimado" value={estimatedProfit} onValueChange={() => undefined} helperText="Preco final informado menos custo calculado." fullWidth disabled /></Grid>
                 </Grid>
               </Stack>

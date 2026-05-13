@@ -113,7 +113,11 @@ internal static class FairMappings
                 item.SupplierId,
                 item.Supplier?.Name ?? item.Product?.Supplier?.Name,
                 item.LojinhaGainPercentage,
-                item.LojinhaGainAmount)).ToList(),
+                item.LojinhaGainAmount,
+                item.IsCommissionedSale,
+                item.CommissionSellerSupplierId,
+                item.CommissionSellerSupplier?.Name,
+                item.CommissionAmount)).ToList(),
             false);
 
     public static FairReportDto ToReportDto(this Fair fair, IReadOnlyList<FairSupplierQuotaStatusDto>? supplierQuotaStatus = null)

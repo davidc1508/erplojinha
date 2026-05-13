@@ -14,4 +14,8 @@ public sealed class SaleItem : BaseEntity
     public decimal TotalPrice { get; set; }
     public decimal LojinhaGainPercentage { get; set; }
     public decimal LojinhaGainAmount { get; set; }
+    public bool IsCommissionedSale { get; set; }
+    public Guid? CommissionSellerSupplierId { get; set; }
+    public Supplier? CommissionSellerSupplier { get; set; }
+    public decimal CommissionAmount { get; set; }
 }

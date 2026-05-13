@@ -104,7 +104,9 @@ public sealed class CardFeeSettingsService(
                 ? item.LojinhaGainPercentage / 100m
                 : 1m;
 
-            item.LojinhaGainAmount = decimal.Round(marginAfterFees * gainFactor, 2, MidpointRounding.AwayFromZero);
+            var grossGain = marginAfterFees * gainFactor;
+            var netGain = grossGain - (item.IsCommissionedSale ? item.CommissionAmount : 0m);
+            item.LojinhaGainAmount = decimal.Round(netGain, 2, MidpointRounding.AwayFromZero);
         }
 
         sale.ProfitAmount = decimal.Round(sale.Items.Sum(item => item.LojinhaGainAmount), 2, MidpointRounding.AwayFromZero);

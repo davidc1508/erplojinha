@@ -52,7 +52,22 @@ export function FairDetailsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
-  const [saleForm, setSaleForm] = useState({ paymentMethod: 'Pix', soldAtUtc: getTodayDateInputValue(), notes: '', createTodoForProducedItems: false, items: [{ productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] });
+  const [saleForm, setSaleForm] = useState({
+    paymentMethod: 'Pix',
+    soldAtUtc: getTodayDateInputValue(),
+    notes: '',
+    createTodoForProducedItems: false,
+    items: [{
+      productId: '',
+      supplierId: '',
+      quantity: 1,
+      unitPrice: '',
+      lojinhaGainPercentage: '',
+      isCommissionedSale: false,
+      commissionSellerSupplierId: isSupplier ? (session?.supplierId ?? '') : '',
+      commissionAmount: ''
+    }]
+  });
   const [breakEvenTicket, setBreakEvenTicket] = useState<number>(0);
   const [breakEvenMargin, setBreakEvenMargin] = useState<number>(45);
 
@@ -133,14 +148,36 @@ export function FairDetailsPage() {
           supplierId: item.supplierId === '' ? null : item.supplierId,
           quantity: Number(item.quantity),
           unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
-          lojinhaGainPercentage: item.lojinhaGainPercentage === '' ? null : Number(item.lojinhaGainPercentage)
+          lojinhaGainPercentage: item.lojinhaGainPercentage === '' ? null : Number(item.lojinhaGainPercentage),
+          isCommissionedSale: item.isCommissionedSale,
+          commissionSellerSupplierId: item.isCommissionedSale
+            ? (item.commissionSellerSupplierId === '' ? null : item.commissionSellerSupplierId)
+            : null,
+          commissionAmount: item.isCommissionedSale
+            ? (item.commissionAmount === '' ? null : Number(item.commissionAmount))
+            : null
         }))
       });
       return { keepOpen };
     },
     onSuccess: async ({ keepOpen }) => {
       setFeedback({ severity: 'success', message: 'Venda lançada na feira.' });
-      setSaleForm({ paymentMethod: 'Pix', soldAtUtc: getTodayDateInputValue(), notes: '', createTodoForProducedItems: false, items: [{ productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] });
+      setSaleForm({
+        paymentMethod: 'Pix',
+        soldAtUtc: getTodayDateInputValue(),
+        notes: '',
+        createTodoForProducedItems: false,
+        items: [{
+          productId: '',
+          supplierId: '',
+          quantity: 1,
+          unitPrice: '',
+          lojinhaGainPercentage: '',
+          isCommissionedSale: false,
+          commissionSellerSupplierId: isSupplier ? (session?.supplierId ?? '') : '',
+          commissionAmount: ''
+        }]
+      });
       if (!keepOpen) {
         setIsSaleModalOpen(false);
       }
@@ -677,8 +714,11 @@ export function FairDetailsPage() {
                       ...item,
                       productId,
                       supplierId: defaultSupplierId,
-                      unitPrice: selectedProduct ? String(selectedProduct.salePrice) : '',
-                      lojinhaGainPercentage: defaultSupplierId !== '' ? item.lojinhaGainPercentage : ''
+                      unitPrice: selectedProduct ? String(item.isCommissionedSale ? selectedProduct.commissionedSalePrice : selectedProduct.salePrice) : '',
+                      lojinhaGainPercentage: defaultSupplierId !== '' ? item.lojinhaGainPercentage : '',
+                      commissionAmount: selectedProduct && item.isCommissionedSale
+                        ? String(Math.max(0, selectedProduct.commissionedSalePrice - selectedProduct.salePrice))
+                        : ''
                     };
                     setSaleForm({ ...saleForm, items });
                   }}
@@ -702,11 +742,35 @@ export function FairDetailsPage() {
                 items[index] = { ...item, unitPrice: String(value) };
                 setSaleForm({ ...saleForm, items });
               }} fullWidth disabled={!canRegisterSale} /></Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={<Checkbox checked={item.isCommissionedSale} onChange={(event) => {
+                    const selectedProduct = products.find((product) => product.id === item.productId);
+                    const nextIsCommissionedSale = event.target.checked;
+                    const items = [...saleForm.items];
+                    items[index] = {
+                      ...item,
+                      isCommissionedSale: nextIsCommissionedSale,
+                      unitPrice: selectedProduct
+                        ? String(nextIsCommissionedSale ? selectedProduct.commissionedSalePrice : selectedProduct.salePrice)
+                        : item.unitPrice,
+                      commissionSellerSupplierId: nextIsCommissionedSale
+                        ? (item.commissionSellerSupplierId || (isSupplier ? (session?.supplierId ?? '') : ''))
+                        : '',
+                      commissionAmount: nextIsCommissionedSale && selectedProduct
+                        ? String(Math.max(0, selectedProduct.commissionedSalePrice - selectedProduct.salePrice))
+                        : ''
+                    };
+                    setSaleForm({ ...saleForm, items });
+                  }} disabled={!canRegisterSale} />}
+                  label="Venda comissionada"
+                />
+              </Grid>
               {fair.suppliers.length > 0 ? (
                 <Grid item xs={12}>
                   <TextField
                     select
-                    label="Venda de fornecedor"
+                    label="Produto de fornecedor"
                     value={item.supplierId}
                     onChange={(event) => {
                       const items = [...saleForm.items];
@@ -727,6 +791,42 @@ export function FairDetailsPage() {
                   </TextField>
                 </Grid>
               ) : null}
+              {item.isCommissionedSale ? (
+                <>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      select
+                      label="Fornecedor vendedor"
+                      value={item.commissionSellerSupplierId}
+                      onChange={(event) => {
+                        const items = [...saleForm.items];
+                        items[index] = { ...item, commissionSellerSupplierId: event.target.value };
+                        setSaleForm({ ...saleForm, items });
+                      }}
+                      helperText="Fornecedor que realizou a venda comissionada."
+                      fullWidth
+                      disabled={!canRegisterSale || isSupplier}
+                    >
+                      {!isSupplier ? <MenuItem value="">Selecione</MenuItem> : null}
+                      {fair.suppliers.map((supplier) => <MenuItem key={supplier.supplierId} value={supplier.supplierId}>{supplier.supplierName}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <CurrencyField
+                      label="Valor da comissão"
+                      value={item.commissionAmount === '' ? 0 : Number(item.commissionAmount)}
+                      onValueChange={(value) => {
+                        const items = [...saleForm.items];
+                        items[index] = { ...item, commissionAmount: String(value) };
+                        setSaleForm({ ...saleForm, items });
+                      }}
+                      helperText="Campo livre. Esse valor será descontado no lançamento do vendedor."
+                      fullWidth
+                      disabled={!canRegisterSale}
+                    />
+                  </Grid>
+                </>
+              ) : null}
               {item.supplierId ? (
                 <Grid item xs={12}>
                   <TextField
@@ -746,7 +846,19 @@ export function FairDetailsPage() {
               ) : null}
             </Grid>
           ))}
-          <Button variant="outlined" onClick={() => setSaleForm({ ...saleForm, items: [...saleForm.items, { productId: '', supplierId: '', quantity: 1, unitPrice: '', lojinhaGainPercentage: '' }] })} sx={{ alignSelf: 'flex-start' }} disabled={!canRegisterSale}>
+          <Button variant="outlined" onClick={() => setSaleForm({
+            ...saleForm,
+            items: [...saleForm.items, {
+              productId: '',
+              supplierId: '',
+              quantity: 1,
+              unitPrice: '',
+              lojinhaGainPercentage: '',
+              isCommissionedSale: false,
+              commissionSellerSupplierId: isSupplier ? (session?.supplierId ?? '') : '',
+              commissionAmount: ''
+            }]
+          })} sx={{ alignSelf: 'flex-start' }} disabled={!canRegisterSale}>
             Adicionar item
           </Button>
           <TextField label="Observações" multiline minRows={3} value={saleForm.notes} onChange={(event) => setSaleForm({ ...saleForm, notes: event.target.value })} disabled={!canRegisterSale} />
@@ -762,14 +874,14 @@ export function FairDetailsPage() {
             variant="outlined"
             color="secondary"
             onClick={() => saleMutation.mutate({ keepOpen: true })}
-            disabled={!canRegisterSale || saleMutation.isLoading || saleForm.items.some((item) => !item.productId)}
+            disabled={!canRegisterSale || saleMutation.isLoading || saleForm.items.some((item) => !item.productId || (item.isCommissionedSale && (!item.commissionSellerSupplierId || item.commissionAmount === '')))}
           >
             Salvar e lançar outra
           </Button>
           <Button
             variant="contained"
             onClick={() => saleMutation.mutate({ keepOpen: false })}
-            disabled={!canRegisterSale || saleMutation.isLoading || saleForm.items.some((item) => !item.productId)}
+            disabled={!canRegisterSale || saleMutation.isLoading || saleForm.items.some((item) => !item.productId || (item.isCommissionedSale && (!item.commissionSellerSupplierId || item.commissionAmount === '')))}
           >
             Registrar venda na feira
           </Button>

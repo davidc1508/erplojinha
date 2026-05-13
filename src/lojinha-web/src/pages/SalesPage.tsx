@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Grid, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TableSortLabel, TextField, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -203,6 +204,13 @@ export function SalesPage() {
                       <TableCell>{formatCurrency(sale.totalAmount)}</TableCell>
                       <TableCell>{formatCurrency(sale.profitAmount)}</TableCell>
                       <TableCell align="right">
+                        <Button
+                          size="small"
+                          startIcon={<VisibilityRoundedIcon />}
+                          onClick={() => navigate(`/vendas/${sale.id}`, { state: { preserveState: true } })}
+                        >
+                          Detalhes
+                        </Button>
                         {sale.canDelete ? <Button
                           color="error"
                           size="small"
