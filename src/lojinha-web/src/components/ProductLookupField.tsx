@@ -15,6 +15,13 @@ function getSelectionLabel(product: Product) {
   return product.supplier ? `${product.name} (${product.supplier})` : product.name;
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 export function ProductLookupField({
   label,
   value,
@@ -34,30 +41,32 @@ export function ProductLookupField({
     setInputValue(selectedProduct ? getSelectionLabel(selectedProduct) : '');
   }, [selectedProduct?.id]);
 
-  const options = useMemo(() => {
-    const normalized = inputValue.trim().toLowerCase();
-    const minimumLength = /^[0-9-]+$/.test(normalized) ? 1 : 2;
-    if (normalized.length < minimumLength) {
-      return selectedProduct ? [selectedProduct] : [];
-    }
-
-    const matches = products.filter((product) => {
-      const haystack = [product.name, product.supplier ?? '', product.sku, product.category].join(' ').toLowerCase();
-      return haystack.includes(normalized);
-    });
-
-    if (selectedProduct && !matches.some((product) => product.id === selectedProduct.id)) {
-      return [selectedProduct, ...matches];
-    }
-
-    return matches;
-  }, [inputValue, products, selectedProduct]);
-
   return (
     <Autocomplete
-      options={options}
+      options={products}
       value={selectedProduct}
       inputValue={inputValue}
+      filterOptions={(_, state) => {
+        const normalized = normalizeSearchText(state.inputValue.trim());
+        const minimumLength = /^[0-9-]+$/.test(normalized) ? 1 : 2;
+
+        if (normalized.length < minimumLength) {
+          return selectedProduct ? [selectedProduct] : [];
+        }
+
+        const matches = products.filter((product) => {
+          const haystack = [product.name, product.supplier ?? '', product.sku, product.category]
+            .map(normalizeSearchText)
+            .join(' ');
+          return haystack.includes(normalized);
+        });
+
+        if (selectedProduct && !matches.some((product) => product.id === selectedProduct.id)) {
+          return [selectedProduct, ...matches];
+        }
+
+        return matches;
+      }}
       onInputChange={(_event, nextValue, reason) => {
         if (reason === 'reset' && selectedProduct) {
           setInputValue(getSelectionLabel(selectedProduct));
@@ -71,7 +80,7 @@ export function ProductLookupField({
       }}
       getOptionLabel={(option) => getSelectionLabel(option)}
       isOptionEqualToValue={(option, currentValue) => option.id === currentValue.id}
-      noOptionsText={inputValue.trim().length < (/^[0-9-]+$/.test(inputValue.trim()) ? 1 : 2) ? 'Digite nome ou SKU.' : 'Nenhum produto encontrado.'}
+      noOptionsText={normalizeSearchText(inputValue.trim()).length < (/^[0-9-]+$/.test(normalizeSearchText(inputValue.trim())) ? 1 : 2) ? 'Digite nome ou SKU.' : 'Nenhum produto encontrado.'}
       disabled={disabled}
       clearOnBlur={false}
       renderOption={(props, option) => (
