@@ -71,7 +71,7 @@ export function ProductFormPage() {
   const location = useLocation();
   const isBudgetMode = location.pathname.startsWith('/orcamentos');
   const cloneFromId = !id ? searchParams.get('clonar') : null;
-  const projectId = !id ? searchParams.get('projeto') : null;
+  const projectId = searchParams.get('projeto');
   const todoItemId = !id ? searchParams.get('todoItemId') : null;
   const todoName = !id ? searchParams.get('todoName') : null;
   const isProjectDraftMode = Boolean(projectId);
@@ -100,7 +100,7 @@ export function ProductFormPage() {
   const { data: projectDraft } = useQuery({
     queryKey: ['project-product-draft', projectId],
     queryFn: () => projectsApi.getProductDraft(projectId!),
-    enabled: Boolean(projectId) && !isEditing && !cloneFromId
+    enabled: Boolean(projectId) && !cloneFromId
   });
   const { data: priceHistory = [] } = useQuery({
     queryKey: ['product-price-history', id],
@@ -274,10 +274,10 @@ export function ProductFormPage() {
         salePrice: form.salePrice === '' ? null : Number(form.salePrice)
       };
 
-      return isEditing
-        ? productsApi.update(id!, payload)
-        : isProjectDraftMode
-          ? projectsApi.concludeWithProduct(projectId!, payload)
+      return isProjectDraftMode
+        ? projectsApi.concludeWithProduct(projectId!, payload)
+        : isEditing
+          ? productsApi.update(id!, payload)
           : productsApi.create(payload);
     },
     onSuccess: async () => {

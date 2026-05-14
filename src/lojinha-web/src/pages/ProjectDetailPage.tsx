@@ -66,6 +66,7 @@ export function ProjectDetailPage() {
   const [openAddStepDialog, setOpenAddStepDialog] = useState(false);
   const [openEditStepDialog, setOpenEditStepDialog] = useState(false);
   const [openFailStepDialog, setOpenFailStepDialog] = useState(false);
+  const [openConcludeExistingProductDialog, setOpenConcludeExistingProductDialog] = useState(false);
   const [deleteStepId, setDeleteStepId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
@@ -491,7 +492,7 @@ export function ProjectDetailPage() {
                     startIcon={<TaskAltRoundedIcon />}
                     onClick={() => {
                       if (project.productId) {
-                        concludeProjectMutation.mutate();
+                        setOpenConcludeExistingProductDialog(true);
                         return;
                       }
 
@@ -734,6 +735,53 @@ export function ProjectDetailPage() {
           }
         }}
       />
+
+      <Dialog open={openConcludeExistingProductDialog} onClose={() => setOpenConcludeExistingProductDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Concluir projeto com produto existente</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={1.25} sx={{ mt: 1 }}>
+            <Typography color="text.secondary">
+              Deseja atualizar o produto com as informacoes consolidadas deste projeto antes de concluir?
+            </Typography>
+            <Paper variant="outlined" sx={{ p: 1.5 }}>
+              <Typography variant="subtitle2" gutterBottom>Custos do projeto</Typography>
+              <Typography variant="body2">Custo material estimado: {formatMoney(project.estimatedMaterialCostBRL)}</Typography>
+              <Typography variant="body2">Custo total estimado: {formatMoney(project.estimatedTotalCostBRL)}</Typography>
+              <Typography variant="body2">Custo para volume concluido (base produto): {formatMoney(completedCost)}</Typography>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 1.5 }}>
+              <Typography variant="subtitle2" gutterBottom>Custos do produto existente</Typography>
+              <Typography variant="body2">Produto: {productName}</Typography>
+              <Typography variant="body2">Custo unitario atual: {selectedProduct ? formatMoney(selectedProduct.costPrice) : '-'}</Typography>
+              <Typography variant="body2">Preco de venda atual: {selectedProduct ? formatMoney(selectedProduct.salePrice) : '-'}</Typography>
+            </Paper>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenConcludeExistingProductDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={() => {
+              concludeProjectMutation.mutate(undefined, {
+                onSuccess: () => {
+                  setOpenConcludeExistingProductDialog(false);
+                }
+              });
+            }}
+            disabled={concludeProjectMutation.isLoading}
+          >
+            Nao, apenas entrada em estoque
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setOpenConcludeExistingProductDialog(false);
+              navigate(`/produtos/${project.productId}/editar?projeto=${project.id}`, { state: { preserveState: true } });
+            }}
+          >
+            Sim, atualizar produto
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Lojinha.Api.Contracts.Inventory;
 using Lojinha.Api.Contracts.Projects;
 using Lojinha.Api.Contracts.Products;
 using Lojinha.Api.Entities;
@@ -44,7 +45,8 @@ public sealed class ProjectService(
     IRepository<FilamentProfile> filamentRepository,
     IRepository<PrinterProfile> printerProfileRepository,
     IRepository<AuditLog> auditRepository,
-    IProductService productService) : IProjectService
+    IProductService productService,
+    IInventoryService inventoryService) : IProjectService
 {
 public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default)
     {
@@ -519,12 +521,21 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
 
         EnsureProjectCanBeConcluded(steps, requireLinkedProduct: true, project.ProductId.HasValue);
 
+        var linkedProduct = project.ProductId.HasValue
+            ? await productService.GetByIdAsync(project.ProductId.Value, scopedSupplierId, cancellationToken)
+            : null;
+
         project.Status = ProjectStatus.Concluido;
         project.ConcludedAtUtc = DateTime.UtcNow;
 
         projectRepository.Update(project);
         await auditRepository.AddAsync(CreateAudit(project.Id, AuditAction.Updated, actor, project), cancellationToken);
         await projectRepository.SaveChangesAsync(cancellationToken);
+
+        if (linkedProduct is not null)
+        {
+            await RegisterProjectStockEntryAsync(project, linkedProduct, actor, scopedSupplierId, cancellationToken);
+        }
 
         return Map(project);
     }
@@ -539,6 +550,7 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
 
         await HydrateProjectsAsync([project], cancellationToken);
         EnsureProjectCanBeConcluded(project.Steps.ToList(), requireLinkedProduct: false, hasLinkedProduct: project.ProductId.HasValue);
+        var hadLinkedProduct = project.ProductId.HasValue;
 
         ProductDto product;
         if (project.ProductId.HasValue)
@@ -557,6 +569,11 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         projectRepository.Update(project);
         await auditRepository.AddAsync(CreateAudit(project.Id, AuditAction.Updated, actor, project), cancellationToken);
         await projectRepository.SaveChangesAsync(cancellationToken);
+
+        if (hadLinkedProduct)
+        {
+            await RegisterProjectStockEntryAsync(project, product, actor, scopedSupplierId, cancellationToken);
+        }
 
         await HydrateProjectsAsync([project], cancellationToken);
         return Map(project);
@@ -1032,6 +1049,50 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         {
             throw new InvalidOperationException("Finalize o produto a partir da tela de pre-cadastro do projeto antes de concluir o projeto.");
         }
+    }
+
+    private async Task RegisterProjectStockEntryAsync(
+        Project project,
+        ProductDto product,
+        string actor,
+        Guid? scopedSupplierId,
+        CancellationToken cancellationToken)
+    {
+        var stockEntryQuantity = ComputeProjectStockEntryQuantity(project, product);
+        if (stockEntryQuantity <= 0m)
+        {
+            return;
+        }
+
+        await inventoryService.RegisterAsync(
+            new ManualInventoryMovementRequest(
+                InventoryItemType.Product,
+                product.Id,
+                InventoryMovementType.Entry,
+                stockEntryQuantity,
+                product.CostPrice,
+                $"Entrada em estoque ao concluir projeto {project.Name}"),
+            actor,
+            scopedSupplierId,
+            cancellationToken);
+    }
+
+    private static decimal ComputeProjectStockEntryQuantity(Project project, ProductDto product)
+    {
+        if (project.WeightCompletedGrams <= 0m)
+        {
+            return 0m;
+        }
+
+        var baseWeight = product.EstimatedWeightGrams > 0m
+            ? product.EstimatedWeightGrams
+            : project.WeightEstimatedGrams;
+        if (baseWeight <= 0m)
+        {
+            return 0m;
+        }
+
+        return decimal.Round(project.WeightCompletedGrams / baseWeight, 4, MidpointRounding.AwayFromZero);
     }
 
     private decimal ComputeFailureAdditionalCost(IReadOnlyList<ProjectStepAttempt> failedAttempts)
