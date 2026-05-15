@@ -75,7 +75,7 @@ public sealed class GetFairReportQueryHandler(
 
                 if (quotaAmount == 0m && fair.Suppliers.Count > 0 && fair.Status != FairStatus.Cancelled)
                 {
-                    quotaAmount = decimal.Round((fair.RegistrationFee / 2m) / fair.Suppliers.Count, 2, MidpointRounding.AwayFromZero);
+                    quotaAmount = decimal.Round(fair.SupplierRegistrationFee / fair.Suppliers.Count, 2, MidpointRounding.AwayFromZero);
                 }
 
                 var paidAmount = decimal.Round(

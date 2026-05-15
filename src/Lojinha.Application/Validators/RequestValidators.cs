@@ -147,6 +147,7 @@ public sealed class FairRequestValidator : AbstractValidator<FairRequest>
         RuleFor(x => x.Location).NotEmpty().MaximumLength(180);
         RuleFor(x => x.RegistrationFee).GreaterThanOrEqualTo(0);
         RuleFor(x => x.RegistrationFeeSplitCount).GreaterThan(0);
+        RuleFor(x => x.StoreFeePercentage).InclusiveBetween(0, 100);
         RuleFor(x => x.RegistrationPaymentStartDateUtc).NotEmpty();
         RuleFor(x => x.RegistrationInstallments).NotEmpty();
         RuleForEach(x => x.RegistrationInstallments).ChildRules(item =>

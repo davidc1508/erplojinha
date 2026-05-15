@@ -35,6 +35,7 @@ public sealed class CreateFairCommandHandler(
             command.Request.Location,
             command.Request.RegistrationFee,
             command.Request.RegistrationFeeSplitCount,
+            command.Request.StoreFeePercentage,
             command.Request.Notes ?? string.Empty);
         await fairRepository.AddAsync(fair, cancellationToken);
         await FairSupplierSync.SyncAsync(fair, command.Request.SupplierIds, supplierRepository, fairSupplierRepository, cancellationToken);
@@ -54,20 +55,24 @@ public sealed class CreateFairCommandHandler(
             var installment = validInstallments[index].installment;
             var dueDateUtc = NormalizeUtcDate(installment.DueDateUtc);
             var installmentAmount = decimal.Round(installment.Amount, 2, MidpointRounding.AwayFromZero);
-            var supplierInstallmentPool = decimal.Round(installmentAmount / 2m, 2, MidpointRounding.AwayFromZero);
+            var storeInstallmentAmount = decimal.Round(installmentAmount * (fair.StoreFeePercentage / 100m), 2, MidpointRounding.AwayFromZero);
+            var supplierInstallmentPool = decimal.Round(Math.Max(installmentAmount - storeInstallmentAmount, 0m), 2, MidpointRounding.AwayFromZero);
 
-            await financeRepository.AddAsync(new FinancialEntry
+            if (storeInstallmentAmount > 0m)
             {
-                Type = FinancialEntryType.Expense,
-                Classification = FinancialClassification.Fixed,
-                Category = FairFinanceCategories.StoreFairRegistrationCategory,
-                Description = $"{fair.Name} - parcela {index + 1}/{validInstallments.Count}",
-                Amount = installmentAmount,
-                OccurredOnUtc = dueDateUtc,
-                ReferenceId = fair.Id
-            }, cancellationToken);
+                await financeRepository.AddAsync(new FinancialEntry
+                {
+                    Type = FinancialEntryType.Expense,
+                    Classification = FinancialClassification.Fixed,
+                    Category = FairFinanceCategories.StoreFairRegistrationCategory,
+                    Description = $"{fair.Name} - parcela {index + 1}/{validInstallments.Count}",
+                    Amount = storeInstallmentAmount,
+                    OccurredOnUtc = dueDateUtc,
+                    ReferenceId = fair.Id
+                }, cancellationToken);
+            }
 
-            if (supplierCount == 0)
+            if (supplierCount == 0 || supplierInstallmentPool <= 0m)
             {
                 continue;
             }
@@ -108,7 +113,7 @@ public sealed class CreateFairCommandHandler(
             EntityId = fair.Id.ToString(),
             Action = AuditAction.Created,
             ChangedBy = command.Actor,
-            PayloadJson = JsonSerializer.Serialize(new { fair.Name, fair.EventDateUtc, fair.EndDateUtc, fair.Location, fair.RegistrationFee, fair.RegistrationFeeSplitCount, fair.Status })
+            PayloadJson = JsonSerializer.Serialize(new { fair.Name, fair.EventDateUtc, fair.EndDateUtc, fair.Location, fair.RegistrationFee, fair.RegistrationFeeSplitCount, fair.StoreFeePercentage, fair.Status })
         }, cancellationToken);
         await fairRepository.SaveChangesAsync(cancellationToken);
         await cacheInvalidationService.InvalidateFairReadModelsAsync(fair.Id, command.Request.SupplierIds, cancellationToken);
@@ -149,6 +154,7 @@ public sealed class UpdateFairCommandHandler(
             command.Request.Location,
             command.Request.RegistrationFee,
             command.Request.RegistrationFeeSplitCount,
+            command.Request.StoreFeePercentage,
             command.Request.Notes ?? string.Empty);
         await FairSupplierSync.SyncAsync(fair, command.Request.SupplierIds, supplierRepository, fairSupplierRepository, cancellationToken);
 
@@ -158,7 +164,7 @@ public sealed class UpdateFairCommandHandler(
             EntityId = fair.Id.ToString(),
             Action = AuditAction.Updated,
             ChangedBy = command.Actor,
-            PayloadJson = JsonSerializer.Serialize(new { fair.Name, fair.EventDateUtc, fair.EndDateUtc, fair.Location, fair.RegistrationFee, fair.RegistrationFeeSplitCount, fair.Status })
+            PayloadJson = JsonSerializer.Serialize(new { fair.Name, fair.EventDateUtc, fair.EndDateUtc, fair.Location, fair.RegistrationFee, fair.RegistrationFeeSplitCount, fair.StoreFeePercentage, fair.Status })
         }, cancellationToken);
         await fairRepository.SaveChangesAsync(cancellationToken);
         await cacheInvalidationService.InvalidateFairReadModelsAsync(fair.Id, command.Request.SupplierIds, cancellationToken);

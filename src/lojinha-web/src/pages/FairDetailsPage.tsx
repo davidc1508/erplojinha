@@ -27,6 +27,7 @@ import BlockRoundedIcon from '@mui/icons-material/BlockRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import { useMemo, useState } from 'react';
@@ -295,7 +296,7 @@ export function FairDetailsPage() {
   const ownSupplierLojinhaGain = ownSupplierItems.reduce((sum, item) => sum + item.lojinhaGainAmount, 0);
   const ownSupplierTransferAmount = ownSupplierItems.reduce((sum, item) => sum + (item.totalPrice - (item.costPrice * item.quantity) - item.lojinhaGainAmount), 0);
   const supplierFeeShare = isSupplier && fair?.suppliers.some((supplier) => supplier.supplierId === session?.supplierId) && (fair?.suppliers.length ?? 0) > 0
-    ? ((fair?.registrationFee ?? 0) / 2) / (fair?.suppliers.length ?? 1)
+    ? ((fair?.supplierRegistrationFee ?? 0) / (fair?.suppliers.length ?? 1))
     : 0;
   const ownSupplierResult = ownSupplierTransferAmount - supplierFeeShare;
   const suppliersSummary = Object.values(supplierItems.reduce<Record<string, { supplierId: string; supplierName: string; quantity: number; total: number; cost: number; gain: number }>>((acc, item) => {
@@ -341,7 +342,7 @@ export function FairDetailsPage() {
   const canStartFair = !isSupplier && fair.status === 'Awaiting' && isUtcDateTodayOrPast(fair.eventDateUtc);
   const canRegisterSale = fair.status === 'Open';
   const canCancelFair = !isSupplier && fair.totalSales === 0 && (fair.status === 'Awaiting' || fair.status === 'Open');
-  const supplierPool = (report?.registrationFee ?? 0) / 2;
+  const supplierPool = report?.supplierRegistrationFee ?? 0;
   const supplierCount = report?.suppliers.length ?? 0;
   const averageQuotaPerSupplier = supplierCount > 0 ? supplierPool / supplierCount : 0;
   const requiredGrossForBreakEven = breakEvenMargin > 0 ? (report?.storeRegistrationFee ?? 0) / (breakEvenMargin / 100) : 0;
@@ -454,7 +455,9 @@ export function FairDetailsPage() {
                   <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Caixinha</Typography><Typography variant="h5">{formatCurrency(report.piggyBankAmount)}</Typography></Paper></Grid>
                   <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Taxa total da feira</Typography><Typography variant="h5">{formatCurrency(report.registrationFee)}</Typography></Paper></Grid>
                   <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Dividido por</Typography><Typography variant="h5">{report.registrationFeeSplitCount} pessoa(s)</Typography></Paper></Grid>
+                  <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">% da lojinha</Typography><Typography variant="h5">{report.storeFeePercentage.toFixed(2)}%</Typography></Paper></Grid>
                   <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Taxa da loja</Typography><Typography variant="h5">{formatCurrency(report.storeRegistrationFee)}</Typography></Paper></Grid>
+                  <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Taxa dos fornecedores</Typography><Typography variant="h5">{formatCurrency(report.supplierRegistrationFee)}</Typography></Paper></Grid>
                   <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultado</Typography><Typography variant="h5">{formatCurrency(report.result)}</Typography></Paper></Grid>
                   <Grid item xs={12}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Fornecedores participantes</Typography><Typography variant="h6">{report.suppliers.length === 0 ? 'Nenhum fornecedor vinculado' : report.suppliers.map((item) => item.supplierName).join(', ')}</Typography></Paper></Grid>
                   <Grid item xs={12}>
@@ -493,8 +496,8 @@ export function FairDetailsPage() {
                 <Paper sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.62)' }}>
                   <Typography variant="h6" mb={1}>Rateio transparente da cota</Typography>
                   <Typography color="text.secondary">Taxa total: {formatCurrency(report.registrationFee)}</Typography>
-                  <Typography color="text.secondary">Parcela da lojinha (50%): {formatCurrency(report.storeRegistrationFee)}</Typography>
-                  <Typography color="text.secondary">Parcela dos fornecedores (50%): {formatCurrency(supplierPool)}</Typography>
+                  <Typography color="text.secondary">Parcela da lojinha ({report.storeFeePercentage.toFixed(2)}%): {formatCurrency(report.storeRegistrationFee)}</Typography>
+                  <Typography color="text.secondary">Parcela dos fornecedores ({(100 - report.storeFeePercentage).toFixed(2)}%): {formatCurrency(supplierPool)}</Typography>
                   <Typography color="text.secondary">Fornecedores no rateio: {supplierCount}</Typography>
                   <Typography color="text.secondary" mb={1.5}>Cota média por fornecedor: {formatCurrency(averageQuotaPerSupplier)}</Typography>
 
@@ -560,50 +563,78 @@ export function FairDetailsPage() {
                 <Bar dataKey="netRevenue" fill="#7bcfc0" radius={[10, 10, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={5}>
-                <Stack spacing={1.5}>
-                  <Typography variant="h6">Mais vendidos na feira</Typography>
-                  {report.topProducts.map((item) => (
-                    <Paper key={item.productName} sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.62)' }}>
+            <Stack spacing={2}>
+              <Typography variant="h6">Mais vendidos na feira</Typography>
+              <Grid container spacing={1.5}>
+                {report.topProducts.map((item) => (
+                  <Grid item xs={12} sm={6} lg={4} key={item.productName}>
+                    <Paper sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.62)' }}>
                       <Typography fontWeight={700}>{item.productName}</Typography>
                       <Typography color="text.secondary">{item.quantitySold} itens</Typography>
                       <Typography>{formatCurrency(item.revenue)}</Typography>
                     </Paper>
-                  ))}
-                </Stack>
+                  </Grid>
+                ))}
               </Grid>
-              <Grid item xs={12} md={7}>
-                <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-                  <Table size="small" sx={{ minWidth: 760 }}>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>Pagamento</TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>Itens</TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>Total</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', pr: 3 }}>Ações</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {report.sales.map((sale) => (
+            </Stack>
+
+            <Stack spacing={2}>
+              <Typography variant="h6">Vendas da feira</Typography>
+              <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                <Table size="small" sx={{ minWidth: 1100 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Produtos vendidos</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Receita bruta</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Lucro lojinha</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Caixinha</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Pagamento</TableCell>
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap', minWidth: 120, pr: 2 }}>Ações</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {report.sales.map((sale) => {
+                      const totalItems = sale.items.reduce((sum, item) => sum + item.quantity, 0);
+                      const piggyBankAmount = Math.max(sale.profitAmount, 0) / 2;
+
+                      return (
                         <TableRow key={sale.id} hover>
-                          <TableCell sx={{ py: 1.5 }}>{formatUtcDate(sale.soldAtUtc)}</TableCell>
-                          <TableCell sx={{ py: 1.5 }}>{paymentMethodLabel(sale.paymentMethod)}</TableCell>
-                          <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word' }}>{sale.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}</TableCell>
+                          <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(sale.soldAtUtc)}</TableCell>
+                          <TableCell sx={{ py: 1.5, minWidth: 360 }}>
+                            <Typography fontWeight={700} sx={{ lineHeight: 1.3 }}>
+                              {sale.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {totalItems} item(ns) • {sale.items.length} produto(s)
+                            </Typography>
+                          </TableCell>
                           <TableCell sx={{ py: 1.5 }}>{formatCurrency(sale.totalAmount)}</TableCell>
-                          <TableCell align="right" sx={{ py: 1.5, pr: 2, whiteSpace: 'nowrap' }}>
-                            {sale.canDelete ? <Button size="small" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => setSaleToDelete(sale.id)} disabled={deleteSaleMutation.isLoading}>
-                              Excluir
-                            </Button> : null}
+                          <TableCell sx={{ py: 1.5 }}>{formatCurrency(sale.profitAmount)}</TableCell>
+                          <TableCell sx={{ py: 1.5 }}>{formatCurrency(piggyBankAmount)}</TableCell>
+                          <TableCell sx={{ py: 1.5 }}>{paymentMethodLabel(sale.paymentMethod)}</TableCell>
+                          <TableCell align="right" sx={{ py: 1.5, pr: 1.5, whiteSpace: 'nowrap' }}>
+                            <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ minWidth: 90 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => navigate(`/vendas/${sale.id}`, { state: { preserveState: true } })}
+                                aria-label="Abrir venda"
+                                sx={{ border: '1px solid rgba(217, 107, 135, 0.45)', borderRadius: 1.5 }}
+                              >
+                                <OpenInNewRoundedIcon fontSize="small" />
+                              </IconButton>
+                              {sale.canDelete ? <IconButton size="small" color="error" onClick={() => setSaleToDelete(sale.id)} disabled={deleteSaleMutation.isLoading} aria-label="Excluir venda">
+                                <DeleteOutlineRoundedIcon fontSize="small" />
+                              </IconButton> : null}
+                            </Stack>
                           </TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Paper>
-              </Grid>
-            </Grid>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Stack>
             <Grid container spacing={2}>
               <Grid item xs={12}><Typography variant="h6">{isSupplier ? 'Resumo dos fornecedores na feira' : 'Visão de fornecedores'}</Typography></Grid>
               {!isSupplier ? <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Venda bruta de fornecedores</Typography><Typography variant="h5">{formatCurrency(supplierGrossRevenue)}</Typography></Paper></Grid> : null}

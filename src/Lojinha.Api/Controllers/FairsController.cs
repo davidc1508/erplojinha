@@ -78,8 +78,8 @@ public sealed class FairsController(
         }
 
         var builder = new StringBuilder();
-        builder.AppendLine("Feira;Data;Local;Status;Receita Bruta;Receita Liquida;Caixinha;Taxa Total;Dividido Por;Taxa Loja;Resultado");
-        builder.AppendLine($"{report.FairName};{report.EventDateUtc:dd/MM/yyyy};{report.Location};{report.Status};{report.GrossRevenue};{report.NetRevenue};{report.PiggyBankAmount};{report.RegistrationFee};{report.RegistrationFeeSplitCount};{report.StoreRegistrationFee};{report.Result}");
+        builder.AppendLine("Feira;Data;Local;Status;Receita Bruta;Receita Liquida;Caixinha;Taxa Total;Dividido Por;Percentual Loja;Taxa Loja;Taxa Fornecedores;Resultado");
+        builder.AppendLine($"{report.FairName};{report.EventDateUtc:dd/MM/yyyy};{report.Location};{report.Status};{report.GrossRevenue};{report.NetRevenue};{report.PiggyBankAmount};{report.RegistrationFee};{report.RegistrationFeeSplitCount};{report.StoreFeePercentage};{report.StoreRegistrationFee};{report.SupplierRegistrationFee};{report.Result}");
         builder.AppendLine();
         builder.AppendLine("Produto;Quantidade;Preco Unitario;Total");
         foreach (var sale in report.Sales)

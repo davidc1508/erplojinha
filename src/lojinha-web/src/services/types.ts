@@ -277,8 +277,10 @@ export interface Fair {
   location: string;
   registrationFee: number;
   registrationFeeSplitCount: number;
+  storeFeePercentage: number;
   suppliers: { supplierId: string; supplierName: string }[];
   storeRegistrationFee: number;
+  supplierRegistrationFee: number;
   notes: string;
   status: FairStatus;
   finalizedAtUtc?: string;
@@ -304,8 +306,10 @@ export interface FairReport {
   location: string;
   registrationFee: number;
   registrationFeeSplitCount: number;
+  storeFeePercentage: number;
   suppliers: { supplierId: string; supplierName: string }[];
   storeRegistrationFee: number;
+  supplierRegistrationFee: number;
   grossRevenue: number;
   netRevenue: number;
   piggyBankAmount: number;

@@ -10,15 +10,20 @@ public sealed class Fair : AuditableEntity, IAggregateRoot
     public string Location { get; set; } = string.Empty;
     public decimal RegistrationFee { get; set; }
     public int RegistrationFeeSplitCount { get; set; } = 1;
+    public decimal StoreFeePercentage { get; set; } = 50m;
     public string Notes { get; set; } = string.Empty;
     public FairStatus Status { get; private set; } = FairStatus.Open;
     public DateTime? FinalizedAtUtc { get; private set; }
     public ICollection<Sale> Sales { get; set; } = new List<Sale>();
     public ICollection<FairSupplier> Suppliers { get; set; } = new List<FairSupplier>();
 
-    public decimal StoreRegistrationFee => decimal.Round(RegistrationFee / 2m, 2, MidpointRounding.AwayFromZero);
+    public decimal StoreRegistrationFee
+        => decimal.Round(RegistrationFee * (StoreFeePercentage / 100m), 2, MidpointRounding.AwayFromZero);
 
-    public void UpdateDetails(string name, DateTime eventDateUtc, DateTime endDateUtc, string location, decimal registrationFee, int registrationFeeSplitCount, string notes)
+    public decimal SupplierRegistrationFee
+        => decimal.Round(Math.Max(RegistrationFee - StoreRegistrationFee, 0m), 2, MidpointRounding.AwayFromZero);
+
+    public void UpdateDetails(string name, DateTime eventDateUtc, DateTime endDateUtc, string location, decimal registrationFee, int registrationFeeSplitCount, decimal storeFeePercentage, string notes)
     {
         var normalizedStartDate = NormalizeUtc(eventDateUtc);
         var normalizedEndDate = NormalizeUtc(endDateUtc);
@@ -33,6 +38,7 @@ public sealed class Fair : AuditableEntity, IAggregateRoot
         Location = location.Trim();
         RegistrationFee = registrationFee;
         RegistrationFeeSplitCount = Math.Max(1, registrationFeeSplitCount);
+        StoreFeePercentage = decimal.Round(Math.Clamp(storeFeePercentage, 0m, 100m), 2, MidpointRounding.AwayFromZero);
         Notes = notes.Trim();
 
         if (Status != FairStatus.Finalized && Status != FairStatus.Cancelled && EventDateUtc.Date > DateTime.UtcNow.Date)

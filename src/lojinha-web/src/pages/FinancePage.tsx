@@ -169,7 +169,7 @@ export function FinancePage() {
 
     fairs.forEach((fair) => {
       const suppliers = fair.suppliers ?? [];
-      const defaultQuota = suppliers.length > 0 ? ((fair.registrationFee / 2) / suppliers.length) : 0;
+      const defaultQuota = suppliers.length > 0 ? (fair.supplierRegistrationFee / suppliers.length) : 0;
 
       suppliers.forEach((supplier) => {
         const supplierEntries = allFairEntries.filter((entry) => entry.referenceId === fair.id && entry.supplierId === supplier.supplierId);

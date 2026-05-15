@@ -29,7 +29,7 @@ internal static class FairMappings
         => fair.Status != FairStatus.Cancelled
             && fair.Suppliers.Any(link => link.SupplierId == supplierId)
             && fair.Suppliers.Count > 0
-            ? decimal.Round((fair.RegistrationFee / 2m) / fair.Suppliers.Count, 2, MidpointRounding.AwayFromZero)
+            ? decimal.Round(fair.SupplierRegistrationFee / fair.Suppliers.Count, 2, MidpointRounding.AwayFromZero)
             : 0m;
 
     public static FairDto ToDto(this Fair fair, Guid? supplierId = null)
@@ -52,8 +52,10 @@ internal static class FairMappings
                 fair.Location,
                 fair.RegistrationFee,
                 fair.RegistrationFeeSplitCount,
+                fair.StoreFeePercentage,
                 fairSuppliers,
                 fair.StoreRegistrationFee,
+                fair.SupplierRegistrationFee,
                 fair.Notes,
                 fair.Status,
                 fair.FinalizedAtUtc,
@@ -80,8 +82,10 @@ internal static class FairMappings
             fair.Location,
             fair.RegistrationFee,
             fair.RegistrationFeeSplitCount,
+            fair.StoreFeePercentage,
             suppliers,
             effectiveStoreRegistrationFee,
+            fair.SupplierRegistrationFee,
             fair.Notes,
             fair.Status,
             fair.FinalizedAtUtc,
@@ -158,8 +162,10 @@ internal static class FairMappings
             fair.Location,
             fair.RegistrationFee,
             fair.RegistrationFeeSplitCount,
+            fair.StoreFeePercentage,
             suppliers,
             effectiveStoreRegistrationFee,
+            fair.SupplierRegistrationFee,
             grossRevenue,
             netRevenue,
             piggyBankAmount,

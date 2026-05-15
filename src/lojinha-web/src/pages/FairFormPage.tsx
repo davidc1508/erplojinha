@@ -1,15 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
+  Box,
   Button,
   Checkbox,
   Chip,
+  FormControl,
   IconButton,
+  InputLabel,
   Grid,
   ListItemText,
   MenuItem,
   OutlinedInput,
   Select,
+  Slider,
   Stack,
   TextField,
   Typography
@@ -34,6 +38,7 @@ const emptyForm = {
   location: '',
   registrationFee: 0,
   registrationFeeSplitCount: 1,
+  storeFeePercentage: 50,
   registrationInstallments: [{ dueDateUtc: getTodayDateInputValue(), amount: 0 }],
   supplierIds: [] as string[],
   notes: ''
@@ -132,6 +137,7 @@ export function FairFormPage() {
       location: fair.location,
       registrationFee: fair.registrationFee,
       registrationFeeSplitCount: fair.registrationFeeSplitCount,
+      storeFeePercentage: fair.storeFeePercentage,
       registrationInstallments: [{ dueDateUtc: fair.eventDateUtc.slice(0, 10), amount: fair.registrationFee }],
       supplierIds: fair.suppliers.map((item) => item.supplierId),
       notes: fair.notes
@@ -150,6 +156,7 @@ export function FairFormPage() {
           dueDateUtc: toUtcDateOnlyIso(installment.dueDateUtc),
           amount: Number(installment.amount)
         })),
+        storeFeePercentage: Number(form.storeFeePercentage),
         registrationFeeSplitCount: Math.max(1, form.supplierIds.length + 1)
       };
       return isEditing ? fairsApi.update(id!, payload) : fairsApi.create(payload);
@@ -229,8 +236,10 @@ export function FairFormPage() {
   const selectedSuppliers = (metadata?.suppliers ?? []).filter((item) => form.supplierIds.includes(item.id));
   const installmentsTotal = form.registrationInstallments.reduce((sum, installment) => sum + Number(installment.amount || 0), 0);
   const installmentDifference = Number((form.registrationFee - installmentsTotal).toFixed(2));
+  const storeRegistrationShare = Number((form.registrationFee * (form.storeFeePercentage / 100)).toFixed(2));
+  const supplierRegistrationShare = Number((form.registrationFee - storeRegistrationShare).toFixed(2));
   const supplierMonthlyEstimate = selectedSuppliers.length > 0
-    ? (installmentsTotal / 2) / selectedSuppliers.length
+    ? supplierRegistrationShare / selectedSuppliers.length
     : 0;
 
   return (
@@ -276,6 +285,65 @@ export function FairFormPage() {
                 <Grid item xs={12} md={6}>
                   <CurrencyField label="Taxa de inscrição" value={form.registrationFee} onValueChange={(value) => updateField('registrationFee', value)} fullWidth />
                 </Grid>
+                <Grid item xs={12}>
+                  <Stack spacing={2} sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.62)', borderRadius: 2 }}>
+                    <Stack>
+                      <Typography variant="body2" fontWeight={600}>Rateio da inscrição</Typography>
+                      <Typography variant="caption" color="text.secondary">{form.storeFeePercentage.toFixed(0)}% lojinha • {(100 - form.storeFeePercentage).toFixed(0)}% fornecedores</Typography>
+                    </Stack>
+
+                    <Box>
+                      <Box sx={{ display: 'flex', height: 24, borderRadius: 1, overflow: 'hidden', mb: 1.5, border: '1px solid rgba(0,0,0,0.12)' }}>
+                        <Box sx={{ flex: form.storeFeePercentage, backgroundColor: form.storeFeePercentage === 0 ? 'rgba(156, 39, 176, 0.12)' : form.storeFeePercentage < 30 ? 'rgba(156, 39, 176, 0.3)' : form.storeFeePercentage < 70 ? 'rgba(76, 175, 80, 0.3)' : form.storeFeePercentage < 100 ? 'rgba(33, 150, 243, 0.3)' : 'rgba(33, 150, 243, 0.6)', transition: 'all 200ms' }} />
+                        <Box sx={{ flex: 100 - form.storeFeePercentage, backgroundColor: form.storeFeePercentage === 100 ? 'rgba(255, 193, 7, 0.12)' : form.storeFeePercentage > 70 ? 'rgba(255, 193, 7, 0.3)' : form.storeFeePercentage > 30 ? 'rgba(255, 152, 0, 0.3)' : form.storeFeePercentage > 0 ? 'rgba(255, 152, 0, 0.3)' : 'rgba(244, 67, 54, 0.3)', transition: 'all 200ms' }} />
+                      </Box>
+                      <Stack direction="row" spacing={1} sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                        <Box sx={{ flex: form.storeFeePercentage, textAlign: 'center' }}>Lojinha</Box>
+                        <Box sx={{ flex: 100 - form.storeFeePercentage, textAlign: 'center' }}>Fornecedores</Box>
+                      </Stack>
+                    </Box>
+
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant={form.storeFeePercentage === 0 ? 'contained' : 'outlined'}
+                        size="small"
+                        onClick={() => updateField('storeFeePercentage', 0)}
+                        sx={{ flex: 1 }}
+                        color={form.storeFeePercentage === 0 ? 'error' : 'inherit'}
+                      >
+                        Fornecedores
+                      </Button>
+                      <Button
+                        variant={form.storeFeePercentage === 50 ? 'contained' : 'outlined'}
+                        size="small"
+                        onClick={() => updateField('storeFeePercentage', 50)}
+                        sx={{ flex: 1 }}
+                        color={form.storeFeePercentage === 50 ? 'success' : 'inherit'}
+                      >
+                        Meio a meio
+                      </Button>
+                      <Button
+                        variant={form.storeFeePercentage === 100 ? 'contained' : 'outlined'}
+                        size="small"
+                        onClick={() => updateField('storeFeePercentage', 100)}
+                        sx={{ flex: 1 }}
+                        color={form.storeFeePercentage === 100 ? 'info' : 'inherit'}
+                      >
+                        Lojinha
+                      </Button>
+                    </Stack>
+
+                    <Slider
+                      aria-label="Percentual da inscricao pago pela lojinha"
+                      value={form.storeFeePercentage}
+                      onChange={(_, value) => updateField('storeFeePercentage', value as number)}
+                      min={0}
+                      max={100}
+                      step={5}
+                      marks={[{ value: 0, label: '0%' }, { value: 50, label: '50%' }, { value: 100, label: '100%' }]}
+                    />
+                  </Stack>
+                </Grid>
                 <Grid item xs={12} md={6}>
                   <TextField
                     label="Início do pagamento da inscrição"
@@ -288,33 +356,36 @@ export function FairFormPage() {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Stack spacing={1}>
-                    <Typography variant="body2" color="text.secondary">Fornecedores participantes</Typography>
-                    <Select
-                      multiple
-                      value={form.supplierIds}
-                      onChange={(event) => updateSupplierIds(event.target.value)}
-                      input={<OutlinedInput />}
-                      renderValue={(selected) => {
-                        const values = selected as string[];
-                        if (values.length === 0) {
-                          return 'Nenhum fornecedor selecionado';
-                        }
+                    <FormControl fullWidth>
+                      <InputLabel id="fair-suppliers-label">Fornecedores participantes</InputLabel>
+                      <Select
+                        labelId="fair-suppliers-label"
+                        multiple
+                        value={form.supplierIds}
+                        onChange={(event) => updateSupplierIds(event.target.value)}
+                        input={<OutlinedInput label="Fornecedores participantes" />}
+                        label="Fornecedores participantes"
+                        renderValue={(selected) => {
+                          const values = selected as string[];
+                          if (values.length === 0) {
+                            return 'Nenhum fornecedor selecionado';
+                          }
 
-                        return (metadata?.suppliers ?? [])
-                          .filter((item) => values.includes(item.id))
-                          .map((item) => item.name)
-                          .join(', ');
-                      }}
-                      fullWidth
-                    >
-                      {(metadata?.suppliers ?? []).map((item) => (
-                        <MenuItem key={item.id} value={item.id}>
-                          <Checkbox checked={form.supplierIds.includes(item.id)} />
-                          <ListItemText primary={item.name} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    <Typography variant="caption" color="text.secondary">A taxa será dividida automaticamente entre a loja e os fornecedores selecionados.</Typography>
+                          return (metadata?.suppliers ?? [])
+                            .filter((item) => values.includes(item.id))
+                            .map((item) => item.name)
+                            .join(', ');
+                        }}
+                      >
+                        {(metadata?.suppliers ?? []).map((item) => (
+                          <MenuItem key={item.id} value={item.id}>
+                            <Checkbox checked={form.supplierIds.includes(item.id)} />
+                            <ListItemText primary={item.name} />
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
                     {selectedSuppliers.length > 0 ? (
                       <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                         {selectedSuppliers.map((item) => <Chip key={item.id} label={item.name} size="small" />)}
@@ -360,8 +431,8 @@ export function FairFormPage() {
               <TextField label="Observações" multiline minRows={4} value={form.notes} onChange={(event) => updateField('notes', event.target.value)} />
               {form.endDateUtc < form.eventDateUtc ? <Alert severity="error">A data final nao pode ser anterior a data inicial.</Alert> : null}
               {form.registrationFee > 0 && installmentDifference !== 0 ? <Alert severity="error">A soma das parcelas precisa fechar exatamente em {formatCurrency(form.registrationFee)}.</Alert> : null}
-              <Alert severity="info">Custo final da lojinha: {formatCurrency(form.registrationFee / 2)}.</Alert>
-              <Alert severity="info">Pendência total de fornecedores: {formatCurrency(form.registrationFee / 2)} ({selectedSuppliers.length === 0 ? 'sem fornecedores' : `${formatCurrency(supplierMonthlyEstimate)} por fornecedor na composição atual`}).</Alert>
+              <Alert severity="info">Custo final da lojinha: {formatCurrency(storeRegistrationShare)} ({form.storeFeePercentage.toFixed(2)}%).</Alert>
+              <Alert severity="info">Pendência total de fornecedores: {formatCurrency(supplierRegistrationShare)} ({selectedSuppliers.length === 0 ? 'sem fornecedores' : `${formatCurrency(supplierMonthlyEstimate)} por fornecedor na composição atual`}).</Alert>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => mutation.mutate()} disabled={mutation.isLoading || form.endDateUtc < form.eventDateUtc || (form.registrationFee > 0 && installmentDifference !== 0)}>
