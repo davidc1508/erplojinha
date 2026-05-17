@@ -349,4 +349,25 @@ public sealed class ProjectsController(IProjectService projectService) : Control
             return BadRequest(ex.Message);
         }
     }
+
+    [HttpPut("{projectId}/steps/{stepId}/reprint")]
+    public async Task<IActionResult> ReprintStep(Guid projectId, Guid stepId, CancellationToken cancellationToken)
+    {
+        var actor = User.FindFirst("sub")?.Value ?? "unknown";
+        var scopedSupplierId = User.FindFirst("supplier_id")?.Value;
+        var supplierId = string.IsNullOrWhiteSpace(scopedSupplierId) ? (Guid?)null : Guid.Parse(scopedSupplierId);
+
+        try
+        {
+            var step = await projectService.ReprintStepAsync(projectId, stepId, actor, supplierId, cancellationToken);
+            if (step is null)
+                return NotFound();
+
+            return Ok(step);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 }

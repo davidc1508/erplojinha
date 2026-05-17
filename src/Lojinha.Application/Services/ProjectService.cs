@@ -33,6 +33,7 @@ public interface IProjectService
 
     Task<ProjectStepDto?> CompleteStepAsync(Guid projectId, Guid stepId, ProjectStepAttemptCompleteRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<ProjectStepDto?> FailStepAsync(Guid projectId, Guid stepId, ProjectStepAttemptFailRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+    Task<ProjectStepDto?> ReprintStepAsync(Guid projectId, Guid stepId, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
 }
 
 public sealed class ProjectService(
@@ -139,11 +140,23 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             .FirstOrDefault(p => p.Id == projectId)
             ?? throw new InvalidOperationException("Projeto não encontrado.");
 
+        var nextOrder = stepRepository.Query()
+            .Where(s => s.ProjectId == projectId)
+            .Select(s => (int?)s.Order)
+            .Max() ?? 0;
+        nextOrder += 1;
+
+        var normalizedName = request.Name.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            normalizedName = $"Mesa {nextOrder}";
+        }
+
         var step = new ProjectStep
         {
             ProjectId = projectId,
-            Name = request.Name.Trim(),
-            Order = request.Order,
+            Name = normalizedName,
+            Order = nextOrder,
             TimeEstimatedMinutes = request.TimeEstimatedMinutes,
             PrinterPlanned = request.PrinterPlanned?.Trim(),
                 WeightEstimatedGrams = request.Filaments.Sum(f => f.WeightGrams),
@@ -187,10 +200,11 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             return null;
 
         step.Name = request.Name.Trim();
-        step.Order = request.Order;
         step.TimeEstimatedMinutes = request.TimeEstimatedMinutes;
         step.PrinterPlanned = request.PrinterPlanned?.Trim();
             step.WeightEstimatedGrams = request.Filaments.Sum(f => f.WeightGrams);
+
+        await MoveStepOrderAsync(projectId, step, request.Order, cancellationToken);
 
         stepRepository.Update(step);
         await auditRepository.AddAsync(CreateAudit(step.Id, AuditAction.Updated, actor, step), cancellationToken);
@@ -237,6 +251,8 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         stepRepository.Remove(step);
         await auditRepository.AddAsync(CreateAudit(step.Id, AuditAction.Deleted, actor, step), cancellationToken);
         await stepRepository.SaveChangesAsync(cancellationToken);
+
+        await NormalizeStepOrdersAsync(projectId, cancellationToken);
 
         // Atualizar totais do projeto
         await RecalculateProjectTotalsAsync(projectId, cancellationToken);
@@ -847,7 +863,7 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         if (prevFilaments.Count > 0)
             await attemptFilamentRepository.SaveChangesAsync(cancellationToken);
 
-        if (step.Status == ProjectStepStatus.Pendente)
+        if (step.Status != ProjectStepStatus.EmAndamento)
         {
             step.Status = ProjectStepStatus.EmAndamento;
             stepRepository.Update(step);
@@ -855,6 +871,111 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
         }
 
         await EnsureProjectStartedAsync(projectId, actor, cancellationToken);
+
+        await RecalculateProjectTotalsAsync(projectId, cancellationToken);
+        return MapStep(step);
+    }
+
+    public async Task<ProjectStepDto?> ReprintStepAsync(Guid projectId, Guid stepId, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+    {
+        var step = stepRepository.Query()
+            .FirstOrDefault(s => s.Id == stepId && s.ProjectId == projectId);
+        if (step is null)
+            return null;
+
+        var project = ApplyScope(projectRepository.Query(), scopedSupplierId)
+            .FirstOrDefault(p => p.Id == projectId)
+            ?? throw new InvalidOperationException("Projeto não encontrado.");
+
+        if (step.Status != ProjectStepStatus.Concluida)
+        {
+            throw new InvalidOperationException("A reimpressao so e permitida para mesas concluidas.");
+        }
+
+        var latestConcludedAttempt = attemptRepository.Query()
+            .Where(a => a.StepId == stepId && a.Status == ProjectStepAttemptStatus.Concluida)
+            .OrderByDescending(a => a.AttemptNumber)
+            .FirstOrDefault();
+
+        var sourceFilaments = latestConcludedAttempt is null
+            ? stepFilamentRepository.Query().Where(f => f.StepId == stepId).Select(f => new { f.FilamentProfileId, f.WeightGrams }).ToList()
+            : attemptFilamentRepository.Query().Where(f => f.AttemptId == latestConcludedAttempt.Id).Select(f => new { f.FilamentProfileId, f.WeightGrams }).ToList();
+
+        var nextAttemptNumber = attemptRepository.Query().Count(a => a.StepId == stepId) + 1;
+        var failedAttempt = new ProjectStepAttempt
+        {
+            StepId = stepId,
+            ProjectId = projectId,
+            AttemptNumber = nextAttemptNumber,
+            PrinterUsed = latestConcludedAttempt?.PrinterUsed ?? step.PrinterPlanned ?? string.Empty,
+            TimeRealMinutes = latestConcludedAttempt?.TimeRealMinutes ?? step.TimeEstimatedMinutes,
+            WeightRealGrams = latestConcludedAttempt?.WeightRealGrams ?? step.WeightEstimatedGrams,
+            Status = ProjectStepAttemptStatus.Falhada,
+            TimeLostMinutes = latestConcludedAttempt?.TimeRealMinutes ?? step.TimeEstimatedMinutes,
+            WeightLostGrams = latestConcludedAttempt?.WeightRealGrams ?? step.WeightEstimatedGrams,
+            FailureReason = "Reimpressao solicitada para mesa concluida"
+        };
+
+        await attemptRepository.AddAsync(failedAttempt, cancellationToken);
+        await auditRepository.AddAsync(CreateAudit(failedAttempt.Id, AuditAction.Created, actor, failedAttempt), cancellationToken);
+        await attemptRepository.SaveChangesAsync(cancellationToken);
+
+        foreach (var filament in sourceFilaments)
+        {
+            await attemptFilamentRepository.AddAsync(new ProjectStepAttemptFilament
+            {
+                AttemptId = failedAttempt.Id,
+                FilamentProfileId = filament.FilamentProfileId,
+                WeightGrams = filament.WeightGrams
+            }, cancellationToken);
+        }
+
+        if (sourceFilaments.Count > 0)
+        {
+            await attemptFilamentRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        var retryAttempt = new ProjectStepAttempt
+        {
+            StepId = stepId,
+            ProjectId = projectId,
+            AttemptNumber = nextAttemptNumber + 1,
+            PrinterUsed = failedAttempt.PrinterUsed,
+            Status = ProjectStepAttemptStatus.EmAndamento
+        };
+
+        await attemptRepository.AddAsync(retryAttempt, cancellationToken);
+        await auditRepository.AddAsync(CreateAudit(retryAttempt.Id, AuditAction.Created, actor, retryAttempt), cancellationToken);
+        await attemptRepository.SaveChangesAsync(cancellationToken);
+
+        foreach (var filament in sourceFilaments)
+        {
+            await attemptFilamentRepository.AddAsync(new ProjectStepAttemptFilament
+            {
+                AttemptId = retryAttempt.Id,
+                FilamentProfileId = filament.FilamentProfileId,
+                WeightGrams = filament.WeightGrams
+            }, cancellationToken);
+        }
+
+        if (sourceFilaments.Count > 0)
+        {
+            await attemptFilamentRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        step.Status = ProjectStepStatus.EmAndamento;
+        stepRepository.Update(step);
+
+        if (project.Status == ProjectStatus.Concluido)
+        {
+            project.Status = ProjectStatus.EmAndamento;
+            project.ConcludedAtUtc = null;
+            projectRepository.Update(project);
+            await auditRepository.AddAsync(CreateAudit(project.Id, AuditAction.Updated, actor, project), cancellationToken);
+        }
+
+        await stepRepository.SaveChangesAsync(cancellationToken);
+        await projectRepository.SaveChangesAsync(cancellationToken);
 
         await RecalculateProjectTotalsAsync(projectId, cancellationToken);
         return MapStep(step);
@@ -916,6 +1037,73 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
 
         projectRepository.Update(project);
         await projectRepository.SaveChangesAsync();
+    }
+
+    private async Task MoveStepOrderAsync(Guid projectId, ProjectStep targetStep, int requestedOrder, CancellationToken cancellationToken)
+    {
+        var orderedSteps = stepRepository.Query()
+            .Where(s => s.ProjectId == projectId)
+            .OrderBy(s => s.Order)
+            .ThenBy(s => s.CreatedAtUtc)
+            .ToList();
+
+        var maxOrder = Math.Max(1, orderedSteps.Count);
+        var desiredOrder = Math.Clamp(requestedOrder, 1, maxOrder);
+        var currentOrder = targetStep.Order;
+
+        if (desiredOrder == currentOrder)
+        {
+            return;
+        }
+
+        if (desiredOrder < currentOrder)
+        {
+            foreach (var step in orderedSteps.Where(s => s.Id != targetStep.Id && s.Order >= desiredOrder && s.Order < currentOrder))
+            {
+                step.Order += 1;
+                stepRepository.Update(step);
+            }
+        }
+        else
+        {
+            foreach (var step in orderedSteps.Where(s => s.Id != targetStep.Id && s.Order <= desiredOrder && s.Order > currentOrder))
+            {
+                step.Order -= 1;
+                stepRepository.Update(step);
+            }
+        }
+
+        targetStep.Order = desiredOrder;
+        await stepRepository.SaveChangesAsync(cancellationToken);
+        await NormalizeStepOrdersAsync(projectId, cancellationToken);
+    }
+
+    private async Task NormalizeStepOrdersAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        var orderedSteps = stepRepository.Query()
+            .Where(s => s.ProjectId == projectId)
+            .OrderBy(s => s.Order)
+            .ThenBy(s => s.CreatedAtUtc)
+            .ToList();
+
+        var expectedOrder = 1;
+        var hasChanges = false;
+        foreach (var step in orderedSteps)
+        {
+            if (step.Order != expectedOrder)
+            {
+                step.Order = expectedOrder;
+                stepRepository.Update(step);
+                hasChanges = true;
+            }
+
+            expectedOrder += 1;
+        }
+
+        if (hasChanges)
+        {
+            await stepRepository.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private async Task EnsureProjectStartedAsync(Guid projectId, string actor, CancellationToken cancellationToken)

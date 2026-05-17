@@ -9,6 +9,7 @@ import {
   DialogTitle,
   Grid,
   LinearProgress,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -21,6 +22,9 @@ import {
 } from '@mui/material';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import FilterAltRoundedIcon from '@mui/icons-material/FilterAltRounded';
+import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -56,6 +60,8 @@ export function ProjectsPage() {
     description: '',
     productId: ''
   });
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | ProjectStatus>('Todos');
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects'],
@@ -98,6 +104,19 @@ export function ProjectsPage() {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
     }
   });
+  const duplicateMutation = useMutation({
+    mutationFn: (projectId: string) => projectsApi.duplicate(projectId),
+    onSuccess: (duplicatedProject) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      navigate(`/projetos/${duplicatedProject.id}`, { state: { preserveState: true } });
+    }
+  });
+  const startMutation = useMutation({
+    mutationFn: (projectId: string) => projectsApi.start(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    }
+  });
 
   const handleCreateProject = () => {
     createMutation.mutate({
@@ -111,6 +130,25 @@ export function ProjectsPage() {
   const handleDeleteProject = (id: string) => {
     setDeleteTargetId(id);
   };
+
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      if (statusFilter !== 'Todos' && project.status !== statusFilter) {
+        return false;
+      }
+
+      const query = search.trim().toLowerCase();
+      if (!query) {
+        return true;
+      }
+
+      const productName = project.productId ? (productMap.get(project.productId) ?? '') : '';
+      return [project.name, project.description, productName]
+        .join(' ')
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [productMap, projects, search, statusFilter]);
 
   useEffect(() => {
     if (!todoItemId) {
@@ -148,6 +186,32 @@ export function ProjectsPage() {
             <Button variant="contained" onClick={() => setOpenDialog(true)}>Novo projeto</Button>
           </Stack>
 
+          <Grid container spacing={1.5} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Buscar projetos"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Nome, observação ou produto vinculado"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth select label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'Todos' | ProjectStatus)}>
+                <MenuItem value="Todos">Todos</MenuItem>
+                <MenuItem value="Planejado">Planejado</MenuItem>
+                <MenuItem value="EmAndamento">Em andamento</MenuItem>
+                <MenuItem value="Concluido">Concluído</MenuItem>
+                <MenuItem value="Cancelado">Cancelado</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Button fullWidth variant="outlined" startIcon={<FilterAltRoundedIcon />} onClick={() => { setSearch(''); setStatusFilter('Todos'); }}>
+                Limpar
+              </Button>
+            </Grid>
+          </Grid>
+
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small">
               <TableHead>
@@ -162,7 +226,7 @@ export function ProjectsPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {projects.map((project: Project) => (
+                {filteredProjects.map((project: Project) => (
                   <TableRow key={project.id} hover>
                     <TableCell>
                       <Stack spacing={0.35}>
@@ -182,13 +246,34 @@ export function ProjectsPage() {
                     <TableCell>{project.weightCompletedGrams.toFixed(0)} / {project.weightEstimatedGrams.toFixed(0)} g</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => navigate(`/projetos/${project.id}`)}>Abrir</Button>
+                      {project.status === 'Concluido' ? (
+                        <Button
+                          size="small"
+                          color="warning"
+                          startIcon={<ReplayRoundedIcon />}
+                          onClick={() => duplicateMutation.mutate(project.id)}
+                          disabled={duplicateMutation.isLoading}
+                        >
+                          Iniciar novamente
+                        </Button>
+                      ) : null}
+                      {project.status === 'Planejado' ? (
+                        <Button
+                          size="small"
+                          startIcon={<PlayArrowRoundedIcon />}
+                          onClick={() => startMutation.mutate(project.id)}
+                          disabled={startMutation.isLoading}
+                        >
+                          Iniciar
+                        </Button>
+                      ) : null}
                       <Button size="small" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => handleDeleteProject(project.id)}>Excluir</Button>
                     </TableCell>
                   </TableRow>
                 ))}
-                {projects.length === 0 ? (
+                {filteredProjects.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7}><Typography color="text.secondary">Sem projetos cadastrados por enquanto.</Typography></TableCell>
+                    <TableCell colSpan={7}><Typography color="text.secondary">Nenhum projeto encontrado com os filtros atuais.</Typography></TableCell>
                   </TableRow>
                 ) : null}
               </TableBody>

@@ -108,6 +108,11 @@ export function ProductFormPage() {
     enabled: isEditing
   });
 
+  const defaultFilamentId = useMemo(() => {
+    const pla120 = (metadata?.filaments ?? []).find((item) => item.name.trim().toLowerCase() === 'pla - 120');
+    return pla120?.id ?? '';
+  }, [metadata?.filaments]);
+
   useEffect(() => {
     if (!product) {
       return;
@@ -215,6 +220,27 @@ export function ProductFormPage() {
       setForm((current) => ({ ...current, isBudget: isBudgetMode }));
     }
   }, [cloneFromId, isBudgetMode, isEditing]);
+
+  useEffect(() => {
+    if (isEditing || cloneFromId || isProjectDraftMode || !defaultFilamentId) {
+      return;
+    }
+
+    setForm((current) => {
+      if (current.filaments.length === 0) {
+        return { ...current, filaments: [{ filamentProfileId: defaultFilamentId, weightGrams: 0 }] };
+      }
+
+      if (current.filaments[0].filamentProfileId) {
+        return current;
+      }
+
+      return {
+        ...current,
+        filaments: current.filaments.map((item, index) => index === 0 ? { ...item, filamentProfileId: defaultFilamentId } : item)
+      };
+    });
+  }, [cloneFromId, defaultFilamentId, isEditing, isProjectDraftMode]);
 
   useEffect(() => {
     if (isEditing || cloneFromId || projectId || !todoName || form.name.trim().length > 0) {
@@ -363,7 +389,10 @@ export function ProductFormPage() {
 
     function addFilament() {
       setDirty(true);
-      setForm((current) => ({ ...current, filaments: [...current.filaments, { filamentProfileId: '', weightGrams: 0 }] }));
+      setForm((current) => ({
+        ...current,
+        filaments: [...current.filaments, { filamentProfileId: defaultFilamentId, weightGrams: 0 }]
+      }));
     }
 
     function removeFilament(index: number) {

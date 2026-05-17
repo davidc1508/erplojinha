@@ -34,9 +34,10 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded';
 import ReportProblemRoundedIcon from '@mui/icons-material/ReportProblemRounded';
+import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { SearchSelectField } from '../components/SearchSelectField';
@@ -71,11 +72,11 @@ export function ProjectDetailPage() {
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   const [stepForm, setStepForm] = useState({
-    name: '',
+    name: 'Mesa 1',
     order: '1',
     timeEstimatedMinutes: 0,
     printerPlanned: '',
-    filaments: [] as { filamentProfileId: string; weightGrams: number }[]
+    filaments: [{ filamentProfileId: '', weightGrams: 0 }] as { filamentProfileId: string; weightGrams: number }[]
   });
   const [stepDuration, setStepDuration] = useState(() => minutesToDurationParts(0));
   const [failStepForm, setFailStepForm] = useState({ timeLostMinutes: 0, weightLostGrams: '', failureReason: '' });
@@ -97,6 +98,17 @@ export function ProjectDetailPage() {
   const productName = selectedProduct?.name ?? '-';
   const printerOptions = (metadata?.printers ?? []).map((item) => ({ id: item.id, name: item.name }));
   const filamentOptions = (metadata?.filaments ?? []).map((item) => ({ id: item.id, name: item.name }));
+  const defaultFilamentId = useMemo(() => {
+    const pla120 = (metadata?.filaments ?? []).find((item) => item.name.trim().toLowerCase() === 'pla - 120');
+    return pla120?.id ?? '';
+  }, [metadata?.filaments]);
+  const nextStepOrder = useMemo(() => {
+    if (!project?.steps?.length) {
+      return 1;
+    }
+
+    return Math.max(...project.steps.map((item) => item.order)) + 1;
+  }, [project?.steps]);
 
   const addStepMutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) => projectsApi.addStep(id!, payload),
@@ -135,6 +147,17 @@ export function ProjectDetailPage() {
       setOpenFailStepDialog(false);
       setFailStepForm({ timeLostMinutes: 0, weightLostGrams: '', failureReason: '' });
       setFailDuration(minutesToDurationParts(0));
+    }
+  });
+  const reprintStepMutation = useMutation({
+    mutationFn: (stepId: string) => projectsApi.reprintStep(id!, stepId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      setActionFeedback('Reimpressao iniciada. Uma falha automatica foi registrada para a mesa concluida.');
+    },
+    onError: () => {
+      setActionFeedback('Nao foi possivel iniciar a reimpressao da mesa.');
     }
   });
   const duplicateProjectMutation = useMutation({
@@ -181,13 +204,34 @@ export function ProjectDetailPage() {
     }
   });
 
-  function resetStepForm() {
+  useEffect(() => {
+    if (!defaultFilamentId) {
+      return;
+    }
+
+    setStepForm((current) => {
+      if (current.filaments.length === 0) {
+        return { ...current, filaments: [{ filamentProfileId: defaultFilamentId, weightGrams: 0 }] };
+      }
+
+      if (current.filaments[0].filamentProfileId) {
+        return current;
+      }
+
+      return {
+        ...current,
+        filaments: current.filaments.map((item, index) => index === 0 ? { ...item, filamentProfileId: defaultFilamentId } : item)
+      };
+    });
+  }, [defaultFilamentId]);
+
+  function resetStepForm(order = 1) {
     setStepForm({
-      name: '',
-      order: '1',
+      name: `Mesa ${order}`,
+      order: String(order),
       timeEstimatedMinutes: 0,
       printerPlanned: '',
-      filaments: []
+      filaments: [{ filamentProfileId: defaultFilamentId, weightGrams: 0 }]
     });
     setStepDuration(minutesToDurationParts(0));
   }
@@ -209,7 +253,7 @@ export function ProjectDetailPage() {
   }
 
   function addStepFilament() {
-    setStepForm((current) => ({ ...current, filaments: [...current.filaments, { filamentProfileId: '', weightGrams: 0 }] }));
+    setStepForm((current) => ({ ...current, filaments: [...current.filaments, { filamentProfileId: defaultFilamentId, weightGrams: 0 }] }));
   }
 
   function updateStepFilament(index: number, field: 'filamentProfileId' | 'weightGrams', value: string | number) {
@@ -340,6 +384,17 @@ export function ProjectDetailPage() {
             </Stack>
             <Stack direction="row" spacing={0.5} flexShrink={0}>
               <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => startEditStep(step)}>Editar</Button>
+              {isConcluded ? (
+                <Button
+                  size="small"
+                  color="warning"
+                  startIcon={<ReplayRoundedIcon />}
+                  onClick={() => reprintStepMutation.mutate(step.id)}
+                  disabled={reprintStepMutation.isLoading}
+                >
+                  Reimprimir mesa
+                </Button>
+              ) : null}
               <Button
                 size="small"
                 color="error"
@@ -454,7 +509,7 @@ export function ProjectDetailPage() {
                 <Typography variant="body2" color="text.secondary">{concludedCount} de {totalSteps} mesas concluídas</Typography>
               </Box>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => { resetStepForm(); setSelectedStep(null); setOpenAddStepDialog(true); }}>
+                <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => { resetStepForm(nextStepOrder); setSelectedStep(null); setOpenAddStepDialog(true); }}>
                   Nova mesa
                 </Button>
                 {!isProjectConcluded && !isProjectCanceled ? (
@@ -532,7 +587,7 @@ export function ProjectDetailPage() {
                 <Paper variant="outlined" sx={{ p: 1.5 }}>
                   <Typography variant="caption" color="text.secondary">Mesas</Typography>
                   <Typography variant="body1" fontWeight={600}>{pendingSteps.length} pendentes • {concludedSteps.length} concluídas</Typography>
-                  <Typography variant="caption" color="text.secondary">Ordenação por cadastro (mais antigas primeiro)</Typography>
+                  <Typography variant="caption" color="text.secondary">Ordem automática de mesas com reajuste ao editar posição</Typography>
                 </Paper>
               </Grid>
               <Grid item xs={12} md={3}>
@@ -634,7 +689,6 @@ export function ProjectDetailPage() {
         <DialogContent sx={{ pt: 2 }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Nome da mesa" value={stepForm.name} onChange={(event) => setStepForm((current) => ({ ...current, name: event.target.value }))} fullWidth />
-            <TextField label="Ordem" type="number" value={stepForm.order} onChange={(event) => setStepForm((current) => ({ ...current, order: event.target.value }))} fullWidth />
             <Grid container spacing={2}>
               <Grid item xs={4}><TextField label="Duração (h)" type="number" value={stepDuration.hours} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'hours', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
               <Grid item xs={4}><TextField label="Min" type="number" value={stepDuration.minutes} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'minutes', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth /></Grid>

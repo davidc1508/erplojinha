@@ -511,6 +511,10 @@ export const projectsApi = {
   failStep: async (projectId: string, stepId: string, payload: Record<string, unknown>) => {
     const { data } = await api.put<ProjectStep>(`/projects/${projectId}/steps/${stepId}/fail`, payload);
     return data;
+  },
+  reprintStep: async (projectId: string, stepId: string) => {
+    const { data } = await api.put<ProjectStep>(`/projects/${projectId}/steps/${stepId}/reprint`);
+    return data;
   }
 };
 
