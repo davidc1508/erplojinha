@@ -8,10 +8,10 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
   LinearProgress,
   MenuItem,
   Paper,
-  TableContainer,
   Stack,
   Table,
   TableBody,
@@ -19,6 +19,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
@@ -213,18 +214,17 @@ export function ProjectsPage() {
             </Grid>
           </Grid>
 
-          <Paper sx={{ borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small" sx={{ minWidth: 980 }}>
+          <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+            <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ minWidth: 320 }}>Projeto</TableCell>
-                  <TableCell sx={{ minWidth: 140 }}>Produto vinculado</TableCell>
+                  <TableCell>Projeto</TableCell>
+                  <TableCell>Produto vinculado</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell sx={{ minWidth: 180 }}>Progresso</TableCell>
+                  <TableCell>Progresso</TableCell>
                   <TableCell>Tempo</TableCell>
                   <TableCell>Peso</TableCell>
-                  <TableCell align="right" sx={{ minWidth: 280 }}>Ações</TableCell>
+                  <TableCell align="right">Ações</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -233,18 +233,10 @@ export function ProjectsPage() {
                     <TableCell>
                       <Stack spacing={0.35}>
                         <Typography fontWeight={700}>{project.name}</Typography>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-                        >
-                          {project.description || 'Sem observação'}
-                        </Typography>
+                        <Typography variant="caption" color="text.secondary">{project.description || 'Sem observação'}</Typography>
                       </Stack>
                     </TableCell>
-                    <TableCell sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                      {project.productId ? (productMap.get(project.productId) ?? 'Produto vinculado') : '-'}
-                    </TableCell>
+                    <TableCell>{project.productId ? (productMap.get(project.productId) ?? 'Produto vinculado') : '-'}</TableCell>
                     <TableCell><Chip label={statusLabels[project.status]} color={statusColors[project.status]} size="small" /></TableCell>
                     <TableCell sx={{ minWidth: 170 }}>
                       <Stack spacing={0.5}>
@@ -254,32 +246,41 @@ export function ProjectsPage() {
                     </TableCell>
                     <TableCell>{project.timeCompletedMinutes.toFixed(0)} / {project.timeEstimatedMinutes.toFixed(0)} min</TableCell>
                     <TableCell>{project.weightCompletedGrams.toFixed(0)} / {project.weightEstimatedGrams.toFixed(0)} g</TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
-                        <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => navigate(`/projetos/${project.id}`)}>Abrir</Button>
-                        {project.status === 'Concluido' ? (
-                          <Button
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <Tooltip title="Abrir">
+                        <IconButton size="small" onClick={() => navigate(`/projetos/${project.id}`)}>
+                          <EditRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {project.status === 'Concluido' ? (
+                        <Tooltip title="Iniciar novamente">
+                          <IconButton
                             size="small"
                             color="warning"
-                            startIcon={<ReplayRoundedIcon />}
                             onClick={() => duplicateMutation.mutate(project.id)}
                             disabled={duplicateMutation.isLoading}
                           >
-                            Iniciar novamente
-                          </Button>
-                        ) : null}
-                        {project.status === 'Planejado' ? (
-                          <Button
+                            <ReplayRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      ) : null}
+                      {project.status === 'Planejado' ? (
+                        <Tooltip title="Iniciar">
+                          <IconButton
                             size="small"
-                            startIcon={<PlayArrowRoundedIcon />}
+                            color="primary"
                             onClick={() => startMutation.mutate(project.id)}
                             disabled={startMutation.isLoading}
                           >
-                            Iniciar
-                          </Button>
-                        ) : null}
-                        <Button size="small" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => handleDeleteProject(project.id)}>Excluir</Button>
-                      </Stack>
+                            <PlayArrowRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      ) : null}
+                      <Tooltip title="Excluir">
+                        <IconButton size="small" color="error" onClick={() => handleDeleteProject(project.id)}>
+                          <DeleteOutlineRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -289,8 +290,7 @@ export function ProjectsPage() {
                   </TableRow>
                 ) : null}
               </TableBody>
-              </Table>
-            </TableContainer>
+            </Table>
           </Paper>
         </Stack>
       </PageSection>
