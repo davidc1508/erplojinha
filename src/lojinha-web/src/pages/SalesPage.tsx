@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Grid, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TableSortLabel, TextField, Typography } from '@mui/material';
+import { Alert, Button, Grid, IconButton, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TableSortLabel, TextField, Tooltip, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
@@ -203,23 +203,24 @@ export function SalesPage() {
                       </TableCell>
                       <TableCell>{formatCurrency(sale.totalAmount)}</TableCell>
                       <TableCell>{formatCurrency(sale.profitAmount)}</TableCell>
-                      <TableCell align="right">
-                        <Button
-                          size="small"
-                          startIcon={<VisibilityRoundedIcon />}
-                          onClick={() => navigate(`/vendas/${sale.id}`, { state: { preserveState: true } })}
-                        >
-                          Detalhes
-                        </Button>
-                        {sale.canDelete ? <Button
-                          color="error"
-                          size="small"
-                          startIcon={<DeleteOutlineRoundedIcon />}
-                          onClick={() => setSaleToDelete(sale)}
-                          disabled={deleteMutation.isLoading}
-                        >
-                          Excluir
-                        </Button> : null}
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        <Tooltip title="Detalhes">
+                          <IconButton size="small" onClick={() => navigate(`/vendas/${sale.id}`, { state: { preserveState: true } })}>
+                            <VisibilityRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {sale.canDelete ? (
+                          <Tooltip title="Excluir">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setSaleToDelete(sale)}
+                              disabled={deleteMutation.isLoading}
+                            >
+                              <DeleteOutlineRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}

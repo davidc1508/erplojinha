@@ -23,6 +23,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -383,26 +384,32 @@ export function ProjectDetailPage() {
               )}
             </Stack>
             <Stack direction="row" spacing={0.5} flexShrink={0}>
-              <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => startEditStep(step)}>Editar</Button>
+              <Tooltip title="Editar">
+                <IconButton size="small" onClick={() => startEditStep(step)}>
+                  <EditRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               {isConcluded ? (
-                <Button
-                  size="small"
-                  color="warning"
-                  startIcon={<ReplayRoundedIcon />}
-                  onClick={() => reprintStepMutation.mutate(step.id)}
-                  disabled={reprintStepMutation.isLoading}
-                >
-                  Reimprimir mesa
-                </Button>
+                <Tooltip title="Reimprimir mesa">
+                  <IconButton
+                    size="small"
+                    color="warning"
+                    onClick={() => reprintStepMutation.mutate(step.id)}
+                    disabled={reprintStepMutation.isLoading}
+                  >
+                    <ReplayRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               ) : null}
-              <Button
-                size="small"
-                color="error"
-                startIcon={<DeleteOutlineRoundedIcon />}
-                onClick={() => setDeleteStepId(step.id)}
-              >
-                Excluir
-              </Button>
+              <Tooltip title="Excluir">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => setDeleteStepId(step.id)}
+                >
+                  <DeleteOutlineRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Stack>
           </Stack>
 
