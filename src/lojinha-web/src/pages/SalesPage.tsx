@@ -34,6 +34,7 @@ const defaultListState = {
 export function SalesPage() {
   const { session } = useAuth();
   const isSupplier = session?.role === 'Supplier';
+  const isReseller = session?.role === 'Reseller';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [listState, setListState] = usePreservedListState(`sales-page:${session?.role ?? 'guest'}:${session?.supplierId ?? 'store'}`, defaultListState);
@@ -118,7 +119,7 @@ export function SalesPage() {
       <Grid item xs={12}>
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
           <div>
-            <Typography variant="h4">{isSupplier ? 'Minhas vendas' : 'Vendas'}</Typography>
+            <Typography variant="h4">{isSupplier || isReseller ? 'Minhas vendas' : 'Vendas'}</Typography>
             <Typography color="text.secondary">Histórico separado do formulário para deixar o fluxo mais direto.</Typography>
           </div>
           <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/vendas/nova', { state: { preserveState: true } })}>

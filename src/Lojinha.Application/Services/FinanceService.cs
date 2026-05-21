@@ -8,9 +8,9 @@ namespace Lojinha.Api.Services;
 
 public interface IFinanceService
 {
-    Task<IReadOnlyList<FinancialEntryDto>> GetEntriesAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
-    Task<FinancialEntryDto> CreateAsync(CreateFinancialEntryRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
-    Task<FinanceReportDto> GetReportAsync(int year, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<FinancialEntryDto>> GetEntriesAsync(Guid? scopedSupplierId = null, string? scopedResellerActor = null, CancellationToken cancellationToken = default);
+    Task<FinancialEntryDto> CreateAsync(CreateFinancialEntryRequest request, string actor, Guid? scopedSupplierId = null, string? scopedResellerActor = null, CancellationToken cancellationToken = default);
+    Task<FinanceReportDto> GetReportAsync(int year, Guid? scopedSupplierId = null, string? scopedResellerActor = null, CancellationToken cancellationToken = default);
 }
 
 public sealed class FinanceService(
@@ -25,8 +25,15 @@ public sealed class FinanceService(
     private const string SupplierFairPaymentCategory = "Pagamento de cota de feira";
     private const string SupplierFairLegacyPendingCategory = "Pendencia de pagamento em feiras";
 
-    public async Task<IReadOnlyList<FinancialEntryDto>> GetEntriesAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<FinancialEntryDto>> GetEntriesAsync(Guid? scopedSupplierId = null, string? scopedResellerActor = null, CancellationToken cancellationToken = default)
     {
+        if (!string.IsNullOrWhiteSpace(scopedResellerActor))
+        {
+            return (await BuildResellerEntriesAsync(scopedResellerActor, cancellationToken))
+                .OrderByDescending(entry => entry.OccurredOnUtc)
+                .ToList();
+        }
+
         if (!scopedSupplierId.HasValue)
         {
             return financeRepository.Query()
@@ -40,9 +47,11 @@ public sealed class FinanceService(
             .ToList();
     }
 
-    public async Task<FinancialEntryDto> CreateAsync(CreateFinancialEntryRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
+    public async Task<FinancialEntryDto> CreateAsync(CreateFinancialEntryRequest request, string actor, Guid? scopedSupplierId = null, string? scopedResellerActor = null, CancellationToken cancellationToken = default)
     {
-        var supplierId = scopedSupplierId ?? request.SupplierId;
+        var supplierId = !string.IsNullOrWhiteSpace(scopedResellerActor)
+            ? null
+            : scopedSupplierId ?? request.SupplierId;
         var normalizedCategory = request.Category.Trim();
         var isSupplierFairPayment = supplierId.HasValue
             && request.Type == FinancialEntryType.Expense
@@ -103,15 +112,17 @@ public sealed class FinanceService(
         return Map(entry, supplierName);
     }
 
-    public async Task<FinanceReportDto> GetReportAsync(int year, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
+    public async Task<FinanceReportDto> GetReportAsync(int year, Guid? scopedSupplierId = null, string? scopedResellerActor = null, CancellationToken cancellationToken = default)
     {
-        var entries = scopedSupplierId.HasValue
-            ? (await BuildSupplierEntriesAsync(scopedSupplierId.Value, cancellationToken)).Where(entry => entry.OccurredOnUtc.Year == year).ToList()
-            : financeRepository.Query()
-                .Where(entry => entry.SupplierId == null && entry.OccurredOnUtc.Year == year)
-                .Select(Map)
-                .ToList();
-        var reportEntries = scopedSupplierId.HasValue
+        var entries = !string.IsNullOrWhiteSpace(scopedResellerActor)
+            ? (await BuildResellerEntriesAsync(scopedResellerActor, cancellationToken)).Where(entry => entry.OccurredOnUtc.Year == year).ToList()
+            : scopedSupplierId.HasValue
+                ? (await BuildSupplierEntriesAsync(scopedSupplierId.Value, cancellationToken)).Where(entry => entry.OccurredOnUtc.Year == year).ToList()
+                : financeRepository.Query()
+                    .Where(entry => entry.SupplierId == null && entry.OccurredOnUtc.Year == year)
+                    .Select(Map)
+                    .ToList();
+        var reportEntries = scopedSupplierId.HasValue && string.IsNullOrWhiteSpace(scopedResellerActor)
             ? entries.Where(ShouldIncludeInSupplierReport).ToList()
             : entries;
 
@@ -199,6 +210,69 @@ public sealed class FinanceService(
                     sale.Items.FirstOrDefault(item => item.SupplierId == supplierId)?.Supplier?.Name,
                     sale.Id));
             }
+        }
+
+        return entries;
+    }
+
+    private async Task<IReadOnlyList<FinancialEntryDto>> BuildResellerEntriesAsync(string actor, CancellationToken cancellationToken)
+    {
+        var authoredFinanceEntryIds = auditRepository.Query()
+            .Where(log => log.EntityName == nameof(FinancialEntry)
+                && log.Action == AuditAction.Created
+                && log.ChangedBy == actor)
+            .Select(log => Guid.Parse(log.EntityId))
+            .ToHashSet();
+
+        var entries = financeRepository.Query()
+            .Where(entry => authoredFinanceEntryIds.Contains(entry.Id))
+            .Select(Map)
+            .ToList();
+
+        var sales = await saleRepository.GetAllDetailedAsync(cancellationToken);
+        var authoredSaleIds = auditRepository.Query()
+            .Where(log => log.EntityName == nameof(Sale)
+                && log.Action == AuditAction.Sold
+                && log.ChangedBy == actor)
+            .Select(log => Guid.Parse(log.EntityId))
+            .ToHashSet();
+
+        foreach (var sale in sales.Where(sale => authoredSaleIds.Contains(sale.Id)))
+        {
+            var grossAmount = sale.Items.Sum(item => item.TotalPrice);
+            var productionCostAmount = sale.Items.Sum(item => item.CostPrice * item.Quantity);
+            var category = sale.FairId.HasValue ? "Venda em feira" : "Venda";
+            var description = sale.FairId.HasValue
+                ? $"Venda na feira {sale.Fair?.Name ?? sale.Id.ToString()}"
+                : $"Venda {sale.Id}";
+
+            entries.Add(new FinancialEntryDto(
+                sale.Id,
+                FinancialEntryType.Income,
+                FinancialClassification.Variable,
+                category,
+                description,
+                grossAmount,
+                sale.SoldAtUtc,
+                null,
+                null,
+                sale.Id));
+
+            if (productionCostAmount > 0m)
+            {
+                entries.Add(new FinancialEntryDto(
+                    Guid.NewGuid(),
+                    FinancialEntryType.Expense,
+                    FinancialClassification.Variable,
+                    "Custo das pecas vendidas",
+                    $"Custos dos produtos em {description.ToLowerInvariant()}",
+                    productionCostAmount,
+                    sale.SoldAtUtc,
+                    null,
+                    null,
+                    sale.Id));
+            }
+
         }
 
         return entries;

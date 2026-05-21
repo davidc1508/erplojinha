@@ -3,7 +3,8 @@ namespace Lojinha.Api.Entities;
 public enum UserRole
 {
     Admin = 1,
-    Supplier = 2
+    Supplier = 2,
+    Reseller = 3
 }
 
 public enum InventoryItemType

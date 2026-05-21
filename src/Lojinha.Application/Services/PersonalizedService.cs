@@ -453,6 +453,7 @@ public sealed class PersonalizedService(
             actor,
             scopedSupplierId,
             null,
+            null,
             cancellationToken);
 
         project.PersonalizedSaleId = sale.Id;

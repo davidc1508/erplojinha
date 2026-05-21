@@ -96,6 +96,7 @@ export function UserFormPage() {
               >
                 <MenuItem value="Admin">Administrador</MenuItem>
                 <MenuItem value="Supplier">Fornecedor</MenuItem>
+                <MenuItem value="Reseller">Revendedor</MenuItem>
               </TextField>
               {form.role === 'Supplier' ? (
                 <TextField

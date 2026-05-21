@@ -8,20 +8,21 @@ using Microsoft.AspNetCore.Mvc;
 namespace Lojinha.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin,Supplier")]
+[Authorize(Roles = "Admin,Supplier,Reseller")]
 [Route("api/[controller]")]
 public sealed class SalesController(ISalesService salesService) : ControllerBase
 {
-    private Guid? ScopedSupplierId => User.IsInRole(UserRole.Supplier.ToString()) ? User.GetSupplierId() : null;
+    private Guid? ScopedSupplierId => User.IsSupplier() ? User.GetSupplierId() : null;
+    private string? ScopedResellerActor => User.IsReseller() ? User.GetEmail() : null;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<SaleDto>>> GetRecent(CancellationToken cancellationToken)
-        => Ok(await salesService.GetRecentAsync(User.GetEmail(), ScopedSupplierId, cancellationToken));
+        => Ok(await salesService.GetRecentAsync(User.GetEmail(), ScopedSupplierId, ScopedResellerActor, cancellationToken));
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SaleDto>> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var sale = await salesService.GetByIdAsync(id, User.GetEmail(), ScopedSupplierId, cancellationToken);
+        var sale = await salesService.GetByIdAsync(id, User.GetEmail(), ScopedSupplierId, ScopedResellerActor, cancellationToken);
         return sale is null ? NotFound() : Ok(sale);
     }
 
@@ -30,7 +31,7 @@ public sealed class SalesController(ISalesService salesService) : ControllerBase
     {
         try
         {
-            return Ok(await salesService.CreateAsync(request, User.GetEmail(), ScopedSupplierId, null, cancellationToken));
+            return Ok(await salesService.CreateAsync(request, User.GetEmail(), ScopedSupplierId, ScopedResellerActor, null, cancellationToken));
         }
         catch (InvalidOperationException exception)
         {
@@ -39,10 +40,10 @@ public sealed class SalesController(ISalesService salesService) : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin,Supplier")]
+    [Authorize(Roles = "Admin,Supplier,Reseller")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await salesService.DeleteAsync(id, User.GetEmail(), ScopedSupplierId, cancellationToken);
+        var deleted = await salesService.DeleteAsync(id, User.GetEmail(), ScopedSupplierId, ScopedResellerActor, cancellationToken);
         return deleted ? NoContent() : NotFound();
     }
 }

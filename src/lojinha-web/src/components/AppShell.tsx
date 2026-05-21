@@ -80,6 +80,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const currentDrawerWidth = useMemo(() => (isMobile ? drawerWidth : collapsed ? collapsedDrawerWidth : drawerWidth), [collapsed, isMobile]);
   const visibleNavigation = useMemo(() => {
+    if (session?.role === 'Reseller') {
+      return navigation.filter((item) => ['/', '/produtos', '/vendas', '/financeiro'].includes(item.path));
+    }
+
     if (session?.role === 'Supplier') {
       return navigation.filter((item) => ['/', '/produtos', '/orcamentos', '/categorias', '/impressoras', '/insumos', '/estoque', '/vendas', '/feiras', '/financeiro', '/listas-operacionais', '/projetos', '/personalizados'].includes(item.path));
     }

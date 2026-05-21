@@ -8,11 +8,11 @@ using Microsoft.AspNetCore.Mvc;
 namespace Lojinha.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin,Supplier")]
+[Authorize(Roles = "Admin,Supplier,Reseller")]
 [Route("api/[controller]")]
 public sealed class ProductsController(IProductService productService) : ControllerBase
 {
-    private Guid? ScopedSupplierId => User.IsInRole(UserRole.Supplier.ToString()) ? User.GetSupplierId() : null;
+    private Guid? ScopedSupplierId => User.IsSupplier() ? User.GetSupplierId() : null;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ProductDto>>> GetAll([FromQuery] bool includeAllForSupplier = false, [FromQuery] bool? isBudget = null, CancellationToken cancellationToken = default)
@@ -41,6 +41,7 @@ public sealed class ProductsController(IProductService productService) : Control
         => Ok(await productService.GetPriceHistoryAsync(id, ScopedSupplierId, cancellationToken));
 
     [HttpPost("pricing-preview")]
+    [Authorize(Roles = "Admin,Supplier")]
     public async Task<ActionResult<PriceSuggestionDto>> PreviewPricing([FromBody] ProductRequest request, CancellationToken cancellationToken)
         => Ok(await productService.PreviewPriceSuggestionAsync(request, ScopedSupplierId, cancellationToken));
 
@@ -53,6 +54,7 @@ public sealed class ProductsController(IProductService productService) : Control
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin,Supplier")]
     public async Task<ActionResult<ProductDto>> Create([FromBody] ProductRequest request, CancellationToken cancellationToken)
     {
         try
@@ -67,6 +69,7 @@ public sealed class ProductsController(IProductService productService) : Control
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin,Supplier")]
     public async Task<ActionResult<ProductDto>> Update(Guid id, [FromBody] ProductRequest request, CancellationToken cancellationToken)
     {
         try
@@ -81,6 +84,7 @@ public sealed class ProductsController(IProductService productService) : Control
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Supplier")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         try
@@ -95,6 +99,7 @@ public sealed class ProductsController(IProductService productService) : Control
     }
 
     [HttpPost("{id:guid}/convert-to-product")]
+    [Authorize(Roles = "Admin,Supplier")]
     public async Task<ActionResult<ProductDto>> ConvertToProduct(Guid id, CancellationToken cancellationToken)
     {
         var product = await productService.ConvertBudgetToProductAsync(id, User.GetEmail(), ScopedSupplierId, cancellationToken);

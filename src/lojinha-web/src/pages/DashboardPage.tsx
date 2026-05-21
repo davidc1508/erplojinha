@@ -11,17 +11,18 @@ import { fairStatusLabel, formatCurrency } from '../services/labels';
 export function DashboardPage() {
   const { session } = useAuth();
   const isSupplier = session?.role === 'Supplier';
+  const isReseller = session?.role === 'Reseller';
   const { data } = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.getSummary });
 
   return (
     <Stack spacing={3}>
       <Stack spacing={0.5}>
-        <Typography variant="h3">{isSupplier ? 'Painel do fornecedor' : 'Painel da loja'}</Typography>
-        <Typography color="text.secondary">{isSupplier ? 'Visão do seu faturamento, comissão, estoque e desempenho dos seus próprios produtos.' : 'Visão rápida de faturamento, margem, estoque e performance comercial.'}</Typography>
+        <Typography variant="h3">{isSupplier ? 'Painel do fornecedor' : isReseller ? 'Painel do revendedor' : 'Painel da loja'}</Typography>
+        <Typography color="text.secondary">{isSupplier ? 'Visão do seu faturamento, comissão, estoque e desempenho dos seus próprios produtos.' : isReseller ? 'Visão somente das vendas realizadas por você, com lucro líquido pela sua margem.' : 'Visão rápida de faturamento, margem, estoque e performance comercial.'}</Typography>
       </Stack>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={3}><StatCard label={isSupplier ? 'Resultado do mês' : 'Faturamento do mês'} value={formatCurrency(data?.monthlyRevenue ?? 0)} gradient="linear-gradient(135deg, rgba(245,178,197,0.68), rgba(255,236,223,0.95))" /></Grid>
+        <Grid item xs={12} md={3}><StatCard label={isSupplier || isReseller ? 'Resultado do mês' : 'Faturamento do mês'} value={formatCurrency(data?.monthlyRevenue ?? 0)} gradient="linear-gradient(135deg, rgba(245,178,197,0.68), rgba(255,236,223,0.95))" /></Grid>
         <Grid item xs={12} md={3}><StatCard label="Lucro realizado" value={formatCurrency(data?.realizedProfit ?? 0)} gradient="linear-gradient(135deg, rgba(184,226,150,0.75), rgba(248,245,221,0.95))" detail="Somente vendas registradas" /></Grid>
         <Grid item xs={12} md={3}><StatCard label="Ticket médio" value={formatCurrency(data?.averageTicket ?? 0)} gradient="linear-gradient(135deg, rgba(248,229,140,0.78), rgba(255,244,217,0.95))" detail={`${data?.totalSalesCount ?? 0} vendas`} /></Grid>
         <Grid item xs={12} md={3}><StatCard label="Feiras em aberto" value={`${data?.openFairsCount ?? 0}`} gradient="linear-gradient(135deg, rgba(152,217,208,0.72), rgba(233,255,251,0.95))" /></Grid>
@@ -30,7 +31,7 @@ export function DashboardPage() {
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={8}>
-          <PageSection title={isSupplier ? 'Resultado recente' : 'Receita recente'} subtitle={isSupplier ? 'Últimos meses já descontando custo e ganho da lojinha' : 'Últimos meses de faturamento bruto'}>
+          <PageSection title={isSupplier || isReseller ? 'Resultado recente' : 'Receita recente'} subtitle={isSupplier ? 'Últimos meses já descontando custo e ganho da lojinha' : isReseller ? 'Últimos meses considerando margem por peça vendida' : 'Últimos meses de faturamento bruto'}>
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={data?.revenueSeries ?? []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(121, 99, 88, 0.15)" />

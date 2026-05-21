@@ -12,4 +12,10 @@ public static class ClaimsPrincipalExtensions
 
     public static Guid? GetSupplierId(this ClaimsPrincipal user)
         => Guid.TryParse(user.FindFirstValue("supplier_id"), out var supplierId) ? supplierId : null;
+
+    public static bool IsSupplier(this ClaimsPrincipal user)
+        => user.IsInRole(Entities.UserRole.Supplier.ToString());
+
+    public static bool IsReseller(this ClaimsPrincipal user)
+        => user.IsInRole(Entities.UserRole.Reseller.ToString());
 }

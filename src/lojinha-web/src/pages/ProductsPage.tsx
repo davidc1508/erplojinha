@@ -47,6 +47,19 @@ function getEstimatedProfit(product: Product) {
   return product.salePrice - product.costPrice;
 }
 
+function getResellerCommissionPercentage(product: Product) {
+  return product.commissionPercentage > 0 ? product.commissionPercentage : 20;
+}
+
+function getResellerPrice(product: Product) {
+  const commissionRate = getResellerCommissionPercentage(product) / 100;
+  if (product.salePrice <= 0 || commissionRate >= 1) {
+    return 0;
+  }
+
+  return Number((product.salePrice / (1 - commissionRate)).toFixed(2));
+}
+
 function truncateText(value: string, maxLength: number) {
   if (value.length <= maxLength) {
     return value;
@@ -70,6 +83,7 @@ const defaultListState = {
 export function ProductsPage() {
   const { session } = useAuth();
   const isSupplier = session?.role === 'Supplier';
+  const isReseller = session?.role === 'Reseller';
   const supplierId = session?.supplierId ?? '';
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -165,6 +179,10 @@ export function ProductsPage() {
   );
 
   function canManageProduct(product: Product) {
+    if (isReseller) {
+      return false;
+    }
+
     return !isSupplier || product.supplierId === supplierId;
   }
 
@@ -239,9 +257,11 @@ export function ProductsPage() {
               />
             </Stack>
           </Stack>
-          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate(isBudgetMode ? '/orcamentos/novo' : '/produtos/novo', { state: { preserveState: true } })}>
-            {isBudgetMode ? 'Novo orçamento' : 'Novo produto'}
-          </Button>
+          {!isReseller ? (
+            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate(isBudgetMode ? '/orcamentos/novo' : '/produtos/novo', { state: { preserveState: true } })}>
+              {isBudgetMode ? 'Novo orçamento' : 'Novo produto'}
+            </Button>
+          ) : null}
         </Stack>
 
         <Typography color="text.secondary" sx={{ mb: 2 }}>
@@ -263,10 +283,19 @@ export function ProductsPage() {
                     <Stack direction="row" spacing={1.2} alignItems="center" flexWrap="wrap">
                       {renderCategoryWithColor(product)}
                     </Stack>
-                    <Typography color="text.secondary">Custo / sugerido: {formatCurrency(product.costPrice)} / {formatCurrency(product.suggestedPrice)}</Typography>
-                    <Typography color="text.secondary">Final: {formatCurrency(product.salePrice)}</Typography>
-                    <Typography color="text.secondary">Comissionado: {formatCurrency(product.commissionedSalePrice)}</Typography>
-                    <Typography color="text.secondary">Lucro estimado: {formatCurrency(getEstimatedProfit(product))}</Typography>
+                    {isReseller ? (
+                      <>
+                        <Typography color="text.secondary">Preço para revenda: {formatCurrency(getResellerPrice(product))}</Typography>
+                        <Typography color="text.secondary">Comissão aplicada: {getResellerCommissionPercentage(product).toFixed(2)}%</Typography>
+                      </>
+                    ) : (
+                      <>
+                        <Typography color="text.secondary">Custo / sugerido: {formatCurrency(product.costPrice)} / {formatCurrency(product.suggestedPrice)}</Typography>
+                        <Typography color="text.secondary">Final: {formatCurrency(product.salePrice)}</Typography>
+                        <Typography color="text.secondary">Comissionado: {formatCurrency(product.commissionedSalePrice)}</Typography>
+                        <Typography color="text.secondary">Lucro estimado: {formatCurrency(getEstimatedProfit(product))}</Typography>
+                      </>
+                    )}
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                       {canManageProduct(product) ? (
                         <>
@@ -303,10 +332,16 @@ export function ProductsPage() {
                     <TableCell sx={{ width: '24%' }}>{renderSortLabel('name', 'Produto')}</TableCell>
                     <TableCell sx={{ width: '12%', whiteSpace: 'nowrap' }}>{renderSortLabel('category', 'Categoria')}</TableCell>
                     <TableCell sx={{ width: '17%', whiteSpace: 'nowrap' }}>{renderSortLabel('supplier', 'Fornecedor')}</TableCell>
-                    <TableCell sx={{ width: '16%', whiteSpace: 'nowrap' }}>Custo / sugerido</TableCell>
-                    <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>{renderSortLabel('salePrice', 'Preço final')}</TableCell>
-                    <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>Preço comiss.</TableCell>
-                    <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>{renderSortLabel('profit', 'Lucro estimado')}</TableCell>
+                    {isReseller ? (
+                      <TableCell sx={{ width: '16%', whiteSpace: 'nowrap' }}>Preço revenda</TableCell>
+                    ) : (
+                      <>
+                        <TableCell sx={{ width: '16%', whiteSpace: 'nowrap' }}>Custo / sugerido</TableCell>
+                        <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>{renderSortLabel('salePrice', 'Preço final')}</TableCell>
+                        <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>Preço comiss.</TableCell>
+                        <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>{renderSortLabel('profit', 'Lucro estimado')}</TableCell>
+                      </>
+                    )}
                     <TableCell align="right" sx={{ width: '9%', whiteSpace: 'nowrap' }}>Ações</TableCell>
                   </TableRow>
                 </TableHead>
@@ -321,15 +356,21 @@ export function ProductsPage() {
                       </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{renderCategoryWithColor(product)}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }} title={capitalizeFirstLetter(product.supplier ?? 'Lojinha Sem Nome')}>{truncateText(capitalizeFirstLetter(product.supplier ?? 'Lojinha Sem Nome'), 22)}</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        <Stack spacing={0.15}>
-                          <Typography fontSize={13}>C: {formatCurrency(product.costPrice)}</Typography>
-                          <Typography fontSize={13} color="text.secondary">S: {formatCurrency(product.suggestedPrice)}</Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(product.salePrice)}</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(product.commissionedSalePrice)}</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(getEstimatedProfit(product))}</TableCell>
+                      {isReseller ? (
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(getResellerPrice(product))}</TableCell>
+                      ) : (
+                        <>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            <Stack spacing={0.15}>
+                              <Typography fontSize={13}>C: {formatCurrency(product.costPrice)}</Typography>
+                              <Typography fontSize={13} color="text.secondary">S: {formatCurrency(product.suggestedPrice)}</Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(product.salePrice)}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(product.commissionedSalePrice)}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(getEstimatedProfit(product))}</TableCell>
+                        </>
+                      )}
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap', pl: 0.5, pr: 0.5 }}>
                         {canManageProduct(product) ? (
                           <Stack direction="row" spacing={0.25} justifyContent="flex-end">

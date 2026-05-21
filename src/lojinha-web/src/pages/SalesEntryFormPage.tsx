@@ -16,10 +16,11 @@ import { paymentMethodLabel } from '../services/labels';
 export function SalesEntryFormPage() {
   const { session } = useAuth();
   const isSupplier = session?.role === 'Supplier';
+  const isReseller = session?.role === 'Reseller';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: products = [] } = useQuery({ queryKey: ['products-sales-catalog'], queryFn: productsApi.getSalesCatalog });
-  const { data: suppliers = [] } = useQuery({ queryKey: ['suppliers'], queryFn: suppliersApi.getAll, enabled: !isSupplier });
+  const { data: suppliers = [] } = useQuery({ queryKey: ['suppliers'], queryFn: suppliersApi.getAll, enabled: !isSupplier && !isReseller });
   const sellerOptions = isSupplier
     ? (session?.supplierId ? [{ id: session.supplierId, name: session.fullName ?? 'Meu fornecedor' }] : [])
     : suppliers;
@@ -129,11 +130,23 @@ export function SalesEntryFormPage() {
                         const selectedProduct = products.find((product) => product.id === productId);
                         const defaultSupplierId = selectedProduct?.supplierId ?? '';
                         const items = [...form.items];
+                        const resellerCommissionPercentage = selectedProduct
+                          ? (selectedProduct.commissionPercentage > 0 ? selectedProduct.commissionPercentage : 20)
+                          : 0;
+                        const resellerRate = resellerCommissionPercentage / 100;
+                        const resellerUnitPrice = selectedProduct
+                          ? resellerRate >= 1
+                            ? 0
+                            : Number((selectedProduct.salePrice / (1 - resellerRate)).toFixed(2))
+                          : 0;
+
                         items[index] = {
                           ...item,
                           productId,
-                          supplierId: defaultSupplierId,
-                          unitPrice: selectedProduct ? String(item.isCommissionedSale ? selectedProduct.commissionedSalePrice : selectedProduct.salePrice) : '',
+                          supplierId: isReseller ? '' : defaultSupplierId,
+                          unitPrice: selectedProduct
+                            ? String(isReseller ? resellerUnitPrice : item.isCommissionedSale ? selectedProduct.commissionedSalePrice : selectedProduct.salePrice)
+                            : '',
                           lojinhaGainPercentage: defaultSupplierId !== '' ? item.lojinhaGainPercentage : '',
                           commissionAmount: selectedProduct && item.isCommissionedSale
                             ? String(Math.max(0, selectedProduct.commissionedSalePrice - selectedProduct.salePrice))
@@ -160,7 +173,8 @@ export function SalesEntryFormPage() {
                     items[index] = { ...item, unitPrice: String(value) };
                     setForm({ ...form, items });
                   }} fullWidth /></Grid>
-                  <Grid item xs={12}>
+                  {!isReseller ? (
+                    <Grid item xs={12}>
                     <FormControlLabel
                       control={<Checkbox checked={item.isCommissionedSale} onChange={(event) => {
                         const selectedProduct = products.find((product) => product.id === item.productId);
@@ -183,8 +197,9 @@ export function SalesEntryFormPage() {
                       }} />}
                       label="Venda comissionada"
                     />
-                  </Grid>
-                  {!isSupplier ? (
+                    </Grid>
+                  ) : null}
+                  {!isSupplier && !isReseller ? (
                     <Grid item xs={12} md={6}>
                       <TextField
                         select

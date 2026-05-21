@@ -340,7 +340,7 @@ public sealed record RegisterFairSaleCommand(Guid FairId, CreateSaleRequest Requ
 public sealed class RegisterFairSaleCommandHandler(ISalesService salesService) : ICommandHandler<RegisterFairSaleCommand, SaleDto>
 {
     public Task<SaleDto> HandleAsync(RegisterFairSaleCommand command, CancellationToken cancellationToken = default)
-    => salesService.CreateAsync(command.Request, command.Actor, null, command.FairId, cancellationToken);
+    => salesService.CreateAsync(command.Request, command.Actor, null, null, command.FairId, cancellationToken);
 }
 
 public sealed record DeleteFairCommand(Guid FairId, string Actor) : ICommand<bool>;
@@ -363,7 +363,7 @@ public sealed class DeleteFairCommandHandler(
         var supplierIds = fair.Suppliers.Select(link => link.SupplierId).ToList();
         foreach (var saleId in saleIds)
         {
-            await salesService.DeleteAsync(saleId, command.Actor, null, cancellationToken);
+            await salesService.DeleteAsync(saleId, command.Actor, null, null, cancellationToken);
         }
 
                 await cacheInvalidationService.InvalidateFairReadModelsAsync(command.FairId, supplierIds, cancellationToken);

@@ -23,6 +23,7 @@ const isFairQuotaPayable = (category: string) =>
 export function FinancePage() {
   const { session } = useAuth();
   const isSupplier = session?.role === 'Supplier';
+  const isReseller = session?.role === 'Reseller';
   const rowsPerPage = 8;
   const navigate = useNavigate();
   const currentYear = new Date().getFullYear();
@@ -88,7 +89,7 @@ export function FinancePage() {
         return false;
       }
 
-      if (!isSupplier) {
+      if (!isSupplier && !isReseller) {
         if (scopeFilter === 'Store' && entry.supplierId) {
           return false;
         }
@@ -115,7 +116,7 @@ export function FinancePage() {
         entry.supplierName ?? 'Lojinha'
       ].join(' ').toLowerCase().includes(term);
     });
-  }, [categoryFilter, classificationFilter, isSupplier, otherEntries, scopeFilter, search, typeFilter]);
+  }, [categoryFilter, classificationFilter, isReseller, isSupplier, otherEntries, scopeFilter, search, typeFilter]);
 
   const quotaEntries = useMemo(() => {
     const term = quotaSearch.trim().toLowerCase();
@@ -286,8 +287,8 @@ export function FinancePage() {
     <Stack spacing={3}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
         <div>
-          <Typography variant="h3">{isSupplier ? 'Meu financeiro' : 'Financeiro'}</Typography>
-          <Typography color="text.secondary">{isSupplier ? 'Receitas, comissões, lançamentos próprios e resultado líquido das suas vendas.' : 'Histórico e indicadores em uma tela, com separação entre lojinha e fornecedores.'}</Typography>
+          <Typography variant="h3">{isSupplier || isReseller ? 'Meu financeiro' : 'Financeiro'}</Typography>
+          <Typography color="text.secondary">{isSupplier || isReseller ? 'Receitas, lançamentos próprios e resultado líquido das suas vendas.' : 'Histórico e indicadores em uma tela, com separação entre lojinha e fornecedores.'}</Typography>
         </div>
         <Stack direction="row" spacing={1.5}>
           <Button variant="outlined" startIcon={<DownloadRoundedIcon />} onClick={handleExportCsv}>
@@ -318,7 +319,7 @@ export function FinancePage() {
         </Grid>
       </Grid>
 
-      {!isSupplier ? (
+      {!isSupplier && !isReseller ? (
         <PageSection title="Painel de inadimplência" subtitle="Controle de cotas de feira em aberto por fornecedor.">
           <Stack spacing={2}>
             <Grid container spacing={2}>
@@ -480,7 +481,7 @@ export function FinancePage() {
                     <MenuItem value="Variable">Variável</MenuItem>
                   </TextField>
                 </Grid>
-                {!isSupplier ? (
+                {!isSupplier && !isReseller ? (
                   <Grid item xs={12} md={2}>
                     <TextField fullWidth select label="Escopo" value={scopeFilter} onChange={(event) => handleFilterChange(() => setScopeFilter(event.target.value as 'All' | 'Store' | 'Supplier'))}>
                       <MenuItem value="All">Todos</MenuItem>
@@ -489,7 +490,7 @@ export function FinancePage() {
                     </TextField>
                   </Grid>
                 ) : null}
-                <Grid item xs={12} md={isSupplier ? 4 : 2}>
+                <Grid item xs={12} md={isSupplier || isReseller ? 4 : 2}>
                   <TextField fullWidth select label="Categoria" value={categoryFilter} onChange={(event) => handleFilterChange(() => setCategoryFilter(event.target.value))}>
                     <MenuItem value="All">Todas</MenuItem>
                     {categoryOptions.filter((option) => option !== 'All').map((option) => (
@@ -611,7 +612,7 @@ export function FinancePage() {
                     placeholder="Fornecedor, descrição ou categoria"
                   />
                 </Grid>
-                {!isSupplier ? (
+                {!isSupplier && !isReseller ? (
                   <Grid item xs={12} md={4}>
                     <TextField
                       fullWidth
@@ -634,7 +635,7 @@ export function FinancePage() {
                     <TableCell>Classificação</TableCell>
                     <TableCell>Categoria</TableCell>
                     <TableCell>Descrição</TableCell>
-                    {!isSupplier ? <TableCell>Fornecedor</TableCell> : null}
+                    {!isSupplier && !isReseller ? <TableCell>Fornecedor</TableCell> : null}
                     <TableCell>Valor</TableCell>
                   </TableRow>
                 </TableHead>
@@ -646,13 +647,13 @@ export function FinancePage() {
                       <TableCell>{financialClassificationLabel(entry.classification)}</TableCell>
                       <TableCell>{financialCategoryLabel(entry.category)}</TableCell>
                       <TableCell>{entry.description}</TableCell>
-                      {!isSupplier ? <TableCell>{entry.supplierName ?? 'Não informado'}</TableCell> : null}
+                      {!isSupplier && !isReseller ? <TableCell>{entry.supplierName ?? 'Não informado'}</TableCell> : null}
                       <TableCell>{formatCurrency(entry.amount)}</TableCell>
                     </TableRow>
                   ))}
                   {pagedQuotaEntries.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={isSupplier ? 6 : 7}>
+                      <TableCell colSpan={isSupplier || isReseller ? 6 : 7}>
                         <Typography color="text.secondary">Nenhum pagamento de cota encontrado.</Typography>
                       </TableCell>
                     </TableRow>

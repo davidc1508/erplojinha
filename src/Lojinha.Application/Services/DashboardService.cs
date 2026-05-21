@@ -9,14 +9,15 @@ namespace Lojinha.Api.Services;
 
 public interface IDashboardService
 {
-    Task<DashboardSummaryDto> GetSummaryAsync(Guid? supplierId = null, CancellationToken cancellationToken = default);
+    Task<DashboardSummaryDto> GetSummaryAsync(Guid? supplierId = null, string? resellerActor = null, CancellationToken cancellationToken = default);
 }
 
 public sealed class DashboardService(
     IAppCache cache,
     IFairRepository fairRepository,
     ISaleRepository saleRepository,
-    IRepository<FinancialEntry> financeRepository) : IDashboardService
+    IRepository<FinancialEntry> financeRepository,
+    IRepository<AuditLog> auditRepository) : IDashboardService
 {
     private const string SupplierFairPayableCategory = "Contas a pagar de feiras";
     private const string SupplierFairLegacyPendingCategory = "Pendencia de pagamento em feiras";
@@ -39,19 +40,164 @@ public sealed class DashboardService(
     private static decimal CalculateSupplierProfit(IEnumerable<SaleItem> items, Guid supplierId)
         => GetSupplierItems(items, supplierId).Sum(item => item.TotalPrice - (item.CostPrice * item.Quantity) - item.LojinhaGainAmount);
 
+    private static decimal CalculateResellerProfit(IEnumerable<SaleItem> items)
+        => items.Sum(item => item.TotalPrice - (item.CostPrice * item.Quantity));
+
     private static decimal CalculateSupplierFeeShare(Fair fair, Guid supplierId)
         => fair.Suppliers.Any(link => link.SupplierId == supplierId) && fair.RegistrationFeeSplitCount > 0
             ? decimal.Round(fair.RegistrationFee / fair.RegistrationFeeSplitCount, 2, MidpointRounding.AwayFromZero)
             : 0m;
 
-    public async Task<DashboardSummaryDto> GetSummaryAsync(Guid? supplierId = null, CancellationToken cancellationToken = default)
+    public async Task<DashboardSummaryDto> GetSummaryAsync(Guid? supplierId = null, string? resellerActor = null, CancellationToken cancellationToken = default)
         => await cache.GetOrCreateAsync(
-            AppCacheKeys.Dashboard(supplierId),
+            AppCacheKeys.Dashboard(supplierId) + $":reseller:{(string.IsNullOrWhiteSpace(resellerActor) ? "store" : resellerActor.ToLowerInvariant())}",
             async token => supplierId.HasValue
                 ? await GetSupplierSummaryAsync(supplierId.Value, token)
-                : await GetStoreSummaryAsync(token),
+                : !string.IsNullOrWhiteSpace(resellerActor)
+                    ? await GetResellerSummaryAsync(resellerActor, token)
+                    : await GetStoreSummaryAsync(token),
             AppCacheDurations.Dashboard,
             cancellationToken);
+
+    private async Task<DashboardSummaryDto> GetResellerSummaryAsync(string resellerActor, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var sales = await saleRepository.GetAllDetailedAsync(cancellationToken);
+        var authoredSaleIds = GetAuthoredSaleIds(resellerActor, sales.Select(sale => sale.Id));
+        var resellerSales = sales
+            .Where(sale => authoredSaleIds.Contains(sale.Id))
+            .ToList();
+
+        var monthExpenses = resellerSales
+            .Where(sale => sale.SoldAtUtc.Year == now.Year && sale.SoldAtUtc.Month == now.Month)
+            .Sum(sale => sale.Items.Sum(item => item.CostPrice * item.Quantity));
+
+        var topProducts = resellerSales
+            .SelectMany(sale => sale.Items)
+            .GroupBy(item => item.Product?.Name ?? string.Empty)
+            .Select(group => new TopProductDto(group.Key, group.Sum(item => item.Quantity), group.Sum(item => item.TotalPrice)))
+            .OrderByDescending(item => item.QuantitySold)
+            .Take(5)
+            .ToList();
+
+        var topProfitProducts = resellerSales
+            .SelectMany(sale => sale.Items)
+            .GroupBy(item => item.Product?.Name ?? string.Empty)
+            .Select(group => new TopProfitProductDto(
+                group.Key,
+                group.Sum(item => item.TotalPrice - (item.CostPrice * item.Quantity))))
+            .OrderByDescending(item => item.Profit)
+            .Take(5)
+            .ToList();
+
+        var periods = new[]
+        {
+            new { Label = "0-15 dias", StartDays = 0, EndDays = 15 },
+            new { Label = "16-30 dias", StartDays = 15, EndDays = 30 },
+            new { Label = "31-60 dias", StartDays = 30, EndDays = 60 },
+            new { Label = "61-90 dias", StartDays = 60, EndDays = 90 }
+        };
+
+        var periodMetrics = periods.Select(period =>
+        {
+            var windowStart = now.AddDays(-period.EndDays);
+            var windowEnd = period.StartDays == 0 ? now : now.AddDays(-period.StartDays);
+            var filteredSales = resellerSales
+                .Where(sale => sale.SoldAtUtc >= windowStart && sale.SoldAtUtc < windowEnd)
+                .ToList();
+            var filteredItems = filteredSales.SelectMany(sale => sale.Items).ToList();
+            var netRevenue = filteredSales.Sum(sale => CalculateResellerProfit(sale.Items));
+
+            return new PeriodSalesMetricDto(
+                period.Label,
+                period.EndDays,
+                filteredItems.Sum(item => item.Quantity),
+                filteredItems.Sum(item => item.TotalPrice),
+                netRevenue,
+                SalesReportCalculator.CalculatePiggyBankAmount(netRevenue));
+        }).ToList();
+
+        var monthRevenue = resellerSales
+            .Where(sale => sale.SoldAtUtc.Year == now.Year && sale.SoldAtUtc.Month == now.Month)
+            .Sum(sale => CalculateResellerProfit(sale.Items));
+
+        var revenueSeries = Enumerable.Range(0, 6)
+            .Select(offset => new DateTime(now.Year, now.Month, 1).AddMonths(-offset))
+            .OrderBy(date => date)
+            .Select(date => new MonthlySeriesPointDto(
+                date.ToString("MMM/yy"),
+                resellerSales
+                    .Where(sale => sale.SoldAtUtc.Year == date.Year && sale.SoldAtUtc.Month == date.Month)
+                    .Sum(sale => CalculateResellerProfit(sale.Items))))
+            .ToList();
+
+        var revenueByPayment = resellerSales
+            .GroupBy(sale => sale.PaymentMethod.ToString())
+            .Select(group => new CategoryBreakdownDto(
+                group.Key,
+                group.Sum(sale => CalculateResellerProfit(sale.Items))))
+            .OrderByDescending(group => group.Amount)
+            .ToList();
+
+        var fairs = fairRepository.Query().OrderByDescending(x => x.EventDateUtc).ToList();
+        var recentFairs = fairs
+            .Where(fair => fair.Sales.Any(sale => authoredSaleIds.Contains(sale.Id)))
+            .Take(3)
+            .Select(fair =>
+            {
+                var fairSales = fair.Sales.Where(sale => authoredSaleIds.Contains(sale.Id)).ToList();
+                var fairNetRevenue = fairSales.Sum(sale => CalculateResellerProfit(sale.Items));
+                return new FairIndicatorDto(
+                    fair.Name,
+                    fair.EventDateUtc,
+                    fair.Status,
+                    fairSales.Sum(sale => sale.Items.Sum(item => item.TotalPrice)),
+                    fairNetRevenue,
+                    fair.RegistrationFee,
+                    SalesReportCalculator.CalculatePiggyBankAmount(fairNetRevenue));
+            })
+            .ToList();
+
+        var realizedProfit = resellerSales.Sum(sale => CalculateResellerProfit(sale.Items));
+        var averageTicket = resellerSales.Count == 0
+            ? 0m
+            : resellerSales.Average(sale => sale.Items.Sum(item => item.TotalPrice));
+        var monthlyNetRevenue = resellerSales
+            .Where(sale => sale.SoldAtUtc.Year == now.Year && sale.SoldAtUtc.Month == now.Month)
+            .Sum(sale => CalculateResellerProfit(sale.Items));
+
+        return new DashboardSummaryDto(
+            monthRevenue,
+            realizedProfit,
+            monthExpenses,
+            SalesReportCalculator.CalculatePiggyBankAmount(monthlyNetRevenue),
+            averageTicket,
+            resellerSales.Count,
+            fairs.Count(fair => fair.Status == FairStatus.Open && fair.Sales.Any(sale => authoredSaleIds.Contains(sale.Id))),
+            topProducts,
+            topProfitProducts,
+            recentFairs,
+            periodMetrics,
+            revenueSeries,
+            revenueByPayment);
+    }
+
+    private HashSet<Guid> GetAuthoredSaleIds(string actor, IEnumerable<Guid> saleIds)
+    {
+        var ids = saleIds.Select(id => id.ToString()).ToHashSet();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return auditRepository.Query()
+            .Where(log => log.EntityName == nameof(Sale)
+                && log.Action == AuditAction.Sold
+                && log.ChangedBy == actor
+                && ids.Contains(log.EntityId))
+            .Select(log => Guid.Parse(log.EntityId))
+            .ToHashSet();
+    }
 
     private async Task<DashboardSummaryDto> GetStoreSummaryAsync(CancellationToken cancellationToken)
     {

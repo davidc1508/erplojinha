@@ -13,9 +13,10 @@ import { financialClassificationLabel } from '../services/labels';
 export function FinanceEntryFormPage() {
   const { session } = useAuth();
   const isSupplier = session?.role === 'Supplier';
+  const isReseller = session?.role === 'Reseller';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: suppliers = [] } = useQuery({ queryKey: ['suppliers'], queryFn: suppliersApi.getAll, enabled: !isSupplier });
+  const { data: suppliers = [] } = useQuery({ queryKey: ['suppliers'], queryFn: suppliersApi.getAll, enabled: !isSupplier && !isReseller });
   const { data: fairs = [] } = useQuery({ queryKey: ['fairs'], queryFn: fairsApi.getAll, enabled: isSupplier });
   const [feedback, setFeedback] = useState<string | null>(null);
   const [form, setForm] = useState({ type: 'Expense', classification: 'Variable', category: '', description: '', amount: 0, supplierId: isSupplier ? (session?.supplierId ?? '') : '', referenceId: '' });
@@ -107,13 +108,13 @@ export function FinanceEntryFormPage() {
                   ))}
                 </TextField>
               ) : null}
-              {!isSupplier ? (
+              {!isSupplier && !isReseller ? (
                 <TextField select label="Escopo do lançamento" value={form.supplierId} onChange={(event) => setForm({ ...form, supplierId: event.target.value })}>
                   <MenuItem value="">Lojinha</MenuItem>
                   {suppliers.map((supplier) => <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>)}
                 </TextField>
               ) : (
-                <TextField label="Escopo do lançamento" value="Meu financeiro" disabled helperText="Este lançamento será vinculado ao seu fornecedor." />
+                <TextField label="Escopo do lançamento" value="Meu financeiro" disabled helperText={isSupplier ? 'Este lançamento será vinculado ao seu fornecedor.' : 'Este lançamento ficará vinculado ao seu perfil de revendedor.'} />
               )}
               <CurrencyField label="Valor" value={form.amount} onValueChange={(value) => setForm({ ...form, amount: value })} />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
