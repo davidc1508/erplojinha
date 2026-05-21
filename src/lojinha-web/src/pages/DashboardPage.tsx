@@ -25,8 +25,8 @@ export function DashboardPage() {
         <Grid item xs={12} md={3}><StatCard label={isSupplier || isReseller ? 'Resultado do mês' : 'Faturamento do mês'} value={formatCurrency(data?.monthlyRevenue ?? 0)} gradient="linear-gradient(135deg, rgba(245,178,197,0.68), rgba(255,236,223,0.95))" /></Grid>
         <Grid item xs={12} md={3}><StatCard label="Lucro realizado" value={formatCurrency(data?.realizedProfit ?? 0)} gradient="linear-gradient(135deg, rgba(184,226,150,0.75), rgba(248,245,221,0.95))" detail="Somente vendas registradas" /></Grid>
         <Grid item xs={12} md={3}><StatCard label="Ticket médio" value={formatCurrency(data?.averageTicket ?? 0)} gradient="linear-gradient(135deg, rgba(248,229,140,0.78), rgba(255,244,217,0.95))" detail={`${data?.totalSalesCount ?? 0} vendas`} /></Grid>
-        <Grid item xs={12} md={3}><StatCard label="Feiras em aberto" value={`${data?.openFairsCount ?? 0}`} gradient="linear-gradient(135deg, rgba(152,217,208,0.72), rgba(233,255,251,0.95))" /></Grid>
-        <Grid item xs={12} md={3}><StatCard label="Caixinha do mês" value={formatCurrency(data?.monthlyPiggyBankAmount ?? 0)} gradient="linear-gradient(135deg, rgba(214, 189, 135, 0.78), rgba(255, 247, 228, 0.95))" detail="50% do líquido mensal" /></Grid>
+        {!isReseller ? <Grid item xs={12} md={3}><StatCard label="Feiras em aberto" value={`${data?.openFairsCount ?? 0}`} gradient="linear-gradient(135deg, rgba(152,217,208,0.72), rgba(233,255,251,0.95))" /></Grid> : null}
+        {!isReseller ? <Grid item xs={12} md={3}><StatCard label="Caixinha do mês" value={formatCurrency(data?.monthlyPiggyBankAmount ?? 0)} gradient="linear-gradient(135deg, rgba(214, 189, 135, 0.78), rgba(255, 247, 228, 0.95))" detail="50% do líquido mensal" /></Grid> : null}
       </Grid>
 
       <Grid container spacing={3}>
@@ -43,24 +43,26 @@ export function DashboardPage() {
             </ResponsiveContainer>
           </PageSection>
         </Grid>
-        <Grid item xs={12} lg={4}>
-          <PageSection title="Últimas 3 feiras" subtitle="Indicadores rápidos por evento">
-            <Stack spacing={1.5}>
-              {(data?.recentFairs ?? []).map((item) => (
-                <Paper key={`${item.fairName}-${item.eventDateUtc}`} sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.65)' }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
-                    <Typography fontWeight={700}>{item.fairName}</Typography>
-                    <Chip size="small" label={fairStatusLabel(item.status)} color={item.status === 'Open' ? 'success' : item.status === 'Awaiting' ? 'warning' : 'default'} />
-                  </Stack>
-                  <Typography color="text.secondary">{formatUtcDate(item.eventDateUtc)}</Typography>
-                  <Typography color="text.secondary">Bruto: {formatCurrency(item.grossRevenue)}</Typography>
-                  <Typography color="text.secondary">Caixinha: {formatCurrency(item.piggyBankAmount)}</Typography>
-                  <Typography variant="h6">Resultado: {formatCurrency(item.netRevenue)}</Typography>
-                </Paper>
-              ))}
-            </Stack>
-          </PageSection>
-        </Grid>
+        {!isReseller ? (
+          <Grid item xs={12} lg={4}>
+            <PageSection title="Últimas 3 feiras" subtitle="Indicadores rápidos por evento">
+              <Stack spacing={1.5}>
+                {(data?.recentFairs ?? []).map((item) => (
+                  <Paper key={`${item.fairName}-${item.eventDateUtc}`} sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.65)' }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
+                      <Typography fontWeight={700}>{item.fairName}</Typography>
+                      <Chip size="small" label={fairStatusLabel(item.status)} color={item.status === 'Open' ? 'success' : item.status === 'Awaiting' ? 'warning' : 'default'} />
+                    </Stack>
+                    <Typography color="text.secondary">{formatUtcDate(item.eventDateUtc)}</Typography>
+                    <Typography color="text.secondary">Bruto: {formatCurrency(item.grossRevenue)}</Typography>
+                    <Typography color="text.secondary">Caixinha: {formatCurrency(item.piggyBankAmount)}</Typography>
+                    <Typography variant="h6">Resultado: {formatCurrency(item.netRevenue)}</Typography>
+                  </Paper>
+                ))}
+              </Stack>
+            </PageSection>
+          </Grid>
+        ) : null}
       </Grid>
 
       <Grid container spacing={3}>

@@ -47,7 +47,7 @@ export function SalesEntryFormPage() {
       paymentMethod: form.paymentMethod,
       soldAtUtc: toUtcDateOnlyIso(form.soldAtUtc),
       notes: form.notes,
-      createTodoForProducedItems: form.createTodoForProducedItems,
+      createTodoForProducedItems: isReseller ? false : form.createTodoForProducedItems,
       items: form.items.map((item) => ({
         productId: item.productId,
         supplierId: item.supplierId === '' ? null : item.supplierId,
@@ -294,10 +294,12 @@ export function SalesEntryFormPage() {
                 }]
               })}>Adicionar item</Button>
               <TextField label="Observações" multiline minRows={3} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
-              <FormControlLabel
-                control={<Checkbox checked={form.createTodoForProducedItems} onChange={(event) => setForm({ ...form, createTodoForProducedItems: event.target.checked })} />}
-                label="Gerar automaticamente item(s) em Reposição de produtos do que foi vendido"
-              />
+              {!isReseller ? (
+                <FormControlLabel
+                  control={<Checkbox checked={form.createTodoForProducedItems} onChange={(event) => setForm({ ...form, createTodoForProducedItems: event.target.checked })} />}
+                  label="Gerar automaticamente item(s) em Reposição de produtos do que foi vendido"
+                />
+              ) : null}
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => mutation.mutate()} disabled={mutation.isLoading || form.items.some((item) => !item.productId || (item.isCommissionedSale && (!item.commissionSellerSupplierId || item.commissionAmount === '')))}>
                   Registrar venda

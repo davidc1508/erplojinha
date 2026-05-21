@@ -3,7 +3,7 @@ import { Button, Grid, MenuItem, Paper, Stack, Table, TableBody, TableCell, Tabl
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
@@ -48,6 +48,19 @@ export function FinancePage() {
     () => (report?.categories ?? []).map((item) => ({ ...item, categoryLabel: financialCategoryLabel(item.category) })),
     [report?.categories]
   );
+  const availableYears = useMemo(() => {
+    const years = Array.from(new Set(entries.map((entry) => new Date(entry.occurredOnUtc).getFullYear())))
+      .filter((year) => Number.isFinite(year))
+      .sort((left, right) => right - left);
+
+    return years.length > 0 ? years : [currentYear];
+  }, [currentYear, entries]);
+
+  useEffect(() => {
+    if (!availableYears.includes(kpiYear)) {
+      setKpiYear(availableYears[0]);
+    }
+  }, [availableYears, kpiYear]);
 
   const sortedEntries = useMemo(() => {
     return [...entries].sort((left, right) => {
@@ -312,7 +325,7 @@ export function FinancePage() {
             onChange={(event) => setKpiYear(Number(event.target.value))}
             fullWidth
           >
-            {Array.from({ length: 5 }, (_, i) => currentYear - i).map((year) => (
+            {availableYears.map((year) => (
               <MenuItem key={year} value={year}>{year}</MenuItem>
             ))}
           </TextField>
@@ -388,7 +401,7 @@ export function FinancePage() {
             />
           </Stack>
         </PageSection>
-      ) : (
+      ) : isSupplier ? (
         <PageSection title="Seu saldo devedor de cotas" subtitle="Acompanhe o que já foi pago e o que ainda está pendente por feira.">
           <Stack spacing={2}>
             <Grid container spacing={2}>
@@ -425,7 +438,7 @@ export function FinancePage() {
             </Table>
           </Stack>
         </PageSection>
-      )}
+      ) : null}
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={6}>
@@ -599,6 +612,7 @@ export function FinancePage() {
           </PageSection>
         </Grid>
 
+        {!isReseller ? (
         <Grid item xs={12}>
           <PageSection title="Pagamentos de cota de feira" subtitle="Lista dedicada de cotas pagas por fornecedores, separada dos demais lançamentos.">
             <Stack spacing={2}>
@@ -671,6 +685,7 @@ export function FinancePage() {
             </Stack>
           </PageSection>
         </Grid>
+        ) : null}
       </Grid>
     </Stack>
   );
