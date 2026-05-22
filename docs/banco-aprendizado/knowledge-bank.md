@@ -369,6 +369,7 @@ Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e art
   - Tela de Projetos passou a ter paginacao na listagem (linhas por pagina e navegacao).
   - Cards de resumo da tela de Projetos foram trocados para indicadores objetivos: total, em andamento, planejados e concluidos.
   - Semantica de "ativos" corrigida: agora o indicador operacional usa apenas status EmAndamento (nao inclui todo status diferente de Concluido).
+  - Deploy realizado na Oracle VM com tag 20260522-projects-pagination-v1 (API + Web). Ambos os endpoints validados HTTP 200.
 - 2026-05-17
   - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
   - Ajustes de responsividade e padronizacao de acoes em UI.
