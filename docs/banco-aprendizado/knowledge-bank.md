@@ -370,6 +370,7 @@ Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e art
   - Cards de resumo da tela de Projetos foram trocados para indicadores objetivos: total, em andamento, planejados e concluidos.
   - Semantica de "ativos" corrigida: agora o indicador operacional usa apenas status EmAndamento (nao inclui todo status diferente de Concluido).
   - Deploy realizado na Oracle VM com tag 20260522-projects-pagination-v1 (API + Web). Ambos os endpoints validados HTTP 200.
+  - Backup automatico diario configurado: cron 2h AM na Oracle VM, pg_dump do container lojinha-postgres (formato custom -Fc -Z9), publicado em backups/lojinha-latest.dump no repositorio git (sparse checkout, sem codigo-fonte na Oracle). Deploy key SSH configurada na Oracle (lojinha-oracle-backup). Somente o ultimo dump e mantido.
 - 2026-05-17
   - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
   - Ajustes de responsividade e padronizacao de acoes em UI.
