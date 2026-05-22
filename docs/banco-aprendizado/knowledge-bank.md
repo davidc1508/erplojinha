@@ -429,3 +429,14 @@ Fonte: testes de servico presentes no repositorio.
 
 - Este documento e o README deste diretorio passam a ser parte obrigatoria do fluxo de entrega documental da Lojinha.
 - Mudancas de regra, escopo, fluxo ou operacao devem refletir aqui no mesmo ciclo da demanda.
+
+### 16.4 Estado atual de configuracao global (VS Code)
+
+- A politica foi aplicada no nivel de usuario do VS Code (settings globais) para o perfil padrao do Code nesta maquina.
+- Chaves configuradas:
+  - github.copilot.chat.customInstructionsInSystemMessage = true
+  - github.copilot.chat.codeGeneration.useInstructionFiles = true
+  - github.copilot.chat.codeGeneration.instructions com instrucao explicita de atualizacao de base de conhecimento global e regra extra da Lojinha.
+- Observacao operacional:
+  - Novas sessoes passam a herdar a politica imediatamente.
+  - Sessoes ja abertas em outras janelas podem exigir reload da janela para refletir configuracoes recarregadas do usuario.
