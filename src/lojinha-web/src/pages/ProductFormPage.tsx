@@ -34,7 +34,7 @@ const emptyForm = {
   supplierId: '',
   generateProductionExpenseOnStockEntry: false,
   currentStock: 0,
-  minimumStock: 2,
+  minimumStock: 1,
   itemsPerPlate: 1,
   estimatedPrintTimeMinutes: 60,
   heightCentimeters: 0,

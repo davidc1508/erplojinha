@@ -375,6 +375,8 @@ Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e art
   - KPIs do modulo de estoque substituidos por indicadores reais: "Produtos em estoque" (currentStock > 0), "Abaixo do minimo" (currentStock < minimumStock, destacado em laranja), "Sem estoque" (currentStock === 0), "Valor estimado (custo)" (soma de currentStock * costPrice). Todos respeitam filtro de escopo por fornecedor.
   - Linhas abaixo do estoque minimo destacadas em laranja na tabela de produtos do modulo de estoque.
   - Deploy realizado na Oracle VM com tag 20260522-inventory-kpis-estorno-v1 (API + Web). Ambos os endpoints validados HTTP 200. Imagens antigas da tag anterior removidas do Oracle.
+  - Atualizacao em banco (Oracle/producao): todos os produtos com minimumStock = 2 foram alterados para minimumStock = 1 via SQL operacional versionado em deploy/oracle/artifacts/minstock-products-2-to-1.sql (resultado: 416 linhas atualizadas, 0 restantes com valor 2).
+  - Cadastro de produto ajustado: valor padrao de estoque minimo na ProductFormPage alterado de 2 para 1 para novos cadastros.
 - 2026-05-17
   - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
   - Ajustes de responsividade e padronizacao de acoes em UI.
