@@ -377,6 +377,7 @@ Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e art
   - Deploy realizado na Oracle VM com tag 20260522-inventory-kpis-estorno-v1 (API + Web). Ambos os endpoints validados HTTP 200. Imagens antigas da tag anterior removidas do Oracle.
   - Atualizacao em banco (Oracle/producao): todos os produtos com minimumStock = 2 foram alterados para minimumStock = 1 via SQL operacional versionado em deploy/oracle/artifacts/minstock-products-2-to-1.sql (resultado: 416 linhas atualizadas, 0 restantes com valor 2).
   - Cadastro de produto ajustado: valor padrao de estoque minimo na ProductFormPage alterado de 2 para 1 para novos cadastros.
+  - Tela de estoque ajustada para o contexto atual de acuracia: indicador KPI "Abaixo do minimo" removido e destaques visuais de alerta por minimo (cartao/tabela/lista mobile) desativados para evitar sinalizacao enganosa.
 - 2026-05-17
   - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
   - Ajustes de responsividade e padronizacao de acoes em UI.

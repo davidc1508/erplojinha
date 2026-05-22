@@ -2,7 +2,6 @@
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
-import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import { useMemo, useState } from 'react';
 import { CurrencyField } from '../components/CurrencyField';
 import { ProductLookupField } from '../components/ProductLookupField';
@@ -52,10 +51,6 @@ export function InventoryPage() {
 
   // KPIs reais de estoque
   const kpiInStock = useMemo(() => scopedProducts.filter((p) => p.currentStock > 0).length, [scopedProducts]);
-  const kpiBelowMin = useMemo(
-    () => scopedProducts.filter((p) => p.minimumStock > 0 && p.currentStock < p.minimumStock).length,
-    [scopedProducts]
-  );
   const kpiStockValue = useMemo(
     () => scopedProducts.reduce((sum, p) => sum + p.currentStock * p.costPrice, 0),
     [scopedProducts]
@@ -158,28 +153,19 @@ export function InventoryPage() {
     <Stack spacing={3}>
       {/* KPIs reais */}
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={4} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography color="text.secondary" variant="body2">Produtos em estoque</Typography>
             <Typography variant="h5">{kpiInStock}</Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, borderLeft: kpiBelowMin > 0 ? '4px solid #f57c00' : undefined }}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              {kpiBelowMin > 0 && <WarningAmberRoundedIcon sx={{ color: '#f57c00' }} fontSize="small" />}
-              <Typography color="text.secondary" variant="body2">Abaixo do mínimo</Typography>
-            </Stack>
-            <Typography variant="h5" color={kpiBelowMin > 0 ? 'warning.main' : 'text.primary'}>{kpiBelowMin}</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={4} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography color="text.secondary" variant="body2">Sem estoque</Typography>
             <Typography variant="h5">{kpiOutOfStock}</Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={4} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography color="text.secondary" variant="body2">Valor estimado (custo)</Typography>
             <Typography variant="h5">{kpiStockValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
@@ -340,10 +326,7 @@ export function InventoryPage() {
                       {renderCategoryWithColor(p.categoryId, p.category)}
                     </Stack>
                     <Typography color="text.secondary">Estoque: {p.currentStock}</Typography>
-                    <Typography color="text.secondary" sx={p.minimumStock > 0 && p.currentStock < p.minimumStock ? { color: 'warning.main', fontWeight: 700 } : {}}>
-                      Mínimo: {p.minimumStock}
-                      {p.minimumStock > 0 && p.currentStock < p.minimumStock ? ' ⚠' : ''}
-                    </Typography>
+                    <Typography color="text.secondary">Mínimo: {p.minimumStock}</Typography>
                     <Typography color="text.secondary">SKU: {p.sku}</Typography>
                   </Stack>
                 </Paper>
@@ -363,22 +346,16 @@ export function InventoryPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {pagedInStockProducts.map((p) => {
-                    const belowMin = p.minimumStock > 0 && p.currentStock < p.minimumStock;
-                    return (
-                      <TableRow key={p.id} hover sx={belowMin ? { backgroundColor: 'rgba(245, 124, 0, 0.08)' } : {}}>
-                        <TableCell>{p.name}</TableCell>
-                        <TableCell>{renderCategoryWithColor(p.categoryId, p.category)}</TableCell>
-                        <TableCell>{p.supplier ?? 'Lojinha Sem Nome'}</TableCell>
-                        <TableCell>{p.sku}</TableCell>
-                        <TableCell>{p.currentStock}</TableCell>
-                        <TableCell sx={belowMin ? { color: 'warning.main', fontWeight: 700 } : {}}>
-                          {p.minimumStock}
-                          {belowMin ? ' ⚠' : ''}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {pagedInStockProducts.map((p) => (
+                    <TableRow key={p.id} hover>
+                      <TableCell>{p.name}</TableCell>
+                      <TableCell>{renderCategoryWithColor(p.categoryId, p.category)}</TableCell>
+                      <TableCell>{p.supplier ?? 'Lojinha Sem Nome'}</TableCell>
+                      <TableCell>{p.sku}</TableCell>
+                      <TableCell>{p.currentStock}</TableCell>
+                      <TableCell>{p.minimumStock}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </Paper>
