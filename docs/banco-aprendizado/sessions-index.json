@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2026-05-22",
+  "source": "session_store_sql (local reindex)",
+  "sessions": [
+    {
+      "id": "82a10b33-d408-4c01-a354-84ba31a87c3d",
+      "createdAt": "2026-05-22T14:12:28.619Z",
+      "updatedAt": "2026-05-22T14:13:24.138Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "471d051e-4ea2-4f4d-bc2e-9e4e9cb8a4fb",
+      "createdAt": "2026-05-22T13:00:16.542Z",
+      "updatedAt": "2026-05-22T14:13:24.199Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "88dc4865-bb06-4c5c-8468-237cfd9edbb6",
+      "createdAt": "2026-05-21T15:06:21.535Z",
+      "updatedAt": "2026-05-22T14:13:24.152Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "5261cf3f-f0e2-40e1-b888-cf2d198d9794",
+      "createdAt": "2026-05-21T13:55:46.319Z",
+      "updatedAt": "2026-05-22T14:13:24.167Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "0a780531-1482-458d-8b68-a30de71e1dd3",
+      "createdAt": "2026-05-18T17:38:06.170Z",
+      "updatedAt": "2026-05-18T17:38:25.202Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "369f6155-a7c1-4eaa-b384-9c93f4625ede",
+      "createdAt": "2026-05-18T15:13:27.878Z",
+      "updatedAt": "2026-05-18T17:38:25.229Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "f9091226-ff1f-4a91-a689-e7abc4be6978",
+      "createdAt": "2026-05-18T14:55:42.839Z",
+      "updatedAt": "2026-05-18T17:38:25.221Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "684e294c-d7f0-48fb-b770-1d4f8ab147b8",
+      "createdAt": "2026-05-17T19:39:45.776Z",
+      "updatedAt": "2026-05-22T14:13:24.182Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "ec06bb71-08d6-43ec-834d-8d18fcfb3401",
+      "createdAt": "2026-05-14T17:47:46.374Z",
+      "updatedAt": "2026-05-18T17:38:25.301Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "a4441b00-eeb7-4167-b82e-d50c0181a8d4",
+      "createdAt": "2026-05-14T17:47:18.398Z",
+      "updatedAt": "2026-05-18T17:38:25.287Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "3b8bfdde-a7aa-4205-969d-f592ea4e7a92",
+      "createdAt": "2026-05-14T12:15:15.763Z",
+      "updatedAt": "2026-05-18T17:38:25.237Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "cfd5a09b-0a2b-4327-b380-da21becdc578",
+      "createdAt": "2026-05-14T11:55:45.765Z",
+      "updatedAt": "2026-05-22T14:13:24.214Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "3ddbf47d-7cf8-4d0e-a5c9-debbd402f287",
+      "createdAt": "2026-05-13T12:48:19.852Z",
+      "updatedAt": "2026-05-22T14:13:24.229Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "406dcd03-e0fb-4df3-9dea-680580a24677",
+      "createdAt": "2026-05-12T16:50:59.649Z",
+      "updatedAt": "2026-05-22T14:13:24.231Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "a5c852d1-8898-4ef4-bf82-f30c33b60483",
+      "createdAt": "2026-05-11T19:34:00.386Z",
+      "updatedAt": "2026-05-22T14:13:24.245Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "424f6eeb-dd8b-4779-9525-97b98332a3b6",
+      "createdAt": "2026-05-11T17:28:56.551Z",
+      "updatedAt": "2026-05-18T17:38:25.269Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    },
+    {
+      "id": "1feb0c86-d57f-4ad0-939a-84d8aaf351dc",
+      "createdAt": "2026-05-11T12:14:09.236Z",
+      "updatedAt": "2026-05-18T17:38:25.256Z",
+      "cwd": "",
+      "repository": "",
+      "branch": "",
+      "summary": ""
+    }
+  ]
+}
