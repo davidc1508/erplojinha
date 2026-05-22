@@ -1,6 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Typography, useMediaQuery, useTheme } from '@mui/material';
+﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import { useMemo, useState } from 'react';
 import { CurrencyField } from '../components/CurrencyField';
 import { ProductLookupField } from '../components/ProductLookupField';
@@ -9,6 +11,7 @@ import { PageSection } from '../components/PageSection';
 import { categoriesApi, inventoryApi, productsApi } from '../services/api';
 import { formatUtcDate } from '../services/date';
 import { inventoryMovementTypeLabel } from '../services/labels';
+import type { InventoryMovement } from '../services/types';
 
 export function InventoryPage() {
   const { session } = useAuth();
@@ -24,6 +27,7 @@ export function InventoryPage() {
   const { data: metadata } = useQuery({ queryKey: ['products-metadata'], queryFn: productsApi.getMetadata, enabled: !isSupplier });
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [reverseTarget, setReverseTarget] = useState<InventoryMovement | null>(null);
   const [search, setSearch] = useState('');
   const [scopeFilter, setScopeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
@@ -32,55 +36,72 @@ export function InventoryPage() {
   const [exitPage, setExitPage] = useState(0);
   const [stockPage, setStockPage] = useState(0);
   const [form, setForm] = useState({ itemType: 'Product', itemId: '', type: 'Entry', quantity: 1, unitCost: 0, notes: '' });
-  const managedProducts = useMemo(() => isSupplier ? products.filter((product) => product.supplierId === supplierId) : products, [isSupplier, products, supplierId]);
-  const productMovements = useMemo(() => movements.filter((movement) => movement.itemType === 'Product'), [movements]);
+
+  const managedProducts = useMemo(
+    () => isSupplier ? products.filter((p) => p.supplierId === supplierId) : products,
+    [isSupplier, products, supplierId]
+  );
+
+  const scopedProducts = useMemo(
+    () => managedProducts.filter((p) =>
+      scopeFilter === 'all' ? true
+        : scopeFilter === 'store' ? !p.supplierId
+          : p.supplierId === scopeFilter),
+    [managedProducts, scopeFilter]
+  );
+
+  // KPIs reais de estoque
+  const kpiInStock = useMemo(() => scopedProducts.filter((p) => p.currentStock > 0).length, [scopedProducts]);
+  const kpiBelowMin = useMemo(
+    () => scopedProducts.filter((p) => p.minimumStock > 0 && p.currentStock < p.minimumStock).length,
+    [scopedProducts]
+  );
+  const kpiStockValue = useMemo(
+    () => scopedProducts.reduce((sum, p) => sum + p.currentStock * p.costPrice, 0),
+    [scopedProducts]
+  );
+  const kpiOutOfStock = useMemo(
+    () => managedProducts.filter((p) => p.currentStock === 0).length,
+    [managedProducts]
+  );
+
+  const productMovements = useMemo(() => movements.filter((m) => m.itemType === 'Product'), [movements]);
   const filteredMovements = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) {
-      return productMovements;
-    }
+    return productMovements
+      .filter((m) => !term || [m.itemName, m.notes, m.type].join(' ').toLowerCase().includes(term))
+      .filter((m) => {
+        const matchesScope = scopeFilter === 'all' ? true
+          : scopeFilter === 'store' ? !m.supplierId
+            : m.supplierId === scopeFilter;
+        const at = new Date(m.occurredAtUtc);
+        const matchesStart = !startDate || at >= new Date(`${startDate}T00:00:00`);
+        const matchesEnd = !endDate || at <= new Date(`${endDate}T23:59:59`);
+        return matchesScope && matchesStart && matchesEnd;
+      });
+  }, [productMovements, search, scopeFilter, startDate, endDate]);
 
-    return productMovements.filter((movement) => [movement.itemName, movement.notes, movement.type].join(' ').toLowerCase().includes(term));
-  }, [productMovements, search]).filter((movement) => {
-    const matchesScope = scopeFilter === 'all'
-      ? true
-      : scopeFilter === 'store'
-        ? !movement.supplierId
-        : movement.supplierId === scopeFilter;
-    const occurredAt = new Date(movement.occurredAtUtc);
-    const matchesStartDate = !startDate || occurredAt >= new Date(`${startDate}T00:00:00`);
-    const matchesEndDate = !endDate || occurredAt <= new Date(`${endDate}T23:59:59`);
-    return matchesScope && matchesStartDate && matchesEndDate;
-  });
-  const entryMovements = useMemo(
-    () => filteredMovements.filter((movement) => movement.type === 'Entry'),
-    [filteredMovements]
-  );
+  const entryMovements = useMemo(() => filteredMovements.filter((m) => m.type === 'Entry'), [filteredMovements]);
   const exitMovements = useMemo(
-    () => filteredMovements.filter((movement) => movement.type === 'Exit' || movement.type === 'Sale' || movement.type === 'Adjustment'),
+    () => filteredMovements.filter((m) => m.type === 'Exit' || m.type === 'Sale' || m.type === 'Adjustment'),
     [filteredMovements]
   );
   const pagedEntryMovements = entryMovements.slice(entryPage * rowsPerPage, entryPage * rowsPerPage + rowsPerPage);
   const pagedExitMovements = exitMovements.slice(exitPage * rowsPerPage, exitPage * rowsPerPage + rowsPerPage);
+
   const inStockProducts = useMemo(
-    () => managedProducts
-      .filter((product) => product.currentStock > 0)
-      .filter((product) => scopeFilter === 'all'
-        ? true
-        : scopeFilter === 'store'
-          ? !product.supplierId
-          : product.supplierId === scopeFilter),
-    [managedProducts, scopeFilter]);
-  const pagedInStockProducts = useMemo(() => inStockProducts.slice(stockPage * rowsPerPage, stockPage * rowsPerPage + rowsPerPage), [inStockProducts, rowsPerPage, stockPage]);
+    () => scopedProducts.filter((p) => p.currentStock > 0),
+    [scopedProducts]
+  );
+  const pagedInStockProducts = useMemo(
+    () => inStockProducts.slice(stockPage * rowsPerPage, stockPage * rowsPerPage + rowsPerPage),
+    [inStockProducts, stockPage]
+  );
+
   const categoryColorsById = useMemo(
-    () => new Map(categories.map((item) => [item.id, item.colorHex])),
+    () => new Map(categories.map((c) => [c.id, c.colorHex])),
     [categories]
   );
-  const movementSummary = useMemo(() => ({
-    total: productMovements.length,
-    entries: productMovements.filter((movement) => movement.type === 'Entry').length,
-    exits: productMovements.filter((movement) => movement.type === 'Exit' || movement.type === 'Sale').length
-  }), [productMovements]);
 
   const mutation = useMutation({
     mutationFn: async () => inventoryApi.createMovement(form),
@@ -93,28 +114,77 @@ export function InventoryPage() {
     }
   });
 
+  const reverseMutation = useMutation({
+    mutationFn: async (id: string) => inventoryApi.reverseMovement(id),
+    onSuccess: () => {
+      setFeedback('Estorno registrado com sucesso.');
+      setReverseTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: () => {
+      setFeedback('Erro ao estornar a movimentação.');
+      setReverseTarget(null);
+    }
+  });
+
   function handleCloseDialog() {
     setForm({ itemType: 'Product', itemId: '', type: 'Entry', quantity: 1, unitCost: 0, notes: '' });
     setIsDialogOpen(false);
   }
 
   function renderCategoryWithColor(categoryId: string, categoryName: string) {
-    const categoryColor = categoryColorsById.get(categoryId) ?? '#b7a094';
-
+    const color = categoryColorsById.get(categoryId) ?? '#b7a094';
     return (
       <Stack direction="row" spacing={1} alignItems="center">
-        <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: categoryColor, flexShrink: 0 }} />
+        <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
         <Typography>{categoryName}</Typography>
       </Stack>
     );
   }
 
+  function renderReverseButton(movement: InventoryMovement) {
+    if (movement.type === 'Sale') return null;
+    return (
+      <Tooltip title="Estornar movimentação">
+        <IconButton size="small" onClick={() => setReverseTarget(movement)}>
+          <UndoRoundedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    );
+  }
+
   return (
     <Stack spacing={3}>
+      {/* KPIs reais */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Movimentações</Typography><Typography variant="h5">{movementSummary.total}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Entradas</Typography><Typography variant="h5">{movementSummary.entries}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Saídas</Typography><Typography variant="h5">{movementSummary.exits}</Typography></Paper></Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2 }}>
+            <Typography color="text.secondary" variant="body2">Produtos em estoque</Typography>
+            <Typography variant="h5">{kpiInStock}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderLeft: kpiBelowMin > 0 ? '4px solid #f57c00' : undefined }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {kpiBelowMin > 0 && <WarningAmberRoundedIcon sx={{ color: '#f57c00' }} fontSize="small" />}
+              <Typography color="text.secondary" variant="body2">Abaixo do mínimo</Typography>
+            </Stack>
+            <Typography variant="h5" color={kpiBelowMin > 0 ? 'warning.main' : 'text.primary'}>{kpiBelowMin}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2 }}>
+            <Typography color="text.secondary" variant="body2">Sem estoque</Typography>
+            <Typography variant="h5">{kpiOutOfStock}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2 }}>
+            <Typography color="text.secondary" variant="body2">Valor estimado (custo)</Typography>
+            <Typography variant="h5">{kpiStockValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
+          </Paper>
+        </Grid>
       </Grid>
 
       <PageSection
@@ -123,7 +193,7 @@ export function InventoryPage() {
         action={<Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setIsDialogOpen(true)}>Registrar movimentação</Button>}
       >
         <Stack spacing={2}>
-          {feedback ? <Alert severity="success">{feedback}</Alert> : null}
+          {feedback ? <Alert severity="success" onClose={() => setFeedback(null)}>{feedback}</Alert> : null}
           <Grid container spacing={1.5}>
             {!isSupplier ? (
               <Grid item xs={12} md={3}>
@@ -131,44 +201,48 @@ export function InventoryPage() {
                   select
                   label="Lista"
                   value={scopeFilter}
-                  onChange={(event) => {
-                    setScopeFilter(event.target.value);
-                    setEntryPage(0);
-                    setExitPage(0);
-                    setStockPage(0);
-                  }}
+                  onChange={(e) => { setScopeFilter(e.target.value); setEntryPage(0); setExitPage(0); setStockPage(0); }}
                   fullWidth
                 >
                   <MenuItem value="all">Todos</MenuItem>
                   <MenuItem value="store">Lojinha Sem Nome</MenuItem>
-                  {(metadata?.suppliers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
+                  {(metadata?.suppliers ?? []).map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
                 </TextField>
               </Grid>
             ) : null}
-            <Grid item xs={12} md={6}><TextField label="Buscar movimentação" value={search} onChange={(event) => { setSearch(event.target.value); setEntryPage(0); setExitPage(0); }} placeholder="Produto, observação ou tipo" fullWidth /></Grid>
-            <Grid item xs={12} md={3}><TextField label="De" type="date" value={startDate} onChange={(event) => { setStartDate(event.target.value); setEntryPage(0); setExitPage(0); }} InputLabelProps={{ shrink: true }} fullWidth /></Grid>
-            <Grid item xs={12} md={3}><TextField label="Até" type="date" value={endDate} onChange={(event) => { setEndDate(event.target.value); setEntryPage(0); setExitPage(0); }} InputLabelProps={{ shrink: true }} fullWidth /></Grid>
+            <Grid item xs={12} md={6}>
+              <TextField label="Buscar movimentação" value={search} onChange={(e) => { setSearch(e.target.value); setEntryPage(0); setExitPage(0); }} placeholder="Produto, observação ou tipo" fullWidth />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField label="De" type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setEntryPage(0); setExitPage(0); }} InputLabelProps={{ shrink: true }} fullWidth />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField label="Até" type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setEntryPage(0); setExitPage(0); }} InputLabelProps={{ shrink: true }} fullWidth />
+            </Grid>
           </Grid>
 
           <Typography variant="h6">Entradas</Typography>
           {isMobile ? (
             <Stack spacing={1.5}>
-              {pagedEntryMovements.map((movement) => (
-                <Paper key={movement.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(123, 207, 192, 0.18)' }}>
+              {pagedEntryMovements.map((m) => (
+                <Paper key={m.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(123, 207, 192, 0.18)' }}>
                   <Stack spacing={1.1}>
-                    <Typography fontWeight={700}>{movement.itemName}</Typography>
-                    <Typography color="text.secondary">Data: {formatUtcDate(movement.occurredAtUtc)}</Typography>
-                    <Typography color="text.secondary">Movimento: {inventoryMovementTypeLabel(movement.type)}</Typography>
-                    <Typography color="text.secondary">Quantidade: {movement.quantity}</Typography>
-                    <Typography color="text.secondary">Custo unitário: {Number(movement.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
-                    <Typography color="text.secondary">{movement.notes || 'Sem observações'}</Typography>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                      <Typography fontWeight={700}>{m.itemName}</Typography>
+                      {renderReverseButton(m)}
+                    </Stack>
+                    <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
+                    <Typography color="text.secondary">Movimento: {inventoryMovementTypeLabel(m.type)}</Typography>
+                    <Typography color="text.secondary">Quantidade: {m.quantity}</Typography>
+                    <Typography color="text.secondary">Custo unitário: {Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
+                    <Typography color="text.secondary">{m.notes || 'Sem observações'}</Typography>
                   </Stack>
                 </Paper>
               ))}
             </Stack>
           ) : (
             <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-              <Table size="small" sx={{ minWidth: 760 }}>
+              <Table size="small" sx={{ minWidth: 800 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
@@ -177,17 +251,19 @@ export function InventoryPage() {
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Qtd.</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Custo unitário</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Observação</TableCell>
+                    <TableCell />
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {pagedEntryMovements.map((movement) => (
-                    <TableRow key={movement.id} hover sx={{ backgroundColor: 'rgba(123, 207, 192, 0.12)' }}>
-                      <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(movement.occurredAtUtc)}</TableCell>
-                      <TableCell sx={{ py: 1.5, minWidth: 180 }}>{movement.itemName}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{inventoryMovementTypeLabel(movement.type)}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{movement.quantity}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{Number(movement.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                      <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{movement.notes || 'Sem observações'}</TableCell>
+                  {pagedEntryMovements.map((m) => (
+                    <TableRow key={m.id} hover sx={{ backgroundColor: 'rgba(123, 207, 192, 0.12)' }}>
+                      <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(m.occurredAtUtc)}</TableCell>
+                      <TableCell sx={{ py: 1.5, minWidth: 180 }}>{m.itemName}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{inventoryMovementTypeLabel(m.type)}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
+                      <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{renderReverseButton(m)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -195,35 +271,30 @@ export function InventoryPage() {
             </Paper>
           )}
           {pagedEntryMovements.length === 0 ? <Alert severity="info">Nenhuma entrada encontrada.</Alert> : null}
-          <TablePagination
-            component="div"
-            count={entryMovements.length}
-            page={entryPage}
-            onPageChange={(_, value) => setEntryPage(value)}
-            rowsPerPage={rowsPerPage}
-            rowsPerPageOptions={[rowsPerPage]}
-            labelRowsPerPage="Itens por página"
-          />
+          <TablePagination component="div" count={entryMovements.length} page={entryPage} onPageChange={(_, v) => setEntryPage(v)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
 
           <Typography variant="h6">Saídas</Typography>
           {isMobile ? (
             <Stack spacing={1.5}>
-              {pagedExitMovements.map((movement) => (
-                <Paper key={movement.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(217, 107, 135, 0.16)' }}>
+              {pagedExitMovements.map((m) => (
+                <Paper key={m.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(217, 107, 135, 0.16)' }}>
                   <Stack spacing={1.1}>
-                    <Typography fontWeight={700}>{movement.itemName}</Typography>
-                    <Typography color="text.secondary">Data: {formatUtcDate(movement.occurredAtUtc)}</Typography>
-                    <Typography color="text.secondary">Movimento: {inventoryMovementTypeLabel(movement.type)}</Typography>
-                    <Typography color="text.secondary">Quantidade: {movement.quantity}</Typography>
-                    <Typography color="text.secondary">Custo unitário: {Number(movement.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
-                    <Typography color="text.secondary">{movement.notes || 'Sem observações'}</Typography>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                      <Typography fontWeight={700}>{m.itemName}</Typography>
+                      {renderReverseButton(m)}
+                    </Stack>
+                    <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
+                    <Typography color="text.secondary">Movimento: <Chip label={inventoryMovementTypeLabel(m.type)} size="small" /></Typography>
+                    <Typography color="text.secondary">Quantidade: {m.quantity}</Typography>
+                    <Typography color="text.secondary">Custo unitário: {Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
+                    <Typography color="text.secondary">{m.notes || 'Sem observações'}</Typography>
                   </Stack>
                 </Paper>
               ))}
             </Stack>
           ) : (
             <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-              <Table size="small" sx={{ minWidth: 760 }}>
+              <Table size="small" sx={{ minWidth: 800 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
@@ -232,17 +303,19 @@ export function InventoryPage() {
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Qtd.</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Custo unitário</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Observação</TableCell>
+                    <TableCell />
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {pagedExitMovements.map((movement) => (
-                    <TableRow key={movement.id} hover sx={{ backgroundColor: 'rgba(217, 107, 135, 0.11)' }}>
-                      <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(movement.occurredAtUtc)}</TableCell>
-                      <TableCell sx={{ py: 1.5, minWidth: 180 }}>{movement.itemName}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{inventoryMovementTypeLabel(movement.type)}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{movement.quantity}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{Number(movement.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                      <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{movement.notes || 'Sem observações'}</TableCell>
+                  {pagedExitMovements.map((m) => (
+                    <TableRow key={m.id} hover sx={{ backgroundColor: 'rgba(217, 107, 135, 0.11)' }}>
+                      <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(m.occurredAtUtc)}</TableCell>
+                      <TableCell sx={{ py: 1.5, minWidth: 180 }}>{m.itemName}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}><Chip label={inventoryMovementTypeLabel(m.type)} size="small" variant="outlined" /></TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
+                      <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{renderReverseButton(m)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -250,15 +323,7 @@ export function InventoryPage() {
             </Paper>
           )}
           {pagedExitMovements.length === 0 ? <Alert severity="info">Nenhuma saída encontrada.</Alert> : null}
-          <TablePagination
-            component="div"
-            count={exitMovements.length}
-            page={exitPage}
-            onPageChange={(_, value) => setExitPage(value)}
-            rowsPerPage={rowsPerPage}
-            rowsPerPageOptions={[rowsPerPage]}
-            labelRowsPerPage="Itens por página"
-          />
+          <TablePagination component="div" count={exitMovements.length} page={exitPage} onPageChange={(_, v) => setExitPage(v)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
         </Stack>
       </PageSection>
 
@@ -266,17 +331,20 @@ export function InventoryPage() {
         <Stack spacing={2}>
           {isMobile ? (
             <Stack spacing={1.5}>
-              {pagedInStockProducts.map((product) => (
-                <Paper key={product.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+              {pagedInStockProducts.map((p) => (
+                <Paper key={p.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
                   <Stack spacing={1}>
-                    <Typography fontWeight={700}>{product.name}</Typography>
+                    <Typography fontWeight={700}>{p.name}</Typography>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography color="text.secondary">Categoria:</Typography>
-                      {renderCategoryWithColor(product.categoryId, product.category)}
+                      {renderCategoryWithColor(p.categoryId, p.category)}
                     </Stack>
-                    <Typography color="text.secondary">Estoque: {product.currentStock}</Typography>
-                    <Typography color="text.secondary">Mínimo: {product.minimumStock}</Typography>
-                    <Typography color="text.secondary">SKU: {product.sku}</Typography>
+                    <Typography color="text.secondary">Estoque: {p.currentStock}</Typography>
+                    <Typography color="text.secondary" sx={p.minimumStock > 0 && p.currentStock < p.minimumStock ? { color: 'warning.main', fontWeight: 700 } : {}}>
+                      Mínimo: {p.minimumStock}
+                      {p.minimumStock > 0 && p.currentStock < p.minimumStock ? ' ⚠' : ''}
+                    </Typography>
+                    <Typography color="text.secondary">SKU: {p.sku}</Typography>
                   </Stack>
                 </Paper>
               ))}
@@ -295,33 +363,32 @@ export function InventoryPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {pagedInStockProducts.map((product) => (
-                    <TableRow key={product.id} hover>
-                      <TableCell>{product.name}</TableCell>
-                      <TableCell>{renderCategoryWithColor(product.categoryId, product.category)}</TableCell>
-                      <TableCell>{product.supplier ?? 'Lojinha Sem Nome'}</TableCell>
-                      <TableCell>{product.sku}</TableCell>
-                      <TableCell>{product.currentStock}</TableCell>
-                      <TableCell>{product.minimumStock}</TableCell>
-                    </TableRow>
-                  ))}
+                  {pagedInStockProducts.map((p) => {
+                    const belowMin = p.minimumStock > 0 && p.currentStock < p.minimumStock;
+                    return (
+                      <TableRow key={p.id} hover sx={belowMin ? { backgroundColor: 'rgba(245, 124, 0, 0.08)' } : {}}>
+                        <TableCell>{p.name}</TableCell>
+                        <TableCell>{renderCategoryWithColor(p.categoryId, p.category)}</TableCell>
+                        <TableCell>{p.supplier ?? 'Lojinha Sem Nome'}</TableCell>
+                        <TableCell>{p.sku}</TableCell>
+                        <TableCell>{p.currentStock}</TableCell>
+                        <TableCell sx={belowMin ? { color: 'warning.main', fontWeight: 700 } : {}}>
+                          {p.minimumStock}
+                          {belowMin ? ' ⚠' : ''}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Paper>
           )}
           {pagedInStockProducts.length === 0 ? <Alert severity="info">Nenhum produto com estoque disponível.</Alert> : null}
-          <TablePagination
-            component="div"
-            count={inStockProducts.length}
-            page={stockPage}
-            onPageChange={(_, value) => setStockPage(value)}
-            rowsPerPage={rowsPerPage}
-            rowsPerPageOptions={[rowsPerPage]}
-            labelRowsPerPage="Itens por página"
-          />
+          <TablePagination component="div" count={inStockProducts.length} page={stockPage} onPageChange={(_, v) => setStockPage(v)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
         </Stack>
       </PageSection>
 
+      {/* Dialog: nova movimentação */}
       <Dialog open={isDialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm">
         <DialogTitle>Nova movimentação de produto</DialogTitle>
         <DialogContent>
@@ -331,30 +398,58 @@ export function InventoryPage() {
               value={form.itemId}
               products={managedProducts}
               onChange={(productId) => {
-                const selectedProduct = managedProducts.find((product) => product.id === productId);
-                setForm({
-                  ...form,
-                  itemId: productId,
-                  unitCost: selectedProduct?.costPrice ?? 0
-                });
+                const selected = managedProducts.find((p) => p.id === productId);
+                setForm({ ...form, itemId: productId, unitCost: selected?.costPrice ?? 0 });
               }}
-              helperText="Digite ao menos 2 caracteres para localizar o produto da movimentação. O custo unitário é preenchido automaticamente e pode ser alterado."
+              helperText="Digite ao menos 2 caracteres para localizar o produto. O custo unitário é preenchido automaticamente e pode ser alterado."
             />
-            <TextField select label="Movimento" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>
+            <TextField select label="Movimento" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
               <MenuItem value="Entry">Entrada</MenuItem>
               <MenuItem value="Exit">Saída</MenuItem>
               <MenuItem value="Adjustment">Ajuste</MenuItem>
             </TextField>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}><TextField label="Quantidade" type="number" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: Number(event.target.value) })} fullWidth /></Grid>
-              <Grid item xs={12} sm={6}><CurrencyField label="Custo unitário" value={form.unitCost} onValueChange={(value) => setForm({ ...form, unitCost: value })} fullWidth /></Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField label="Quantidade" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} fullWidth />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <CurrencyField label="Custo unitário" value={form.unitCost} onValueChange={(v) => setForm({ ...form, unitCost: v })} fullWidth />
+              </Grid>
             </Grid>
-            <TextField label="Observação" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} multiline minRows={3} />
+            <TextField label="Observação" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} multiline minRows={3} />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button variant="outlined" onClick={handleCloseDialog}>Cancelar</Button>
           <Button variant="contained" onClick={() => mutation.mutate()} disabled={mutation.isLoading || !form.itemId}>Salvar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: confirmação de estorno */}
+      <Dialog open={!!reverseTarget} onClose={() => setReverseTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirmar estorno</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1}>
+            <Typography>Deseja estornar a seguinte movimentação?</Typography>
+            <Typography><strong>Item:</strong> {reverseTarget?.itemName}</Typography>
+            <Typography><strong>Tipo:</strong> {reverseTarget ? inventoryMovementTypeLabel(reverseTarget.type) : ''}</Typography>
+            <Typography><strong>Quantidade:</strong> {reverseTarget?.quantity}</Typography>
+            <Typography><strong>Data:</strong> {reverseTarget ? formatUtcDate(reverseTarget.occurredAtUtc) : ''}</Typography>
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              Será registrada uma contra-movimentação automática para corrigir o estoque.
+            </Alert>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button variant="outlined" onClick={() => setReverseTarget(null)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => reverseTarget && reverseMutation.mutate(reverseTarget.id)}
+            disabled={reverseMutation.isLoading}
+          >
+            Confirmar estorno
+          </Button>
         </DialogActions>
       </Dialog>
     </Stack>

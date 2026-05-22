@@ -10,6 +10,7 @@ public interface IInventoryService
 {
     Task<IReadOnlyList<InventoryMovementDto>> GetRecentAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
     Task<InventoryMovementDto> RegisterAsync(ManualInventoryMovementRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
+    Task<InventoryMovementDto> ReverseAsync(Guid movementId, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
 }
 
 public sealed class InventoryService(
@@ -154,4 +155,36 @@ public sealed class InventoryService(
         => request.Type is InventoryMovementType.Entry or InventoryMovementType.Adjustment
             ? currentStock + request.Quantity
             : Math.Max(0, currentStock - request.Quantity);
+    }
+
+    public async Task<InventoryMovementDto> ReverseAsync(Guid movementId, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
+    {
+        var original = await inventoryRepository.GetByIdAsync(movementId, cancellationToken)
+            ?? throw new InvalidOperationException("Movimentação não encontrada.");
+
+        if (original.Type == InventoryMovementType.Sale)
+            throw new InvalidOperationException("Movimentações de venda não podem ser estornadas aqui. Cancele a venda correspondente.");
+
+        var reversalType = original.Type is InventoryMovementType.Entry or InventoryMovementType.Adjustment
+            ? InventoryMovementType.Exit
+            : InventoryMovementType.Entry;
+
+        var originalTypeLabel = original.Type switch
+        {
+            InventoryMovementType.Entry => "entrada",
+            InventoryMovementType.Exit => "saída",
+            InventoryMovementType.Adjustment => "ajuste",
+            _ => "movimentação"
+        };
+
+        var reversalRequest = new ManualInventoryMovementRequest(
+            original.ItemType,
+            original.ItemId,
+            reversalType,
+            original.Quantity,
+            original.UnitCost,
+            $"Estorno de {originalTypeLabel} em {original.OccurredAtUtc:dd/MM/yyyy HH:mm}");
+
+        return await RegisterAsync(reversalRequest, actor, scopedSupplierId, cancellationToken);
+    }
 }

@@ -1,4 +1,4 @@
-using Lojinha.Api.Contracts.Inventory;
+﻿using Lojinha.Api.Contracts.Inventory;
 using Lojinha.Api.Entities;
 using Lojinha.Api.Extensions;
 using Lojinha.Api.Services;
@@ -24,6 +24,19 @@ public sealed class InventoryController(IInventoryService inventoryService) : Co
         try
         {
             return Ok(await inventoryService.RegisterAsync(request, User.GetEmail(), ScopedSupplierId, cancellationToken));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
+    [HttpPost("movements/{id}/reverse")]
+    public async Task<ActionResult<InventoryMovementDto>> Reverse(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await inventoryService.ReverseAsync(id, User.GetEmail(), ScopedSupplierId, cancellationToken));
         }
         catch (InvalidOperationException exception)
         {

@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import type { AxiosError } from 'axios';
 import type {
   AuthResponse,
@@ -350,6 +350,10 @@ export const inventoryApi = {
   },
   createMovement: async (payload: Record<string, unknown>) => {
     const { data } = await api.post<InventoryMovement>('/inventory/movements', payload);
+    return data;
+  },
+  reverseMovement: async (id: string) => {
+    const { data } = await api.post<InventoryMovement>(/inventory/movements/${id}/reverse);
     return data;
   }
 };
