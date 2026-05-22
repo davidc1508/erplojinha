@@ -17,6 +17,7 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Tooltip,
@@ -64,6 +65,8 @@ export function ProjectsPage() {
   });
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Todos' | ProjectStatus>('Todos');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects'],
@@ -152,6 +155,20 @@ export function ProjectsPage() {
     });
   }, [productMap, projects, search, statusFilter]);
 
+  const paginatedProjects = useMemo(
+    () => filteredProjects.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [filteredProjects, page, rowsPerPage]
+  );
+
+  const totalProjects = projects.length;
+  const inProgressProjects = projects.filter((item) => item.status === 'EmAndamento').length;
+  const plannedProjects = projects.filter((item) => item.status === 'Planejado').length;
+  const concludedProjects = projects.filter((item) => item.status === 'Concluido').length;
+
+  useEffect(() => {
+    setPage(0);
+  }, [search, statusFilter, rowsPerPage]);
+
   useEffect(() => {
     if (!todoItemId) {
       return;
@@ -177,9 +194,10 @@ export function ProjectsPage() {
       </Stack>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Projetos ativos</Typography><Typography variant="h5">{projects.filter((item) => item.status !== 'Concluido' && item.status !== 'Cancelado').length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Projetos concluídos</Typography><Typography variant="h5">{projects.filter((item) => item.status === 'Concluido').length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Tempo estimado total</Typography><Typography variant="h5">{projects.reduce((sum, item) => sum + item.timeEstimatedMinutes, 0).toFixed(0)} min</Typography></Paper></Grid>
+        <Grid item xs={12} sm={6} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Total de projetos</Typography><Typography variant="h5">{totalProjects}</Typography></Paper></Grid>
+        <Grid item xs={12} sm={6} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Projetos em andamento</Typography><Typography variant="h5">{inProgressProjects}</Typography></Paper></Grid>
+        <Grid item xs={12} sm={6} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Projetos planejados</Typography><Typography variant="h5">{plannedProjects}</Typography></Paper></Grid>
+        <Grid item xs={12} sm={6} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Projetos concluídos</Typography><Typography variant="h5">{concludedProjects}</Typography></Paper></Grid>
       </Grid>
 
       <PageSection title="Projetos" subtitle="Cada projeto reúne mesas planejadas, tentativas reais e perdas por falha.">
@@ -228,7 +246,7 @@ export function ProjectsPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredProjects.map((project: Project) => (
+                {paginatedProjects.map((project: Project) => (
                   <TableRow key={project.id} hover>
                     <TableCell>
                       <Stack spacing={0.35}>
@@ -291,6 +309,19 @@ export function ProjectsPage() {
                 ) : null}
               </TableBody>
             </Table>
+            <TablePagination
+              component="div"
+              count={filteredProjects.length}
+              page={page}
+              onPageChange={(_event, nextPage) => setPage(nextPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(event) => {
+                setRowsPerPage(Number(event.target.value));
+                setPage(0);
+              }}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Linhas por página"
+            />
           </Paper>
         </Stack>
       </PageSection>
