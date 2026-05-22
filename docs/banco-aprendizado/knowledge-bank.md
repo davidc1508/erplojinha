@@ -378,6 +378,7 @@ Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e art
   - Atualizacao em banco (Oracle/producao): todos os produtos com minimumStock = 2 foram alterados para minimumStock = 1 via SQL operacional versionado em deploy/oracle/artifacts/minstock-products-2-to-1.sql (resultado: 416 linhas atualizadas, 0 restantes com valor 2).
   - Cadastro de produto ajustado: valor padrao de estoque minimo na ProductFormPage alterado de 2 para 1 para novos cadastros.
   - Tela de estoque ajustada para o contexto atual de acuracia: indicador KPI "Abaixo do minimo" removido e destaques visuais de alerta por minimo (cartao/tabela/lista mobile) desativados para evitar sinalizacao enganosa.
+  - Listagem de produtos ajustada: busca textual da tela ProductsPage agora filtra somente por nome do produto (nao considera categoria, SKU ou fornecedor no campo de texto).
 - 2026-05-17
   - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
   - Ajustes de responsividade e padronizacao de acoes em UI.

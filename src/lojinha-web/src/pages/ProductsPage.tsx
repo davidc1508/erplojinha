@@ -132,10 +132,7 @@ export function ProductsPage() {
     const normalized = search.trim().toLowerCase();
     return products.filter((product) => {
       const matchesText = normalized.length === 0
-        || product.name.toLowerCase().includes(normalized)
-        || product.sku.toLowerCase().includes(normalized)
-        || product.category.toLowerCase().includes(normalized)
-        || (product.supplier ?? '').toLowerCase().includes(normalized);
+        || product.name.toLowerCase().includes(normalized);
       const matchesCategory = categoryFilter === 'all' || product.categoryId === categoryFilter;
       const matchesScope = scopeFilter === 'all'
         ? true
@@ -240,7 +237,7 @@ export function ProductsPage() {
               onChange={(event) => {
                 updateListState({ search: event.target.value, page: 0 });
               }}
-              placeholder="Buscar por nome, SKU ou categoria"
+              placeholder="Buscar por nome do produto"
               fullWidth
               InputProps={{ startAdornment: <SearchRoundedIcon color="action" sx={{ mr: 1 }} /> }}
             />
