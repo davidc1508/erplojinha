@@ -371,12 +371,16 @@ Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e art
   - Semantica de "ativos" corrigida: agora o indicador operacional usa apenas status EmAndamento (nao inclui todo status diferente de Concluido).
   - Deploy realizado na Oracle VM com tag 20260522-projects-pagination-v1 (API + Web). Ambos os endpoints validados HTTP 200.
   - Backup automatico diario configurado: cron 2h AM na Oracle VM, pg_dump do container lojinha-postgres (formato custom -Fc -Z9), publicado em backups/lojinha-latest.dump no repositorio git (sparse checkout, sem codigo-fonte na Oracle). Deploy key SSH configurada na Oracle (lojinha-oracle-backup). Somente o ultimo dump e mantido.
-- 2026-05-17
-  - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
-  - Ajustes de responsividade e padronizacao de acoes em UI.
-- 2026-05-15
-  - Refinamento de rateio de taxa de feiras (impacto em indicadores e repasses).
-- 2026-05-13
+  - 2026-05-22
+    - Tela de Projetos passou a ter paginacao na listagem (linhas por pagina e navegacao).
+    - Cards de resumo da tela de Projetos foram trocados para indicadores objetivos: total, em andamento, planejados e concluidos.
+    - Semantica de "ativos" corrigida: agora o indicador operacional usa apenas status EmAndamento (nao inclui todo status diferente de Concluido).
+    - Deploy realizado na Oracle VM com tag 20260522-projects-pagination-v1 (API + Web). Ambos os endpoints validados HTTP 200.
+    - Backup automatico diario configurado: cron 2h AM na Oracle VM, pg_dump do container lojinha-postgres (formato custom -Fc -Z9), publicado em backups/lojinha-latest.dump no repositorio git (sparse checkout, sem codigo-fonte na Oracle). Deploy key SSH configurada na Oracle (lojinha-oracle-backup). Somente o ultimo dump e mantido.
+    - Modulo de estoque revalidado: botao de estorno (reversal) adicionado em cada movimentacao do tipo Entrada/Saida/Ajuste (exceto Venda) na tela InventoryPage. Confirmacao por dialog antes de executar. Endpoint POST /api/inventory/movements/{id}/reverse criado em InventoryController; servico ReverseAsync em InventoryService cria movimento oposto automatico com nota "Estorno de [tipo] em [data]".
+    - KPIs do modulo de estoque substituidos por indicadores reais: "Produtos em estoque" (currentStock > 0), "Abaixo do minimo" (currentStock < minimumStock, destacado em laranja), "Sem estoque" (currentStock === 0), "Valor estimado (custo)" (soma de currentStock * costPrice). Todos respeitam filtro de escopo por fornecedor.
+    - Linhas abaixo do estoque minimo destacadas em laranja na tabela de produtos do modulo de estoque.
+    - Deploy realizado na Oracle VM com tag 20260522-inventory-kpis-estorno-v1 (API + Web). Ambos os endpoints validados HTTP 200. Imagens antigas da tag anterior removidas do Oracle.
   - Correcao de lucro em vendas comissionadas.
   - Migracao/regras de roteamento de restock ligado a vendas legadas.
   - Ajustes de detalhes de venda para coerencia de exibicao.
