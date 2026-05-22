@@ -365,6 +365,10 @@ Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e art
   - Inclusao do papel Revendedor e seu escopo funcional restrito.
   - Ajustes de UX para esconder acoes nao permitidas para revendedor em financeiro/feiras.
   - Ajuste de anos KPI para refletir base de dados existente.
+- 2026-05-22
+  - Tela de Projetos passou a ter paginacao na listagem (linhas por pagina e navegacao).
+  - Cards de resumo da tela de Projetos foram trocados para indicadores objetivos: total, em andamento, planejados e concluidos.
+  - Semantica de "ativos" corrigida: agora o indicador operacional usa apenas status EmAndamento (nao inclui todo status diferente de Concluido).
 - 2026-05-17
   - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
   - Ajustes de responsividade e padronizacao de acoes em UI.
