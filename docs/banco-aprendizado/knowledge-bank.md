@@ -288,3 +288,127 @@ Base URL: /api
 - sessions-index.json permanece apenas como metadado auxiliar de sessoes locais.
 - Ele nao e fonte principal de conhecimento do sistema.
 - Este knowledge-bank.md e a referencia canonicamente util para continuidade tecnica.
+
+## 12) Catalogo detalhado de regras de negocio
+
+### 12.1 Regras de vendas (operacional + financeiro)
+
+- R-VEN-001: venda reduz estoque de produto e gera movimento InventoryMovementType.Sale.
+- R-VEN-002: exclusao/cancelamento de venda deve reverter estoque e remover efeitos relacionados da venda.
+- R-VEN-003: venda pode ocorrer com estoque insuficiente sem quebrar criacao da venda (comportamento legado mantido).
+- R-VEN-004: quando CreateTodoForProducedItems estiver ativo, a venda gera/atualiza alvo de restock por produto.
+- R-VEN-005: ao excluir venda que gerou restock, o alvo de restock deve ser reduzido na quantidade correspondente.
+- R-VEN-006: itens de venda em feira so podem referenciar fornecedores vinculados a feira.
+- R-VEN-007: revendedor nao pode enviar SupplierId no item da venda.
+- R-VEN-008: revendedor nao pode marcar IsCommissionedSale.
+- R-VEN-009: venda comissionada exige fornecedor vendedor (CommissionSellerSupplierId).
+- R-VEN-010: venda registra receita liquida (NetReceivedAmount) apos regras de taxa/cartao.
+- R-VEN-011: pode haver despesa de custo de producao na venda quando aplicavel por produto.
+- R-VEN-012: recalculo de valores de venda por taxa de cartao deve preservar consistencia historica de vendas antigas.
+
+### 12.2 Regras de restock e lista operacional
+
+- R-OPS-001: novo restock para produto com item ativo existente soma TargetQuantity no item existente.
+- R-OPS-002: restock concluido/cancelado nao entra em consolidacao nem consumo.
+- R-OPS-003: consumo de restock e feito quando ha aumento de estoque.
+- R-OPS-004: reducao de alvo (DecreaseRestockTargetAsync) remove apenas a quantidade solicitada, sem zerar indevidamente.
+- R-OPS-005: fornecedor so pode operar restock/todo no proprio escopo (OwnerSupplierId).
+- R-OPS-006: produto fora do escopo do fornecedor gera erro de negocio.
+- R-OPS-007: item todo exige nome obrigatorio e limites de tamanho para nome/fonte.
+
+### 12.3 Regras de produtos, orcamentos e precificacao
+
+- R-PROD-001: SKU e identificadores numericos de categoria/produto sao unicos.
+- R-PROD-002: orcamento usa lifecycle Orcamento e pode ser convertido para Disponivel.
+- R-PROD-003: produto com vendas nao pode ser excluido.
+- R-PROD-004: ao aumentar estoque de produto, sistema consome alvo de restock pendente.
+- R-PROD-005: sugestao de preco considera custo, markups e comissao; ha preview e recalc global.
+- R-PROD-006: fornecedor pode ter visao escopada de catalogo com opcao de includeAllForSupplier em fluxos especificos.
+
+### 12.4 Regras de feiras
+
+- R-FEIRA-001: feira possui ciclo Awaiting -> Open -> Finalized, com opcao de Cancelled.
+- R-FEIRA-002: somente perfis autorizados podem executar transicoes sensiveis (start/finalize/reopen/cancel).
+- R-FEIRA-003: vendas de feira impactam relatorios da feira e financeiro por categoria especifica.
+- R-FEIRA-004: rateio de taxa de feira considera participantes vinculados e split configurado.
+- R-FEIRA-005: taxa de feira pode ser opcional (regra introduzida em ajustes de validacao/formulario).
+
+### 12.5 Regras de projetos
+
+- R-PROJ-001: etapas possuem ordem normalizada e podem ser reordenadas com consistencia.
+- R-PROJ-002: tentativa de etapa incrementa AttemptNumber sequencial.
+- R-PROJ-003: concluir/falhar tentativa atualiza status da etapa e agregados do projeto.
+- R-PROJ-004: reprint e autoordenacao de mesas foram incorporados ao fluxo de producao.
+- R-PROJ-005: conclusao de projeto pode atualizar/gerar produto derivado.
+
+### 12.6 Regras de personalizados
+
+- R-PERS-001: projeto personalizado segue etapas fixas de budget/modeling/approval/printing/finishing/finalization.
+- R-PERS-002: projeto cancelado nao pode seguir fluxo normal de aprovacao/producao.
+- R-PERS-003: impressao so pode finalizar apos produto configurado e tamanho real definido.
+- R-PERS-004: ao finalizar impressao, produto pode ir para EmProducao; ao finalizar acabamento, volta para Disponivel.
+- R-PERS-005: finalizar personalizado pode disparar venda e concluir projeto base associado.
+- R-PERS-006: faixa de preco por tamanho deve cobrir o tamanho informado; caso contrario, erro de negocio.
+
+### 12.7 Regras de acesso e escopo
+
+- R-ACC-001: Admin possui acesso total de administracao.
+- R-ACC-002: Supplier opera com escopo por fornecedor em vendas, estoque, listas, projetos e financeiro escopado.
+- R-ACC-003: Reseller possui escopo em dashboard, vendas, produtos e financeiro, com bloqueios de acoes administrativas.
+- R-ACC-004: impersonate e exclusivo de Admin e preserva sessao original para retorno.
+
+## 13) Decisoes historicas de negocio (derivadas de entregas)
+
+Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e artefatos de codigo:
+
+- 2026-05-21
+  - Inclusao do papel Revendedor e seu escopo funcional restrito.
+  - Ajustes de UX para esconder acoes nao permitidas para revendedor em financeiro/feiras.
+  - Ajuste de anos KPI para refletir base de dados existente.
+- 2026-05-17
+  - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
+  - Ajustes de responsividade e padronizacao de acoes em UI.
+- 2026-05-15
+  - Refinamento de rateio de taxa de feiras (impacto em indicadores e repasses).
+- 2026-05-13
+  - Correcao de lucro em vendas comissionadas.
+  - Migracao/regras de roteamento de restock ligado a vendas legadas.
+  - Ajustes de detalhes de venda para coerencia de exibicao.
+- 2026-05-12 a 2026-05-06
+  - Consolidacao do modulo de listas operacionais.
+  - Introducao e estabilizacao do modo Orcamento.
+  - Taxa de feira opcional em validacoes/formularios.
+- 2026-05-05
+  - Introducao dos modulos Personalizados e Projetos com workflow dedicado.
+  - Implementacao de impersonacao admin para suporte operacional.
+
+## 14) Regras explicitamente validadas por testes
+
+Fonte: testes de servico presentes no repositorio.
+
+- T-SALE-001: CreateAsync deve permitir venda mesmo com estoque insuficiente.
+- T-SALE-002: DeleteAsync restaura estoque e remove registros correlatos da venda.
+- T-SALE-003: DeleteAsync reduz alvo de restock quando a venda criou itens automaticos.
+- T-OPS-001: CreateRestockItemAsync incrementa item ativo existente em vez de duplicar.
+- T-OPS-002: DecreaseRestockTargetAsync reduz apenas a quantidade solicitada.
+
+## 15) Proveniencia das regras e confiabilidade
+
+### 15.1 Fontes usadas para este banco
+
+- Codigo de servicos e controladores.
+- Testes automatizados de servicos.
+- Historico Git de alteracoes e mensagens de commit.
+- Estrutura de migrations e contratos.
+
+### 15.2 O que foi possivel recuperar de sessoes
+
+- Os logs locais de sessoes disponiveis nesta maquina preservam majoritariamente eventos de session_start.
+- Nao foi possivel reconstruir turnos completos de conversa antigos a partir desses logs.
+- Para cobrir essa lacuna, as regras foram reconstruidas com foco em evidencias fortes de codigo + testes + historico de entregas.
+
+### 15.3 Criterio de confiabilidade
+
+- Alto: regra sustentada por codigo + teste.
+- Medio: regra sustentada por codigo sem teste direto no repositorio.
+- Contextual: regra inferida de historico de commits/entregas e confirmada parcialmente no codigo.

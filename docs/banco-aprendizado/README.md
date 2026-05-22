@@ -15,6 +15,7 @@ O foco principal e contexto do produto e da arquitetura, nao historico de chat.
 
 - knowledge-bank.md
 	- Base principal com arquitetura, dominio, regras de negocio, API, frontend e operacao.
+	- Inclui catalogo detalhado de regras por modulo, linha do tempo de decisoes e regras validadas por testes.
 - sessions-index.json
 	- Metadado auxiliar de sessoes locais detectadas.
 	- Nao deve ser tratado como fonte principal de conhecimento tecnico.
@@ -31,3 +32,5 @@ O foco principal e contexto do produto e da arquitetura, nao historico de chat.
 1. A cada mudanca relevante de arquitetura/regra, atualizar knowledge-bank.md no mesmo PR/commit.
 2. Ao incluir novo modulo/endpoints, atualizar secoes de API, dominio e acesso por papel.
 3. Tratar sessions-index.json apenas como apoio historico, nunca como substituto da documentacao tecnica.
+4. Quando existir evidencia em teste, registrar a regra tambem na secao de regras validadas por testes.
+5. Ao introduzir regra de negocio nova, adicionar identificador de regra (ex.: R-VEN-013) para rastreabilidade.
