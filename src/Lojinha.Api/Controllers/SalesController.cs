@@ -46,4 +46,12 @@ public sealed class SalesController(ISalesService salesService) : ControllerBase
         var deleted = await salesService.DeleteAsync(id, User.GetEmail(), ScopedSupplierId, ScopedResellerActor, cancellationToken);
         return deleted ? NoContent() : NotFound();
     }
+
+    [HttpPost("{id:guid}/cancel")]
+    [Authorize(Roles = "Admin,Supplier,Reseller")]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
+    {
+        var cancelled = await salesService.DeleteAsync(id, User.GetEmail(), ScopedSupplierId, ScopedResellerActor, cancellationToken);
+        return cancelled ? NoContent() : NotFound();
+    }
 }

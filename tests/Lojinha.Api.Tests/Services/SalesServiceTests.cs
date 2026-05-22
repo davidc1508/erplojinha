@@ -114,6 +114,57 @@ public sealed class SalesServiceTests
         Assert.Empty(dbContext.AuditLogs);
     }
 
+    [Fact]
+    public async Task DeleteAsync_ShouldDecreaseRestockTarget_WhenSaleGeneratedRestockItems()
+    {
+        await using var dbContext = CreateDbContext();
+        var category = new ProductCategory { Name = "Categoria 2", Description = "Teste" };
+        var product = new Product
+        {
+            Name = "Produto 2",
+            Sku = "PROD-002",
+            Category = category,
+            CostPrice = 10m,
+            SalePrice = 25m,
+            SuggestedPrice = 25m,
+            CurrentStock = 5m,
+            MinimumStock = 1m
+        };
+
+        dbContext.Categories.Add(category);
+        dbContext.Products.Add(product);
+        await dbContext.SaveChangesAsync();
+
+        var operationalSpy = new SpyOperationalListService();
+        var service = new SalesService(
+            new NoOpCacheInvalidationService(),
+            new ProductRepository(dbContext),
+            new FairRepository(dbContext),
+            new SaleRepository(dbContext),
+            new InventoryRepository(dbContext),
+            new Repository<Supplier>(dbContext),
+            new Repository<CardFeeSettings>(dbContext),
+            new Repository<FinancialEntry>(dbContext),
+            new Repository<AuditLog>(dbContext),
+            operationalSpy);
+
+        var sale = await service.CreateAsync(
+            new Contracts.Sales.CreateSaleRequest(
+                PaymentMethod.Pix,
+                null,
+                null,
+                [new Contracts.Sales.SaleItemRequest(product.Id, null, 1m, null, null)],
+                CreateTodoForProducedItems: true),
+            "teste");
+
+        var deleted = await service.DeleteAsync(sale.Id, "teste");
+
+        Assert.True(deleted);
+        Assert.Single(operationalSpy.DecreasedTargets);
+        Assert.Equal(product.Id, operationalSpy.DecreasedTargets[0].ProductId);
+        Assert.Equal(1m, operationalSpy.DecreasedTargets[0].Quantity);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -160,5 +211,46 @@ public sealed class SalesServiceTests
 
         public Task<int> ConsumeRestockTargetAsync(Guid productId, decimal quantityAdded, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default)
             => Task.FromResult(0);
+
+        public Task<int> DecreaseRestockTargetAsync(Guid productId, decimal quantityToRemove, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+    }
+
+    private sealed class SpyOperationalListService : IOperationalListService
+    {
+        public List<(Guid ProductId, decimal Quantity, Guid? SupplierId)> DecreasedTargets { get; } = [];
+
+        public Task<IReadOnlyList<RestockItemDto>> GetRestockItemsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<RestockItemDto>>([]);
+
+        public Task<RestockItemDto> CreateRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new RestockItemDto(Guid.NewGuid(), request.ProductId, string.Empty, string.Empty, scopedSupplierId, request.TargetQuantity, OperationalItemPriority.Medium, RestockTaskStatus.Open, request.Notes ?? string.Empty, null, null, DateTime.UtcNow, DateTime.UtcNow));
+
+        public Task<RestockItemDto?> UpdateRestockItemAsync(Guid id, RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult<RestockItemDto?>(null);
+
+        public Task<bool> DeleteRestockItemAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<IReadOnlyList<TodoItemDto>> GetTodoItemsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<TodoItemDto>>([]);
+
+        public Task<TodoItemDto> CreateTodoItemAsync(TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new TodoItemDto(Guid.NewGuid(), request.Name, scopedSupplierId, OperationalItemPriority.Medium, request.Source ?? string.Empty, DateTime.UtcNow, DateTime.UtcNow));
+
+        public Task<TodoItemDto?> UpdateTodoItemAsync(Guid id, TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult<TodoItemDto?>(null);
+
+        public Task<bool> DeleteTodoItemAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<int> ConsumeRestockTargetAsync(Guid productId, decimal quantityAdded, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+
+        public Task<int> DecreaseRestockTargetAsync(Guid productId, decimal quantityToRemove, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default)
+        {
+            DecreasedTargets.Add((productId, quantityToRemove, scopedSupplierId));
+            return Task.FromResult(1);
+        }
     }
 }

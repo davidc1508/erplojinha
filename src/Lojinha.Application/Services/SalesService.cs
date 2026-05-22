@@ -55,11 +55,12 @@ public sealed class SalesService(
                 .ToList();
         }
 
+        var isResellerView = !string.IsNullOrWhiteSpace(scopedResellerActor);
         return sales
             .Select(sale => Map(
                 sale,
-                !scopedSupplierId.HasValue || authoredSaleIds.Contains(sale.Id),
-                !string.IsNullOrWhiteSpace(scopedResellerActor)))
+                isResellerView ? authoredSaleIds.Contains(sale.Id) : true,
+                isResellerView))
             .ToList();
     }
 
@@ -84,11 +85,9 @@ public sealed class SalesService(
             return null;
         }
 
-        var canDelete = !scopedSupplierId.HasValue || CanDeleteSale(id, actor);
-        if (!string.IsNullOrWhiteSpace(scopedResellerActor))
-        {
-            canDelete = CanDeleteSale(id, scopedResellerActor);
-        }
+        var canDelete = string.IsNullOrWhiteSpace(scopedResellerActor)
+            ? true
+            : CanDeleteSale(id, scopedResellerActor);
 
         return Map(sale, canDelete, !string.IsNullOrWhiteSpace(scopedResellerActor));
     }
@@ -307,7 +306,15 @@ public sealed class SalesService(
             EntityId = sale.Id.ToString(),
             Action = AuditAction.Sold,
             ChangedBy = actor,
-            PayloadJson = JsonSerializer.Serialize(new { sale.PaymentMethod, Items = sale.Items.Count, sale.TotalAmount, sale.FeeAmount, sale.NetReceivedAmount })
+            PayloadJson = JsonSerializer.Serialize(new
+            {
+                sale.PaymentMethod,
+                Items = sale.Items.Count,
+                sale.TotalAmount,
+                sale.FeeAmount,
+                sale.NetReceivedAmount,
+                CreateTodoForProducedItems = request.CreateTodoForProducedItems
+            })
         }, cancellationToken);
 
         if (request.CreateTodoForProducedItems)
@@ -352,7 +359,7 @@ public sealed class SalesService(
             return false;
         }
 
-        if (scopedSupplierId.HasValue && !CanDeleteSale(id, actor))
+        if (scopedSupplierId.HasValue && sale.Items.All(item => item.SupplierId != scopedSupplierId.Value))
         {
             return false;
         }
@@ -387,6 +394,29 @@ public sealed class SalesService(
         var relatedAuditLogs = auditRepository.Query()
             .Where(log => log.EntityName == nameof(Sale) && log.EntityId == sale.Id.ToString())
             .ToList();
+
+        if (ShouldReverseGeneratedRestockTargets(sale.Id, relatedAuditLogs))
+        {
+            var soldProducts = sale.Items
+                .GroupBy(item => new { item.ProductId, item.SupplierId })
+                .Select(group => new
+                {
+                    ProductId = group.Key.ProductId,
+                    SupplierId = group.Key.SupplierId,
+                    Quantity = group.Sum(item => item.Quantity)
+                })
+                .ToList();
+
+            foreach (var sold in soldProducts)
+            {
+                await operationalListService.DecreaseRestockTargetAsync(
+                    sold.ProductId,
+                    decimal.Round(sold.Quantity, 2),
+                    sold.SupplierId,
+                    actor,
+                    cancellationToken);
+            }
+        }
 
         var supplyRestocks = relatedMovements
             .Where(movement => movement.ItemType == InventoryItemType.Supply)
@@ -506,6 +536,35 @@ public sealed class SalesService(
             && log.EntityId == saleId.ToString()
             && log.Action == AuditAction.Sold
             && log.ChangedBy == actor);
+
+    private static bool ShouldReverseGeneratedRestockTargets(Guid saleId, IReadOnlyCollection<AuditLog> relatedAuditLogs)
+    {
+        var soldAudit = relatedAuditLogs
+            .OrderByDescending(log => log.CreatedAtUtc)
+            .FirstOrDefault(log => log.Action == AuditAction.Sold);
+
+        if (soldAudit is not null && !string.IsNullOrWhiteSpace(soldAudit.PayloadJson))
+        {
+            try
+            {
+                using var payload = JsonDocument.Parse(soldAudit.PayloadJson);
+                if (payload.RootElement.TryGetProperty("CreateTodoForProducedItems", out var createTodoProperty)
+                    && createTodoProperty.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                {
+                    return createTodoProperty.GetBoolean();
+                }
+            }
+            catch (JsonException)
+            {
+                // Keep backward compatibility with legacy audit payloads.
+            }
+        }
+
+        return relatedAuditLogs.Any(log =>
+            !string.IsNullOrWhiteSpace(log.PayloadJson)
+            && log.PayloadJson.Contains(saleId.ToString(), StringComparison.OrdinalIgnoreCase)
+            && log.PayloadJson.Contains("Gerado automaticamente da venda", StringComparison.OrdinalIgnoreCase));
+    }
 
     private async Task<CardFeeSettings> GetCardFeeSettingsAsync(CancellationToken cancellationToken)
     {

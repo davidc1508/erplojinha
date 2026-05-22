@@ -200,7 +200,7 @@ export function SalesPage() {
                       <TableCell>{sale.fairName ?? 'Venda direta'}</TableCell>
                       <TableCell>{paymentMethodLabel(sale.paymentMethod)}</TableCell>
                       <TableCell sx={{ maxWidth: 320, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                        {sale.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}
+                        {sale.items.map((item) => item.productName).join(', ')}
                       </TableCell>
                       <TableCell>{formatCurrency(sale.totalAmount)}</TableCell>
                       <TableCell>{formatCurrency(sale.profitAmount)}</TableCell>

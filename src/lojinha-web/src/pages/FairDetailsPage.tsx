@@ -603,7 +603,7 @@ export function FairDetailsPage() {
                           <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(sale.soldAtUtc)}</TableCell>
                           <TableCell sx={{ py: 1.5, minWidth: 360 }}>
                             <Typography fontWeight={700} sx={{ lineHeight: 1.3 }}>
-                              {sale.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}
+                              {sale.items.map((item) => item.productName).join(', ')}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               {totalItems} item(ns) • {sale.items.length} produto(s)

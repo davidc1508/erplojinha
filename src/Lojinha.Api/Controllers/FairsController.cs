@@ -5,7 +5,6 @@ using Lojinha.Api.Contracts.Fairs;
 using Lojinha.Api.Contracts.Sales;
 using Lojinha.Api.Entities;
 using Lojinha.Api.Extensions;
-using Lojinha.Api.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -25,8 +24,7 @@ public sealed class FairsController(
     ICommandHandler<ReopenFairCommand, FairDto?> reopenFairHandler,
     ICommandHandler<CancelFairCommand, FairDto?> cancelFairHandler,
     ICommandHandler<DeleteFairCommand, bool> deleteFairHandler,
-    ICommandHandler<RegisterFairSaleCommand, SaleDto> registerFairSaleHandler,
-    IRepository<AuditLog> auditRepository) : ControllerBase
+    ICommandHandler<RegisterFairSaleCommand, SaleDto> registerFairSaleHandler) : ControllerBase
 {
     private Guid? ScopedSupplierId => User.IsInRole(UserRole.Supplier.ToString()) ? User.GetSupplierId() : null;
 
@@ -50,20 +48,10 @@ public sealed class FairsController(
             return NotFound();
         }
 
-        var canDeleteAll = !User.IsInRole(UserRole.Supplier.ToString());
-        var authoredSaleIds = canDeleteAll
-            ? new HashSet<Guid>()
-            : auditRepository.Query()
-                .Where(log => log.EntityName == nameof(Sale)
-                    && log.Action == AuditAction.Sold
-                    && log.ChangedBy == User.GetEmail())
-                .Select(log => Guid.Parse(log.EntityId))
-                .ToHashSet();
-
         return Ok(report with
         {
             Sales = report.Sales
-                .Select(sale => sale with { CanDelete = canDeleteAll || authoredSaleIds.Contains(sale.Id) })
+                .Select(sale => sale with { CanDelete = true })
                 .ToList()
         });
     }

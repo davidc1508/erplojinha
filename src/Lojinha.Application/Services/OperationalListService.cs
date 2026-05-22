@@ -16,6 +16,7 @@ public interface IOperationalListService
     Task<TodoItemDto?> UpdateTodoItemAsync(Guid id, TodoItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<bool> DeleteTodoItemAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<int> ConsumeRestockTargetAsync(Guid productId, decimal quantityAdded, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default);
+    Task<int> DecreaseRestockTargetAsync(Guid productId, decimal quantityToRemove, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default);
 }
 
 public sealed class OperationalListService(
@@ -50,6 +51,58 @@ public sealed class OperationalListService(
         if (scopedSupplierId.HasValue && product.SupplierId != scopedSupplierId)
         {
             throw new InvalidOperationException("Produto nao pertence ao seu perfil.");
+        }
+
+        var activeItem = ApplyScope(restockRepository.Query(), scopedSupplierId)
+            .Where(item => item.ProductId == request.ProductId
+                && item.Status != RestockTaskStatus.Completed
+                && item.Status != RestockTaskStatus.Cancelled)
+            .OrderByDescending(item => item.Priority)
+            .ThenBy(item => item.CreatedAtUtc)
+            .FirstOrDefault();
+
+        if (activeItem is not null)
+        {
+            activeItem.TargetQuantity = decimal.Round(activeItem.TargetQuantity + request.TargetQuantity, 2, MidpointRounding.AwayFromZero);
+            var incomingNotes = request.Notes?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(incomingNotes) && !activeItem.Notes.Contains(incomingNotes, StringComparison.OrdinalIgnoreCase))
+            {
+                activeItem.Notes = string.IsNullOrWhiteSpace(activeItem.Notes)
+                    ? incomingNotes
+                    : $"{activeItem.Notes} | {incomingNotes}";
+            }
+
+            restockRepository.Update(activeItem);
+            await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), activeItem.Id, AuditAction.Updated, actor, new
+            {
+                activeItem.ProductId,
+                activeItem.OwnerSupplierId,
+                activeItem.TargetQuantity,
+                activeItem.Priority,
+                activeItem.Status,
+                activeItem.Notes
+            }), cancellationToken);
+            await restockRepository.SaveChangesAsync(cancellationToken);
+
+            var existingCategoryName = productRepository.Query()
+                .Where(value => value.Id == product.Id)
+                .Select(value => value.Category != null ? value.Category.Name : string.Empty)
+                .FirstOrDefault() ?? string.Empty;
+
+            return new RestockItemDto(
+                activeItem.Id,
+                product.Id,
+                product.Name,
+                existingCategoryName,
+                activeItem.OwnerSupplierId,
+                activeItem.TargetQuantity,
+                activeItem.Priority,
+                activeItem.Status,
+                activeItem.Notes,
+                activeItem.DueDateUtc,
+                activeItem.CompletedAtUtc,
+                activeItem.CreatedAtUtc,
+                activeItem.UpdatedAtUtc);
         }
 
         var entity = new OperationalRestockItem
@@ -279,6 +332,73 @@ public sealed class OperationalListService(
                 RemainingQuantity = 0m
             }), cancellationToken);
             remainingQuantity = 0;
+            affected++;
+        }
+
+        if (affected > 0)
+        {
+            await restockRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return affected;
+    }
+
+    public async Task<int> DecreaseRestockTargetAsync(Guid productId, decimal quantityToRemove, Guid? scopedSupplierId, string actor, CancellationToken cancellationToken = default)
+    {
+        if (quantityToRemove <= 0)
+        {
+            return 0;
+        }
+
+        var rows = ApplyScope(restockRepository.Query(), scopedSupplierId)
+            .Where(item => item.ProductId == productId && item.Status != RestockTaskStatus.Completed && item.Status != RestockTaskStatus.Cancelled)
+            .OrderByDescending(item => item.Priority)
+            .ThenBy(item => item.CreatedAtUtc)
+            .ToList();
+
+        if (rows.Count == 0)
+        {
+            return 0;
+        }
+
+        var remainingQuantity = quantityToRemove;
+        var affected = 0;
+
+        foreach (var item in rows)
+        {
+            if (remainingQuantity <= 0)
+            {
+                break;
+            }
+
+            if (item.TargetQuantity <= remainingQuantity)
+            {
+                var removedQuantity = item.TargetQuantity;
+                remainingQuantity -= removedQuantity;
+                restockRepository.Remove(item);
+                await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), item.Id, AuditAction.Deleted, actor, new
+                {
+                    item.ProductId,
+                    item.OwnerSupplierId,
+                    RemovedQuantity = removedQuantity,
+                    RequestedDecrease = quantityToRemove,
+                    RemainingQuantity = remainingQuantity
+                }), cancellationToken);
+                affected++;
+                continue;
+            }
+
+            item.TargetQuantity = decimal.Round(item.TargetQuantity - remainingQuantity, 2, MidpointRounding.AwayFromZero);
+            restockRepository.Update(item);
+            await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), item.Id, AuditAction.Updated, actor, new
+            {
+                item.ProductId,
+                item.OwnerSupplierId,
+                item.TargetQuantity,
+                DecreasedQuantity = quantityToRemove,
+                RemainingQuantity = 0m
+            }), cancellationToken);
+            remainingQuantity = 0m;
             affected++;
         }
 
