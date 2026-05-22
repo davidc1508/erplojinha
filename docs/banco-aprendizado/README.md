@@ -1,30 +1,33 @@
-# Banco de Aprendizado da Lojinha
+# Banco de Conhecimento da Lojinha
 
 Gerado em: 2026-05-22
 
-Este diretório consolida o conhecimento recuperável das sessões anteriores para consulta rápida e continuidade de trabalho.
+Este diretorio consolida conhecimento tecnico do sistema Lojinha para continuidade de desenvolvimento e operacao.
+O foco principal e contexto do produto e da arquitetura, nao historico de chat.
 
-## Fontes usadas
+## Objetivo
 
-- Histórico local de sessões reindexado (metadados de sessão).
-- Logs de debug de sessão disponíveis no VS Code (`main.jsonl` e `models.json`).
-- Memória persistida do repositório (`/memories/repo/seed-pricing.md`).
-- Histórico Git do projeto (mensagens de commit).
+- Servir como referencia unica e versionada do contexto geral do sistema.
+- Permitir onboard rapido sem depender de memoria de sessao.
+- Reduzir risco de perda de conhecimento quando historico local nao estiver disponivel.
 
-## Conteúdo
+## Arquivos
 
-- `sessions-index.json`: índice completo das sessões anteriores encontradas no histórico local.
-- `knowledge-bank.md`: visão consolidada de regras, decisões e evolução do projeto.
+- knowledge-bank.md
+	- Base principal com arquitetura, dominio, regras de negocio, API, frontend e operacao.
+- sessions-index.json
+	- Metadado auxiliar de sessoes locais detectadas.
+	- Nao deve ser tratado como fonte principal de conhecimento tecnico.
 
-## Limitações atuais dos dados históricos
+## Fontes de verdade usadas para montar este banco
 
-- O índice local não contém turns, arquivos referenciados nem checkpoints das sessões anteriores (campos vazios no reindex atual).
-- Os logs de sessão disponíveis preservam principalmente metadados de inicialização de sessão.
-- Para garantir rastreabilidade, este banco explicita essas lacunas em vez de inferir conteúdo inexistente.
+- Codigo-fonte backend e frontend.
+- Configuracoes de execucao local/producao (compose e appsettings).
+- Migrations e modelagem de dados.
+- Regras funcionais inferidas dos servicos de aplicacao.
 
-## Atualização futura
+## Como manter atualizado
 
-Quando houver novo histórico no índice local, atualizar:
-
-1. `sessions-index.json` com as novas sessões.
-2. `knowledge-bank.md` com aprendizados/decisões adicionais.
+1. A cada mudanca relevante de arquitetura/regra, atualizar knowledge-bank.md no mesmo PR/commit.
+2. Ao incluir novo modulo/endpoints, atualizar secoes de API, dominio e acesso por papel.
+3. Tratar sessions-index.json apenas como apoio historico, nunca como substituto da documentacao tecnica.
