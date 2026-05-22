@@ -55,7 +55,7 @@ public sealed class InventoryService(
         if (request.ItemType == InventoryItemType.Product)
         {
             var product = await productRepository.GetByIdAsync(request.ItemId, cancellationToken)
-                ?? throw new InvalidOperationException("Produto não encontrado.");
+                ?? throw new InvalidOperationException("Produto nao encontrado.");
 
             if (scopedSupplierId.HasValue && product.SupplierId != scopedSupplierId.Value)
             {
@@ -76,7 +76,7 @@ public sealed class InventoryService(
             }
 
             var supply = await supplyRepository.GetByIdAsync(request.ItemId, cancellationToken)
-                ?? throw new InvalidOperationException("Insumo não encontrado.");
+                ?? throw new InvalidOperationException("Insumo nao encontrado.");
             await ApplyStockAsync(null, supply.StockQuantity, request, cancellationToken);
             supply.StockQuantity = ComputeNewStock(supply.StockQuantity, request);
             supplyRepository.Update(supply);
@@ -155,15 +155,14 @@ public sealed class InventoryService(
         => request.Type is InventoryMovementType.Entry or InventoryMovementType.Adjustment
             ? currentStock + request.Quantity
             : Math.Max(0, currentStock - request.Quantity);
-    }
 
     public async Task<InventoryMovementDto> ReverseAsync(Guid movementId, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
         var original = await inventoryRepository.GetByIdAsync(movementId, cancellationToken)
-            ?? throw new InvalidOperationException("Movimentação não encontrada.");
+            ?? throw new InvalidOperationException("Movimentacao nao encontrada.");
 
         if (original.Type == InventoryMovementType.Sale)
-            throw new InvalidOperationException("Movimentações de venda não podem ser estornadas aqui. Cancele a venda correspondente.");
+            throw new InvalidOperationException("Movimentacoes de venda nao podem ser estornadas aqui. Cancele a venda correspondente.");
 
         var reversalType = original.Type is InventoryMovementType.Entry or InventoryMovementType.Adjustment
             ? InventoryMovementType.Exit
@@ -172,9 +171,9 @@ public sealed class InventoryService(
         var originalTypeLabel = original.Type switch
         {
             InventoryMovementType.Entry => "entrada",
-            InventoryMovementType.Exit => "saída",
+            InventoryMovementType.Exit => "saida",
             InventoryMovementType.Adjustment => "ajuste",
-            _ => "movimentação"
+            _ => "movimentacao"
         };
 
         var reversalRequest = new ManualInventoryMovementRequest(

@@ -353,7 +353,7 @@ export const inventoryApi = {
     return data;
   },
   reverseMovement: async (id: string) => {
-    const { data } = await api.post<InventoryMovement>(/inventory/movements/${id}/reverse);
+    const { data } = await api.post<InventoryMovement>(`/inventory/movements/${id}/reverse`);
     return data;
   }
 };
@@ -576,3 +576,4 @@ export const personalizadosApi = {
     return data;
   }
 };
+
