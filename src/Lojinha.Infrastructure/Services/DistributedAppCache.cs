@@ -75,8 +75,8 @@ public sealed class DistributedAppCache(
 
 public sealed class AppCacheInvalidationService(IAppCache cache) : IAppCacheInvalidationService
 {
-    public Task InvalidateDashboardAsync(IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default)
-        => cache.RemoveManyAsync(BuildDashboardKeys(supplierIds), cancellationToken);
+    public Task InvalidateDashboardAsync(IEnumerable<Guid>? supplierIds = null, IEnumerable<string>? resellerActors = null, CancellationToken cancellationToken = default)
+        => cache.RemoveManyAsync(BuildDashboardKeys(supplierIds, resellerActors), cancellationToken);
 
     public Task InvalidateProductReadModelsAsync(IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default)
         => cache.RemoveManyAsync(BuildProductReadModelKeys(supplierIds), cancellationToken);
@@ -94,13 +94,23 @@ public sealed class AppCacheInvalidationService(IAppCache cache) : IAppCacheInva
     public Task InvalidateFairReadModelsAsync(Guid? fairId = null, IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default)
         => cache.RemoveManyAsync(BuildFairKeys(fairId, supplierIds), cancellationToken);
 
-    private static IEnumerable<string> BuildDashboardKeys(IEnumerable<Guid>? supplierIds)
+    private static IEnumerable<string> BuildDashboardKeys(IEnumerable<Guid>? supplierIds, IEnumerable<string>? resellerActors = null)
     {
-        yield return AppCacheKeys.Dashboard();
+        yield return $"{AppCacheKeys.Dashboard()}:reseller:store";
+
+        foreach (var resellerActor in resellerActors?.Where(static actor => !string.IsNullOrWhiteSpace(actor)).Distinct(StringComparer.OrdinalIgnoreCase) ?? [])
+        {
+            yield return $"{AppCacheKeys.Dashboard()}:reseller:{resellerActor.Trim().ToLowerInvariant()}";
+        }
 
         foreach (var supplierId in supplierIds?.Distinct() ?? [])
         {
-            yield return AppCacheKeys.Dashboard(supplierId);
+            yield return $"{AppCacheKeys.Dashboard(supplierId)}:reseller:store";
+
+            foreach (var resellerActor in resellerActors?.Where(static actor => !string.IsNullOrWhiteSpace(actor)).Distinct(StringComparer.OrdinalIgnoreCase) ?? [])
+            {
+                yield return $"{AppCacheKeys.Dashboard(supplierId)}:reseller:{resellerActor.Trim().ToLowerInvariant()}";
+            }
         }
     }
 

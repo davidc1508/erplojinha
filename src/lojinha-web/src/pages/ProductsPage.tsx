@@ -132,7 +132,8 @@ export function ProductsPage() {
     const normalized = search.trim().toLowerCase();
     return products.filter((product) => {
       const matchesText = normalized.length === 0
-        || product.name.toLowerCase().includes(normalized);
+        || product.name.toLowerCase().includes(normalized)
+        || product.sku.toLowerCase().includes(normalized);
       const matchesCategory = categoryFilter === 'all' || product.categoryId === categoryFilter;
       const matchesScope = scopeFilter === 'all'
         ? true

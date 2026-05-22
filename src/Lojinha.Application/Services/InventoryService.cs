@@ -114,7 +114,7 @@ public sealed class InventoryService(
 
             var supplierIds = affectedSupplierId.HasValue ? new[] { affectedSupplierId.Value } : [];
             await cacheInvalidationService.InvalidateProductReadModelsAsync(supplierIds, cancellationToken);
-            await cacheInvalidationService.InvalidateDashboardAsync(supplierIds, cancellationToken);
+            await cacheInvalidationService.InvalidateDashboardAsync(supplierIds, cancellationToken: cancellationToken);
         }
 
         return new InventoryMovementDto(movement.Id, movement.ItemType, movement.ItemId, affectedSupplierId, itemName, movement.Type, movement.Quantity, movement.UnitCost, movement.Notes, movement.OccurredAtUtc);

@@ -379,6 +379,9 @@ Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e art
   - Cadastro de produto ajustado: valor padrao de estoque minimo na ProductFormPage alterado de 2 para 1 para novos cadastros.
   - Tela de estoque ajustada para o contexto atual de acuracia: indicador KPI "Abaixo do minimo" removido e destaques visuais de alerta por minimo (cartao/tabela/lista mobile) desativados para evitar sinalizacao enganosa.
   - Listagem de produtos ajustada: busca textual da tela ProductsPage agora filtra somente por nome do produto (nao considera categoria, SKU ou fornecedor no campo de texto).
+  - Ajuste da busca textual em produtos: filtro por texto mantido em nome + SKU, removendo apenas filtro indevido por categoria no campo de busca livre.
+  - Vendas de revendedor revisadas: calculo de lucro por perfil corrigido (revendedor ve lucro de revenda; dono do item ve lucro real com base em repasse e custo). Listagem de vendas passou a exibir coluna de repasse para facilitar conferencia.
+  - Dashboard com escopo de revendedor corrigido: invalidacao de cache agora remove chaves especificas por ator de revendedor para refletir vendas novas imediatamente nos indicadores.
 - 2026-05-17
   - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
   - Ajustes de responsividade e padronizacao de acoes em UI.

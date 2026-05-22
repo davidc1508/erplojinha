@@ -108,7 +108,10 @@ public sealed class FinanceService(
         }, cancellationToken);
 
         await financeRepository.SaveChangesAsync(cancellationToken);
-        await cacheInvalidationService.InvalidateDashboardAsync(supplierId.HasValue ? [supplierId.Value] : null, cancellationToken);
+        await cacheInvalidationService.InvalidateDashboardAsync(
+            supplierId.HasValue ? [supplierId.Value] : null,
+            !string.IsNullOrWhiteSpace(scopedResellerActor) ? [scopedResellerActor] : null,
+            cancellationToken);
         return Map(entry, supplierName);
     }
 

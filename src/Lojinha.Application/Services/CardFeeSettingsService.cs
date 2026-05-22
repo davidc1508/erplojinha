@@ -78,7 +78,7 @@ public sealed class CardFeeSettingsService(
 
         await saleRepository.SaveChangesAsync(cancellationToken);
         var supplierIds = sales.SelectMany(sale => sale.Items).Where(item => item.SupplierId.HasValue).Select(item => item.SupplierId!.Value).Distinct().ToList();
-        await cacheInvalidationService.InvalidateDashboardAsync(supplierIds, cancellationToken);
+        await cacheInvalidationService.InvalidateDashboardAsync(supplierIds, cancellationToken: cancellationToken);
         await cacheInvalidationService.InvalidateFairReadModelsAsync(supplierIds: supplierIds, cancellationToken: cancellationToken);
         return new CardFeeReprocessResultDto(sales.Count);
     }

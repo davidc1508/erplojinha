@@ -22,6 +22,9 @@ public sealed class DashboardService(
     private const string SupplierFairPayableCategory = "Contas a pagar de feiras";
     private const string SupplierFairLegacyPendingCategory = "Pendencia de pagamento em feiras";
 
+    private static bool IsResellerSettlementItem(SaleItem item)
+        => !item.IsCommissionedSale && item.CommissionAmount > 0m;
+
     private static IEnumerable<SaleItem> GetStoreItems(IEnumerable<SaleItem> items)
         => items.Where(item => !item.SupplierId.HasValue);
 
@@ -29,19 +32,25 @@ public sealed class DashboardService(
         => items.Where(item => item.SupplierId == supplierId);
 
     private static decimal CalculateStoreGrossRevenue(IEnumerable<SaleItem> items)
-        => GetStoreItems(items).Sum(item => item.TotalPrice);
+        => GetStoreItems(items).Sum(item => IsResellerSettlementItem(item) ? item.CommissionAmount : item.TotalPrice);
 
     private static decimal CalculateStoreProfit(IEnumerable<SaleItem> items)
-        => GetStoreItems(items).Sum(item => item.LojinhaGainAmount);
+        => GetStoreItems(items).Sum(item => IsResellerSettlementItem(item)
+            ? item.CommissionAmount - (item.CostPrice * item.Quantity)
+            : item.LojinhaGainAmount);
 
     private static decimal CalculateSupplierGrossRevenue(IEnumerable<SaleItem> items, Guid supplierId)
-        => GetSupplierItems(items, supplierId).Sum(item => item.TotalPrice);
+        => GetSupplierItems(items, supplierId).Sum(item => IsResellerSettlementItem(item) ? item.CommissionAmount : item.TotalPrice);
 
     private static decimal CalculateSupplierProfit(IEnumerable<SaleItem> items, Guid supplierId)
-        => GetSupplierItems(items, supplierId).Sum(item => item.TotalPrice - (item.CostPrice * item.Quantity) - item.LojinhaGainAmount);
+        => GetSupplierItems(items, supplierId).Sum(item => IsResellerSettlementItem(item)
+            ? item.CommissionAmount - (item.CostPrice * item.Quantity)
+            : item.TotalPrice - (item.CostPrice * item.Quantity) - item.LojinhaGainAmount);
 
     private static decimal CalculateResellerProfit(IEnumerable<SaleItem> items)
-        => items.Sum(item => item.TotalPrice - (item.CostPrice * item.Quantity));
+        => items.Sum(item => IsResellerSettlementItem(item)
+            ? item.TotalPrice - item.CommissionAmount
+            : item.TotalPrice - (item.CostPrice * item.Quantity));
 
     private static decimal CalculateSupplierFeeShare(Fair fair, Guid supplierId)
         => fair.Suppliers.Any(link => link.SupplierId == supplierId) && fair.RegistrationFeeSplitCount > 0
@@ -70,7 +79,7 @@ public sealed class DashboardService(
 
         var monthExpenses = resellerSales
             .Where(sale => sale.SoldAtUtc.Year == now.Year && sale.SoldAtUtc.Month == now.Month)
-            .Sum(sale => sale.Items.Sum(item => item.CostPrice * item.Quantity));
+            .Sum(sale => sale.Items.Sum(CalculateResellerCost));
 
         var topProducts = resellerSales
             .SelectMany(sale => sale.Items)
@@ -83,9 +92,7 @@ public sealed class DashboardService(
         var topProfitProducts = resellerSales
             .SelectMany(sale => sale.Items)
             .GroupBy(item => item.Product?.Name ?? string.Empty)
-            .Select(group => new TopProfitProductDto(
-                group.Key,
-                group.Sum(item => item.TotalPrice - (item.CostPrice * item.Quantity))))
+            .Select(group => new TopProfitProductDto(group.Key, group.Sum(CalculateResellerProfit)))
             .OrderByDescending(item => item.Profit)
             .Take(5)
             .ToList();
@@ -182,6 +189,16 @@ public sealed class DashboardService(
             revenueByPayment);
     }
 
+    private static decimal CalculateResellerCost(SaleItem item)
+        => IsResellerSettlementItem(item)
+            ? item.CommissionAmount
+            : decimal.Round(item.CostPrice * item.Quantity, 2, MidpointRounding.AwayFromZero);
+
+    private static decimal CalculateResellerProfit(SaleItem item)
+        => IsResellerSettlementItem(item)
+            ? decimal.Round(item.TotalPrice - item.CommissionAmount, 2, MidpointRounding.AwayFromZero)
+            : decimal.Round(item.TotalPrice - (item.CostPrice * item.Quantity), 2, MidpointRounding.AwayFromZero);
+
     private HashSet<Guid> GetAuthoredSaleIds(string actor, IEnumerable<Guid> saleIds)
     {
         var ids = saleIds.Select(id => id.ToString()).ToHashSet();
@@ -227,7 +244,9 @@ public sealed class DashboardService(
             .GroupBy(item => item.Product?.Name ?? string.Empty)
             .Select(group => new TopProfitProductDto(
                 group.Key,
-                group.Sum(item => item.LojinhaGainAmount)))
+                group.Sum(item => IsResellerSettlementItem(item)
+                    ? item.CommissionAmount - (item.CostPrice * item.Quantity)
+                    : item.LojinhaGainAmount)))
             .OrderByDescending(item => item.Profit)
             .Take(5)
             .ToList();
@@ -341,7 +360,9 @@ public sealed class DashboardService(
         var topProfitProducts = supplierSales
             .SelectMany(sale => GetSupplierItems(sale.Items, supplierId))
             .GroupBy(item => item.Product?.Name ?? string.Empty)
-            .Select(group => new TopProfitProductDto(group.Key, group.Sum(item => item.TotalPrice - (item.CostPrice * item.Quantity) - item.LojinhaGainAmount)))
+            .Select(group => new TopProfitProductDto(group.Key, group.Sum(item => IsResellerSettlementItem(item)
+                ? item.CommissionAmount - (item.CostPrice * item.Quantity)
+                : item.TotalPrice - (item.CostPrice * item.Quantity) - item.LojinhaGainAmount)))
             .OrderByDescending(item => item.Profit)
             .Take(5)
             .ToList();

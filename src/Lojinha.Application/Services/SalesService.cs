@@ -60,7 +60,8 @@ public sealed class SalesService(
             .Select(sale => Map(
                 sale,
                 isResellerView ? authoredSaleIds.Contains(sale.Id) : true,
-                isResellerView))
+                isResellerView,
+                scopedSupplierId))
             .ToList();
     }
 
@@ -89,7 +90,7 @@ public sealed class SalesService(
             ? true
             : CanDeleteSale(id, scopedResellerActor);
 
-        return Map(sale, canDelete, !string.IsNullOrWhiteSpace(scopedResellerActor));
+        return Map(sale, canDelete, !string.IsNullOrWhiteSpace(scopedResellerActor), scopedSupplierId);
     }
 
     public async Task<SaleDto> CreateAsync(CreateSaleRequest request, string actor, Guid? scopedSupplierId = null, string? scopedResellerActor = null, Guid? fairId = null, CancellationToken cancellationToken = default)
@@ -175,7 +176,7 @@ public sealed class SalesService(
         foreach (var item in request.Items)
         {
             var product = products[item.ProductId];
-            var selectedSupplierId = isReseller ? null : item.SupplierId ?? product.SupplierId;
+            var selectedSupplierId = isReseller ? product.SupplierId : item.SupplierId ?? product.SupplierId;
             var selectedSupplier = selectedSupplierId.HasValue && suppliers.TryGetValue(selectedSupplierId.Value, out var supplier)
                 ? supplier
                 : product.Supplier;
@@ -201,6 +202,12 @@ public sealed class SalesService(
                 ? decimal.Round(Math.Max(0m, item.CommissionAmount ?? defaultCommissionAmountPerUnit), 2, MidpointRounding.AwayFromZero)
                 : 0m;
             var commissionAmount = decimal.Round(commissionAmountPerUnit * item.Quantity, 2, MidpointRounding.AwayFromZero);
+
+            if (isReseller)
+            {
+                var ownerTransferTotal = decimal.Round(product.SalePrice * item.Quantity, 2, MidpointRounding.AwayFromZero);
+                commissionAmount = Math.Min(totalPrice, ownerTransferTotal);
+            }
 
             sale.Items.Add(new SaleItem
             {
@@ -346,9 +353,9 @@ public sealed class SalesService(
         await saleRepository.SaveChangesAsync(cancellationToken);
         var affectedSupplierIds = sale.Items.Where(item => item.SupplierId.HasValue).Select(item => item.SupplierId!.Value).Distinct().ToList();
         await cacheInvalidationService.InvalidateProductReadModelsAsync(affectedSupplierIds, cancellationToken);
-        await cacheInvalidationService.InvalidateDashboardAsync(affectedSupplierIds, cancellationToken);
+        await cacheInvalidationService.InvalidateDashboardAsync(affectedSupplierIds, isReseller ? [scopedResellerActor!] : null, cancellationToken);
         await cacheInvalidationService.InvalidateFairReadModelsAsync(fair?.Id, affectedSupplierIds, cancellationToken);
-        return Map(sale, true, isReseller);
+        return Map(sale, true, isReseller, scopedSupplierId);
     }
 
     public async Task<bool> DeleteAsync(Guid id, string actor, Guid? scopedSupplierId = null, string? scopedResellerActor = null, CancellationToken cancellationToken = default)
@@ -459,12 +466,12 @@ public sealed class SalesService(
         saleRepository.Remove(sale);
         await saleRepository.SaveChangesAsync(cancellationToken);
         await cacheInvalidationService.InvalidateProductReadModelsAsync(supplierIds, cancellationToken);
-        await cacheInvalidationService.InvalidateDashboardAsync(supplierIds, cancellationToken);
+        await cacheInvalidationService.InvalidateDashboardAsync(supplierIds, !string.IsNullOrWhiteSpace(scopedResellerActor) ? [scopedResellerActor] : null, cancellationToken);
         await cacheInvalidationService.InvalidateFairReadModelsAsync(fairId, supplierIds, cancellationToken);
         return true;
     }
 
-    private SaleDto Map(Sale sale, bool canDelete, bool isResellerView)
+    private SaleDto Map(Sale sale, bool canDelete, bool isResellerView, Guid? scopedSupplierId = null)
         => new(
             sale.Id,
             sale.SoldAtUtc,
@@ -474,11 +481,13 @@ public sealed class SalesService(
             sale.FeeAmount,
             sale.NetReceivedAmount,
             isResellerView
-                ? decimal.Round(sale.Items.Sum(item => item.CostPrice * item.Quantity), 2, MidpointRounding.AwayFromZero)
+                ? decimal.Round(sale.Items.Sum(CalculateResellerCostAmount), 2, MidpointRounding.AwayFromZero)
                 : sale.CostAmount,
             isResellerView
-                ? decimal.Round(sale.Items.Sum(item => item.TotalPrice - (item.CostPrice * item.Quantity)), 2, MidpointRounding.AwayFromZero)
-                : sale.ProfitAmount,
+                ? decimal.Round(sale.Items.Sum(CalculateResellerProfitAmount), 2, MidpointRounding.AwayFromZero)
+                : scopedSupplierId.HasValue
+                    ? decimal.Round(sale.Items.Sum(item => CalculateSupplierOwnerProfitAmount(item, scopedSupplierId.Value)), 2, MidpointRounding.AwayFromZero)
+                    : decimal.Round(sale.Items.Sum(CalculateStoreOwnerProfitAmount), 2, MidpointRounding.AwayFromZero),
             sale.Status,
             sale.Notes,
             sale.Items.Select(item => new SaleLineDto(
@@ -496,6 +505,36 @@ public sealed class SalesService(
                 item.CommissionSellerSupplier?.Name,
                 item.CommissionAmount)).ToList(),
             canDelete);
+
+    private static bool IsResellerSettlementItem(SaleItem item)
+        => !item.IsCommissionedSale && item.CommissionAmount > 0m;
+
+    private static decimal CalculateResellerCostAmount(SaleItem item)
+        => IsResellerSettlementItem(item)
+            ? item.CommissionAmount
+            : decimal.Round(item.CostPrice * item.Quantity, 2, MidpointRounding.AwayFromZero);
+
+    private static decimal CalculateResellerProfitAmount(SaleItem item)
+        => IsResellerSettlementItem(item)
+            ? decimal.Round(item.TotalPrice - item.CommissionAmount, 2, MidpointRounding.AwayFromZero)
+            : decimal.Round(item.TotalPrice - (item.CostPrice * item.Quantity), 2, MidpointRounding.AwayFromZero);
+
+    private static decimal CalculateStoreOwnerProfitAmount(SaleItem item)
+        => IsResellerSettlementItem(item) && !item.SupplierId.HasValue
+            ? decimal.Round(item.CommissionAmount - (item.CostPrice * item.Quantity), 2, MidpointRounding.AwayFromZero)
+            : item.LojinhaGainAmount;
+
+    private static decimal CalculateSupplierOwnerProfitAmount(SaleItem item, Guid supplierId)
+    {
+        if (item.SupplierId != supplierId)
+        {
+            return 0m;
+        }
+
+        return IsResellerSettlementItem(item)
+            ? decimal.Round(item.CommissionAmount - (item.CostPrice * item.Quantity), 2, MidpointRounding.AwayFromZero)
+            : decimal.Round(item.TotalPrice - (item.CostPrice * item.Quantity) - item.LojinhaGainAmount, 2, MidpointRounding.AwayFromZero);
+    }
 
     private static decimal ResolveResellerUnitPrice(Product product)
     {

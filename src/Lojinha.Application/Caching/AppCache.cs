@@ -9,7 +9,7 @@ public interface IAppCache
 
 public interface IAppCacheInvalidationService
 {
-    Task InvalidateDashboardAsync(IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default);
+    Task InvalidateDashboardAsync(IEnumerable<Guid>? supplierIds = null, IEnumerable<string>? resellerActors = null, CancellationToken cancellationToken = default);
     Task InvalidateProductReadModelsAsync(IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default);
     Task InvalidateCatalogAsync(CancellationToken cancellationToken = default);
     Task InvalidateMetadataAsync(IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default);

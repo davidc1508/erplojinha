@@ -114,6 +114,12 @@ export function SalesPage() {
     });
   }
 
+  function getResellerTransferAmount(sale: (typeof sales)[number]) {
+    return sale.items
+      .filter((item) => !item.isCommissionedSale && item.commissionAmount > 0)
+      .reduce((sum, item) => sum + item.commissionAmount, 0);
+  }
+
   return (
     <Grid container spacing={3}>
       <Grid item xs={12}>
@@ -189,6 +195,7 @@ export function SalesPage() {
                     <TableCell><TableSortLabel active={sortField === 'paymentMethod'} direction={sortField === 'paymentMethod' ? sortDirection : 'asc'} onClick={() => handleSort('paymentMethod')}>Pagamento</TableSortLabel></TableCell>
                     <TableCell>Itens</TableCell>
                     <TableCell><TableSortLabel active={sortField === 'totalAmount'} direction={sortField === 'totalAmount' ? sortDirection : 'asc'} onClick={() => handleSort('totalAmount')}>Total</TableSortLabel></TableCell>
+                    <TableCell>Repasse</TableCell>
                     <TableCell><TableSortLabel active={sortField === 'profitAmount'} direction={sortField === 'profitAmount' ? sortDirection : 'asc'} onClick={() => handleSort('profitAmount')}>Lucro</TableSortLabel></TableCell>
                     <TableCell align="right">Ações</TableCell>
                   </TableRow>
@@ -203,6 +210,11 @@ export function SalesPage() {
                         {sale.items.map((item) => item.productName).join(', ')}
                       </TableCell>
                       <TableCell>{formatCurrency(sale.totalAmount)}</TableCell>
+                      <TableCell>
+                        {getResellerTransferAmount(sale) > 0
+                          ? formatCurrency(getResellerTransferAmount(sale))
+                          : '-'}
+                      </TableCell>
                       <TableCell>{formatCurrency(sale.profitAmount)}</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                         <Tooltip title="Detalhes">
