@@ -382,6 +382,7 @@ Linha do tempo objetiva das decisoes mais relevantes, extraidas de commits e art
   - Ajuste da busca textual em produtos: filtro por texto mantido em nome + SKU, removendo apenas filtro indevido por categoria no campo de busca livre.
   - Vendas de revendedor revisadas: calculo de lucro por perfil corrigido (revendedor ve lucro de revenda; dono do item ve lucro real com base em repasse e custo). Listagem de vendas passou a exibir coluna de repasse para facilitar conferencia.
   - Dashboard com escopo de revendedor corrigido: invalidacao de cache agora remove chaves especificas por ator de revendedor para refletir vendas novas imediatamente nos indicadores.
+  - Financeiro do revendedor corrigido: KPIs e relatorio agora contabilizam nas vendas apenas o resultado liquido real da revenda (lucro/prejuizo), removendo o lancamento sintetico indevido de "Custo das pecas vendidas" para esse perfil.
 - 2026-05-17
   - Evolucao forte do modulo de projetos: filamento padrao PLA 120, filtros rapidos, reimpressao e autoordenacao.
   - Ajustes de responsividade e padronizacao de acoes em UI.

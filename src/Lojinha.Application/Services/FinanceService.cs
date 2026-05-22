@@ -242,34 +242,35 @@ public sealed class FinanceService(
 
         foreach (var sale in sales.Where(sale => authoredSaleIds.Contains(sale.Id)))
         {
-            var grossAmount = sale.Items.Sum(item => item.TotalPrice);
-            var productionCostAmount = sale.Items.Sum(item => item.CostPrice * item.Quantity);
+            var netResultAmount = decimal.Round(sale.Items.Sum(CalculateResellerProfitAmount), 2, MidpointRounding.AwayFromZero);
             var category = sale.FairId.HasValue ? "Venda em feira" : "Venda";
             var description = sale.FairId.HasValue
                 ? $"Venda na feira {sale.Fair?.Name ?? sale.Id.ToString()}"
                 : $"Venda {sale.Id}";
 
-            entries.Add(new FinancialEntryDto(
-                sale.Id,
-                FinancialEntryType.Income,
-                FinancialClassification.Variable,
-                category,
-                description,
-                grossAmount,
-                sale.SoldAtUtc,
-                null,
-                null,
-                sale.Id));
-
-            if (productionCostAmount > 0m)
+            if (netResultAmount >= 0m)
             {
                 entries.Add(new FinancialEntryDto(
-                    Guid.NewGuid(),
+                    sale.Id,
+                    FinancialEntryType.Income,
+                    FinancialClassification.Variable,
+                    category,
+                    description,
+                    netResultAmount,
+                    sale.SoldAtUtc,
+                    null,
+                    null,
+                    sale.Id));
+            }
+            else
+            {
+                entries.Add(new FinancialEntryDto(
+                    sale.Id,
                     FinancialEntryType.Expense,
                     FinancialClassification.Variable,
-                    "Custo das pecas vendidas",
-                    $"Custos dos produtos em {description.ToLowerInvariant()}",
-                    productionCostAmount,
+                    "Prejuizo em venda",
+                    $"Prejuizo em {description.ToLowerInvariant()}",
+                    Math.Abs(netResultAmount),
                     sale.SoldAtUtc,
                     null,
                     null,
@@ -280,6 +281,14 @@ public sealed class FinanceService(
 
         return entries;
     }
+
+    private static bool IsResellerSettlementItem(SaleItem item)
+        => !item.IsCommissionedSale && item.CommissionAmount > 0m;
+
+    private static decimal CalculateResellerProfitAmount(SaleItem item)
+        => IsResellerSettlementItem(item)
+            ? decimal.Round(item.TotalPrice - item.CommissionAmount, 2, MidpointRounding.AwayFromZero)
+            : decimal.Round(item.TotalPrice - (item.CostPrice * item.Quantity), 2, MidpointRounding.AwayFromZero);
 
     private static FinancialEntryDto Map(FinancialEntry entry)
         => Map(entry, entry.Supplier?.Name);
