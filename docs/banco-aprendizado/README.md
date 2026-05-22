@@ -11,6 +11,11 @@ O foco principal e contexto do produto e da arquitetura, nao historico de chat.
 - Permitir onboard rapido sem depender de memoria de sessao.
 - Reduzir risco de perda de conhecimento quando historico local nao estiver disponivel.
 
+## Politica de atualizacao
+
+- Politica global: a cada demanda concluida, deve existir atualizacao da base de conhecimento do contexto fora do repositorio (memoria persistente).
+- Politica Lojinha: em toda demanda da Lojinha, este diretorio deve ser atualizado quando houver novo conhecimento e a atualizacao deve ser enviada com push ao remoto.
+
 ## Arquivos
 
 - knowledge-bank.md

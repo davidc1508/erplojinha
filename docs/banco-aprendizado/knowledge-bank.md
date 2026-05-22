@@ -412,3 +412,20 @@ Fonte: testes de servico presentes no repositorio.
 - Alto: regra sustentada por codigo + teste.
 - Medio: regra sustentada por codigo sem teste direto no repositorio.
 - Contextual: regra inferida de historico de commits/entregas e confirmada parcialmente no codigo.
+
+## 16) Governanca do conhecimento (politica operacional)
+
+### 16.1 Politica global de execucao com Copilot
+
+- Toda demanda concluida deve gerar ou atualizar uma base de conhecimento do contexto atendido.
+- Essa base global deve existir fora do repositorio do projeto para sobreviver a novas sessoes e novos workspaces.
+
+### 16.2 Regra obrigatoria para o contexto Lojinha
+
+- Alem da base global externa, toda demanda da Lojinha deve atualizar este banco em docs/banco-aprendizado.
+- A atualizacao da base da Lojinha deve ser versionada e enviada ao remoto com push para garantir integridade e historico no repositorio.
+
+### 16.3 Aplicacao pratica desta politica
+
+- Este documento e o README deste diretorio passam a ser parte obrigatoria do fluxo de entrega documental da Lojinha.
+- Mudancas de regra, escopo, fluxo ou operacao devem refletir aqui no mesmo ciclo da demanda.
