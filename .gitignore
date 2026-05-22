@@ -10,6 +10,6 @@ postgres-data/
 docker/secrets/*.key
 *.tar
 *.dump
-backups/
+backups/*
 # Exceção: dump diário automatico (único arquivo rastreado em backups/)
 !backups/lojinha-latest.dump
