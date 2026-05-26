@@ -259,6 +259,16 @@ Base URL: /api
 - backend: dotnet ef database update; dotnet run
 - frontend: npm install; npm run dev
 
+## 10) Aprendizados operacionais (cadastro direto de mesas)
+
+- Antes de inserir mesas manualmente no banco, confirmar sempre com o usuario a impressora e o filamento obrigatorios do projeto.
+- No schema atual de producao:
+  - `ProjectSteps` exige `CreatedAtUtc` e `UpdatedAtUtc` (NOT NULL).
+  - `ProjectStepFilaments` usa `Id` proprio e FK `StepId` (nao `ProjectStepId`).
+  - Nao existe unique para upsert por (`StepId`, `FilamentProfileId`), entao a estrategia segura e `DELETE` dos vinculos do projeto + `INSERT` completo.
+  - Em `Projects`, campos de perda sao `TimeLostToFailuresMinutes` e `WeightLostToFailuresGrams`.
+- Ao salvar nomes com acento via terminal/ssh, validar com `encode(convert_to("Name", 'UTF8'), 'hex')` para garantir que nao ficou corrompido.
+
 ### 9.2 Compose completo
 
 - docker compose up --build
