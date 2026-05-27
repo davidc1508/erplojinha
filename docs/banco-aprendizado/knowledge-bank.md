@@ -109,6 +109,10 @@ Enums funcionais relevantes:
   - nao pode informar fornecedor no item
   - nao pode marcar venda comissionada
   - enxerga somente vendas autoriais dele
+- Regra de exibicao para venda de revendedor na tela de detalhes:
+  - `commissionAmount` e persistido como valor de repasse/base da lojinha (ex.: preco base do item)
+  - a comissao exibida para conferencia deve ser calculada como `totalPrice - commissionAmount`
+  - o ganho exibido da lojinha deve usar o valor de repasse/base (`commissionAmount`), nao o campo bruto `lojinhaGainAmount`
 - Em feira, fornecedor dos itens deve estar vinculado a feira.
 - Opcionalmente, venda pode gerar itens de restock automaticamente para produtos vendidos.
 

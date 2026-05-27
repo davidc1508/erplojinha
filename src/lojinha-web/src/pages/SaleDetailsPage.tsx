@@ -4,6 +4,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageSection } from '../components/PageSection';
+import { useAuth } from '../hooks/useAuth';
 import { salesApi } from '../services/api';
 import { formatUtcDate } from '../services/date';
 import { formatCurrency, paymentMethodLabel } from '../services/labels';
@@ -15,6 +16,8 @@ function formatPercentage(value: number): string {
 export function SaleDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { session } = useAuth();
+  const isReseller = session?.role === 'Reseller';
 
   const { data: sale, isLoading, isError } = useQuery({
     queryKey: ['sale', id],
@@ -27,13 +30,32 @@ export function SaleDetailsPage() {
       return null;
     }
 
+    const normalizedItems = sale.items.map((item) => {
+      const isResellerSettlementItem = !item.isCommissionedSale && item.commissionAmount > 0;
+      const displayedCommissionAmount = isResellerSettlementItem
+        ? Math.max(item.totalPrice - item.commissionAmount, 0)
+        : item.commissionAmount;
+      const displayedLojinhaGainAmount = isResellerSettlementItem
+        ? Math.min(item.commissionAmount, item.totalPrice)
+        : item.lojinhaGainAmount;
+
+      return {
+        ...item,
+        isResellerSettlementItem,
+        displayedCommissionAmount,
+        displayedLojinhaGainAmount
+      };
+    });
+
     const totalItems = sale.items.reduce((sum, item) => sum + item.quantity, 0);
     const totalCostFromItems = sale.items.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
-    const totalCommissionAmount = sale.items.reduce((sum, item) => sum + item.commissionAmount, 0);
+    const totalCommissionAmount = normalizedItems.reduce((sum, item) => sum + item.displayedCommissionAmount, 0);
     const supplierItems = sale.items.filter((item) => item.supplierId);
     const supplierGrossRevenue = supplierItems.reduce((sum, item) => sum + item.totalPrice, 0);
     const supplierCostAmount = supplierItems.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
-    const supplierTransferAmount = supplierItems.reduce((sum, item) => sum + (item.totalPrice - (item.costPrice * item.quantity) - item.lojinhaGainAmount), 0);
+    const supplierTransferAmount = normalizedItems
+      .filter((item) => item.supplierId && !item.isResellerSettlementItem)
+      .reduce((sum, item) => sum + (item.totalPrice - (item.costPrice * item.quantity) - item.displayedLojinhaGainAmount), 0);
     const grossMarginAmount = sale.totalAmount - sale.costAmount;
     const netAfterCostAmount = sale.netReceivedAmount - sale.costAmount;
     const piggyBankAmount = Math.max(sale.profitAmount, 0) / 2;
@@ -50,6 +72,7 @@ export function SaleDetailsPage() {
       grossMarginAmount,
       netAfterCostAmount,
       piggyBankAmount,
+      totalDisplayedLojinhaGainAmount: normalizedItems.reduce((sum, item) => sum + item.displayedLojinhaGainAmount, 0),
       feePercentage: sale.totalAmount > 0 ? (sale.feeAmount / sale.totalAmount) * 100 : 0,
       grossMarginPercentage: sale.totalAmount > 0 ? (grossMarginAmount / sale.totalAmount) * 100 : 0,
       profitMarginPercentage: sale.totalAmount > 0 ? (sale.profitAmount / sale.totalAmount) * 100 : 0
@@ -87,7 +110,8 @@ export function SaleDetailsPage() {
             <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Margem liquida lojinha</Typography><Typography variant="h6">{formatPercentage(summary?.profitMarginPercentage ?? 0)}</Typography></Paper></Grid>
             <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Caixinha sugerida</Typography><Typography variant="h6">{formatCurrency(summary?.piggyBankAmount ?? 0)}</Typography></Paper></Grid>
             <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Comissao paga</Typography><Typography variant="h6">{formatCurrency(summary?.totalCommissionAmount ?? 0)}</Typography><Typography color="text.secondary">{summary?.commissionedLines ?? 0} item(ns)</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Repasse fornecedores</Typography><Typography variant="h6">{formatCurrency(summary?.supplierTransferAmount ?? 0)}</Typography></Paper></Grid>
+            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Ganho da lojinha</Typography><Typography variant="h6">{formatCurrency(summary?.totalDisplayedLojinhaGainAmount ?? 0)}</Typography></Paper></Grid>
+            {!isReseller ? <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Repasse fornecedores</Typography><Typography variant="h6">{formatCurrency(summary?.supplierTransferAmount ?? 0)}</Typography></Paper></Grid> : null}
             <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Itens vendidos</Typography><Typography variant="h6">{summary?.totalItems ?? 0}</Typography><Typography color="text.secondary">{summary?.distinctProducts ?? 0} produto(s)</Typography></Paper></Grid>
           </Grid>
 
@@ -127,8 +151,15 @@ export function SaleDetailsPage() {
                       {(() => {
                         const costTotal = item.costPrice * item.quantity;
                         const grossMargin = item.totalPrice - costTotal;
-                        const supplierTransfer = item.supplierId
-                          ? item.totalPrice - costTotal - item.lojinhaGainAmount
+                        const isResellerSettlementItem = !item.isCommissionedSale && item.commissionAmount > 0;
+                        const displayedCommissionAmount = isResellerSettlementItem
+                          ? Math.max(item.totalPrice - item.commissionAmount, 0)
+                          : item.commissionAmount;
+                        const displayedLojinhaGainAmount = isResellerSettlementItem
+                          ? Math.min(item.commissionAmount, item.totalPrice)
+                          : item.lojinhaGainAmount;
+                        const supplierTransfer = item.supplierId && !isResellerSettlementItem
+                          ? item.totalPrice - costTotal - displayedLojinhaGainAmount
                           : 0;
 
                         return (
@@ -143,8 +174,8 @@ export function SaleDetailsPage() {
                             <TableCell>{item.supplierName ?? 'Lojinha Sem Nome'}</TableCell>
                             <TableCell>{item.isCommissionedSale ? 'Sim' : 'Nao'}</TableCell>
                             <TableCell>{item.commissionSellerSupplierName ?? '-'}</TableCell>
-                            <TableCell>{formatCurrency(item.commissionAmount)}</TableCell>
-                            <TableCell>{formatCurrency(item.lojinhaGainAmount)}</TableCell>
+                            <TableCell>{formatCurrency(displayedCommissionAmount)}</TableCell>
+                            <TableCell>{formatCurrency(displayedLojinhaGainAmount)}</TableCell>
                             <TableCell>{formatCurrency(supplierTransfer)}</TableCell>
                           </>
                         );
