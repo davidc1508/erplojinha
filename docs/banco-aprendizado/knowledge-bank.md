@@ -273,6 +273,7 @@ Base URL: /api
   - Em `Projects`, campos de perda sao `TimeLostToFailuresMinutes` e `WeightLostToFailuresGrams`.
 - Ao salvar nomes com acento via terminal/ssh, validar com `encode(convert_to("Name", 'UTF8'), 'hex')` para garantir que nao ficou corrompido.
 - Quando uma mesa vier com ordem ambigua de tempo/peso (ex.: `4g, 35m`), confirmar explicitamente com o usuario antes de inserir.
+- Quando o usuario ja informar impressora e filamento no pedido, aplicar direto sem nova pergunta e manter validacao de obrigatoriedade em 100% das mesas.
 
 ### 9.2 Compose completo
 
