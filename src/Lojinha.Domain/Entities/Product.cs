@@ -16,7 +16,6 @@ public sealed class Product : AuditableEntity
     public decimal ProfitMargin { get; set; }
     public bool GenerateProductionExpenseOnStockEntry { get; set; }
     public decimal CurrentStock { get; set; }
-    public decimal MinimumStock { get; set; }
     public int ItemsPerPlate { get; set; } = 1;
     public decimal EstimatedPrintTimeMinutes { get; set; }
     public decimal HeightCentimeters { get; set; }

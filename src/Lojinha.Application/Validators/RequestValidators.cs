@@ -39,7 +39,6 @@ public sealed class ProductRequestValidator : AbstractValidator<ProductRequest>
         RuleFor(x => x.Name).NotEmpty().MaximumLength(150);
         RuleFor(x => x.Sku).MaximumLength(80);
         RuleFor(x => x.CategoryId).NotEmpty();
-        RuleFor(x => x.MinimumStock).GreaterThanOrEqualTo(0);
         RuleFor(x => x.CurrentStock).GreaterThanOrEqualTo(0);
         RuleFor(x => x.ItemsPerPlate).GreaterThan(0);
         RuleFor(x => x.HeightCentimeters).GreaterThanOrEqualTo(0);

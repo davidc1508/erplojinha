@@ -113,7 +113,6 @@ public sealed record ProjectProductDraftDto(
     Guid? SupplierId,
     bool GenerateProductionExpenseOnStockEntry,
     decimal CurrentStock,
-    decimal MinimumStock,
     int ItemsPerPlate,
     decimal EstimatedPrintTimeMinutes,
     decimal HeightCentimeters,

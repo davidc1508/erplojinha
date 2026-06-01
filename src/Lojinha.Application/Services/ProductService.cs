@@ -84,7 +84,6 @@ public sealed class ProductService(
             SupplierId = supplierId,
             GenerateProductionExpenseOnStockEntry = request.GenerateProductionExpenseOnStockEntry,
             CurrentStock = request.CurrentStock,
-            MinimumStock = request.MinimumStock,
             ItemsPerPlate = request.ItemsPerPlate,
             EstimatedPrintTimeMinutes = request.EstimatedPrintTimeMinutes,
             HeightCentimeters = request.HeightCentimeters,
@@ -200,7 +199,6 @@ public sealed class ProductService(
         product.SupplierId = supplierId;
         product.GenerateProductionExpenseOnStockEntry = request.GenerateProductionExpenseOnStockEntry;
         product.CurrentStock = request.CurrentStock;
-        product.MinimumStock = request.MinimumStock;
         product.ItemsPerPlate = request.ItemsPerPlate;
         product.EstimatedPrintTimeMinutes = request.EstimatedPrintTimeMinutes;
         product.HeightCentimeters = request.HeightCentimeters;
@@ -371,7 +369,6 @@ public sealed class ProductService(
             SupplierId = scopedSupplierId ?? request.SupplierId,
             GenerateProductionExpenseOnStockEntry = request.GenerateProductionExpenseOnStockEntry,
             CurrentStock = request.CurrentStock,
-            MinimumStock = request.MinimumStock,
             ItemsPerPlate = request.ItemsPerPlate,
             EstimatedPrintTimeMinutes = request.EstimatedPrintTimeMinutes,
             HeightCentimeters = request.HeightCentimeters,
@@ -556,7 +553,6 @@ public sealed class ProductService(
             product.Recipe?.ResellerMarkup ?? 2.7m,
             product.ProfitMargin,
             product.CurrentStock,
-            product.MinimumStock,
             product.ItemsPerPlate,
             product.EstimatedPrintTimeMinutes,
             product.HeightCentimeters,

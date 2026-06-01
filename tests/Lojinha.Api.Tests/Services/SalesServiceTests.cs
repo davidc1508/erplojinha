@@ -23,8 +23,7 @@ public sealed class SalesServiceTests
             CostPrice = 10m,
             SalePrice = 20m,
             SuggestedPrice = 18m,
-            CurrentStock = 0m,
-            MinimumStock = 1m
+            CurrentStock = 0m
         };
 
         dbContext.Categories.Add(category);
@@ -73,8 +72,7 @@ public sealed class SalesServiceTests
             CostPrice = 12m,
             SalePrice = 30m,
             SuggestedPrice = 30m,
-            CurrentStock = 5m,
-            MinimumStock = 1m
+            CurrentStock = 5m
         };
 
         dbContext.Categories.Add(category);
@@ -127,8 +125,7 @@ public sealed class SalesServiceTests
             CostPrice = 10m,
             SalePrice = 25m,
             SuggestedPrice = 25m,
-            CurrentStock = 5m,
-            MinimumStock = 1m
+            CurrentStock = 5m
         };
 
         dbContext.Categories.Add(category);

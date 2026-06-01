@@ -504,7 +504,6 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
             existingProduct?.SupplierId ?? project.OwnerSupplierId,
             existingProduct?.GenerateProductionExpenseOnStockEntry ?? false,
             existingProduct?.CurrentStock ?? 0,
-            existingProduct?.MinimumStock ?? 2,
             existingProduct?.ItemsPerPlate ?? 1,
             estimatedPrintTime,
             existingProduct?.HeightCentimeters ?? 0,

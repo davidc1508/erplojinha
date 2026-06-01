@@ -22,8 +22,7 @@ public sealed class OperationalListServiceTests
             CostPrice = 10m,
             SalePrice = 20m,
             SuggestedPrice = 20m,
-            CurrentStock = 0m,
-            MinimumStock = 1m
+            CurrentStock = 0m
         };
 
         dbContext.Categories.Add(category);
@@ -67,8 +66,7 @@ public sealed class OperationalListServiceTests
             CostPrice = 10m,
             SalePrice = 20m,
             SuggestedPrice = 20m,
-            CurrentStock = 0m,
-            MinimumStock = 1m
+            CurrentStock = 0m
         };
 
         dbContext.Categories.Add(category);

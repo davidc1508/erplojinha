@@ -34,7 +34,6 @@ const emptyForm = {
   supplierId: '',
   generateProductionExpenseOnStockEntry: false,
   currentStock: 0,
-  minimumStock: 1,
   itemsPerPlate: 1,
   estimatedPrintTimeMinutes: 60,
   heightCentimeters: 0,
@@ -126,7 +125,6 @@ export function ProductFormPage() {
       supplierId: product.supplierId ?? '',
       generateProductionExpenseOnStockEntry: product.generateProductionExpenseOnStockEntry,
       currentStock: product.currentStock,
-      minimumStock: product.minimumStock,
       itemsPerPlate: product.itemsPerPlate,
       estimatedPrintTimeMinutes: product.estimatedPrintTimeMinutes,
       heightCentimeters: product.heightCentimeters,
@@ -159,7 +157,6 @@ export function ProductFormPage() {
       supplierId: cloneSource.supplierId ?? '',
       generateProductionExpenseOnStockEntry: cloneSource.generateProductionExpenseOnStockEntry,
       currentStock: 0,
-      minimumStock: cloneSource.minimumStock,
       itemsPerPlate: cloneSource.itemsPerPlate,
       estimatedPrintTimeMinutes: cloneSource.estimatedPrintTimeMinutes,
       heightCentimeters: cloneSource.heightCentimeters,
@@ -195,7 +192,6 @@ export function ProductFormPage() {
       supplierId: projectDraft.supplierId ?? '',
       generateProductionExpenseOnStockEntry: projectDraft.generateProductionExpenseOnStockEntry,
       currentStock: projectDraft.currentStock,
-      minimumStock: projectDraft.minimumStock,
       itemsPerPlate: projectDraft.itemsPerPlate,
       estimatedPrintTimeMinutes: projectDraft.estimatedPrintTimeMinutes,
       heightCentimeters: projectDraft.heightCentimeters,
@@ -579,7 +575,6 @@ export function ProductFormPage() {
 
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}><TextField label="Estoque" type="number" value={form.currentStock} onChange={(event) => updateForm('currentStock', Number(event.target.value))} fullWidth /></Grid>
-                  <Grid item xs={12} md={4}><TextField label="Estoque mínimo" type="number" value={form.minimumStock} onChange={(event) => updateForm('minimumStock', Number(event.target.value))} fullWidth /></Grid>
                   <Grid item xs={12}>
                     <FormControlLabel
                       control={<Checkbox checked={form.generateProductionExpenseOnStockEntry} onChange={(event) => updateForm('generateProductionExpenseOnStockEntry', event.target.checked)} />}

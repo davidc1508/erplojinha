@@ -313,7 +313,6 @@ public sealed class PersonalizedService(
             request.SupplierId,
             request.GenerateProductionExpenseOnStockEntry,
             0m,
-            request.MinimumStock,
             request.ItemsPerPlate,
             request.EstimatedPrintTimeMinutes,
             request.HeightCentimeters,

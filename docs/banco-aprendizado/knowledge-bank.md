@@ -380,6 +380,9 @@ Base URL: /api
 - U-20260601-07 Deploy Oracle: correcoes de UX publicadas com a tag `20260601-ui-fixes-v1` (API e Web), com validacao HTTP 200 para API (`/health`) e app web.
 - U-20260601-08 Feiras: corrigida quebra ao abrir detalhe da feira causada por ordem de hooks no `FairDetailsPage`; bloco de carregamento foi movido para depois dos hooks para manter ordem estavel entre renders.
 - U-20260601-09 Deploy Oracle: hotfix da quebra da tela de feira publicado com a tag `20260601-fair-details-crashfix-v1`, com API e web saudaveis (HTTP 200).
+- U-20260601-10 Estoque/Produtos: campo `MinimumStock` foi removido do dominio de produtos (backend + frontend), mantendo `minimumStock` somente para insumos (`Supply`).
+- U-20260601-11 Estoque/Operacao: migration `20260601182211_RemoveProductMinimumStockAndResetInventory` passou a zerar `CurrentStock` de todos os produtos e remover historico de movimentacoes `Entry` antes de remover a coluna `Products.MinimumStock`.
+- U-20260601-12 UI: telas de produtos/estoque/fornecedor foram ajustadas para nao depender de minimo configurado (detalhes de produto, listagem de estoque, fluxo de personalizado e alertas de fornecedor).
 
 ### 12.6 Regras de personalizados
 

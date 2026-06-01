@@ -87,7 +87,6 @@ export interface Product {
   desiredMarkup: number;
   profitMargin: number;
   currentStock: number;
-  minimumStock: number;
   itemsPerPlate: number;
   estimatedPrintTimeMinutes: number;
   heightCentimeters: number;
@@ -452,7 +451,6 @@ export interface ProjectProductDraft {
   supplierId?: string;
   generateProductionExpenseOnStockEntry: boolean;
   currentStock: number;
-  minimumStock: number;
   itemsPerPlate: number;
   estimatedPrintTimeMinutes: number;
   heightCentimeters: number;

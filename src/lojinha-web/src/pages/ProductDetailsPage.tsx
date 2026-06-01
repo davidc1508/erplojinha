@@ -155,17 +155,12 @@ export function ProductDetailsPage() {
         </Stack>
       </Stack>
 
-      {product.currentStock <= product.minimumStock ? (
-        <Alert severity={product.currentStock === 0 ? 'error' : 'warning'}>
-          {product.currentStock === 0
-            ? 'Produto sem estoque. Reposição imediata recomendada.'
-            : 'Produto em nível crítico de estoque, abaixo do mínimo configurado.'}
-        </Alert>
+      {product.currentStock === 0 ? (
+        <Alert severity="error">Produto sem estoque. Reposição imediata recomendada.</Alert>
       ) : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Estoque real</Typography><Typography variant="h5">{product.currentStock}</Typography></Paper></Grid>
-        <Grid item xs={12} sm={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Mínimo configurado</Typography><Typography variant="h5">{product.minimumStock}</Typography></Paper></Grid>
         <Grid item xs={12} sm={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Unidades vendidas</Typography><Typography variant="h5">{soldQuantity}</Typography></Paper></Grid>
         <Grid item xs={12} sm={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Receita acumulada</Typography><Typography variant="h5">{formatCurrency(soldRevenue)}</Typography></Paper></Grid>
         <Grid item xs={12} sm={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Lucro acumulado</Typography><Typography variant="h5">{formatCurrency(soldProfit)}</Typography></Paper></Grid>

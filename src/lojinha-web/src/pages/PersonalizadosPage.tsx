@@ -70,7 +70,6 @@ export function PersonalizadosPage() {
     sku: '',
     description: '',
     supplierId: '',
-    minimumStock: 0,
     itemsPerPlate: 1,
     estimatedPrintTimeMinutes: 0,
     heightCentimeters: 0,
@@ -197,7 +196,6 @@ export function PersonalizadosPage() {
       description: printProductDialog.description || null,
       supplierId: printProductDialog.supplierId || null,
       generateProductionExpenseOnStockEntry: false,
-      minimumStock: Number(printProductDialog.minimumStock),
       itemsPerPlate: Number(printProductDialog.itemsPerPlate),
       estimatedPrintTimeMinutes: Number(printProductDialog.estimatedPrintTimeMinutes),
       heightCentimeters: Number(printProductDialog.heightCentimeters),
@@ -222,7 +220,6 @@ export function PersonalizadosPage() {
         sku: '',
         description: '',
         supplierId: '',
-        minimumStock: 0,
         itemsPerPlate: 1,
         estimatedPrintTimeMinutes: 0,
         heightCentimeters: 0,
@@ -479,7 +476,6 @@ export function PersonalizadosPage() {
             <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Acabamento (%)" value={printProductDialog.finishingPercentage} onChange={(event) => setPrintProductDialog((current) => ({ ...current, finishingPercentage: Number(event.target.value) }))} /></Grid>
             <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Comissão (%)" value={printProductDialog.commissionPercentage} onChange={(event) => setPrintProductDialog((current) => ({ ...current, commissionPercentage: Number(event.target.value) }))} /></Grid>
             <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Itens por placa" value={printProductDialog.itemsPerPlate} onChange={(event) => setPrintProductDialog((current) => ({ ...current, itemsPerPlate: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Estoque mínimo" value={printProductDialog.minimumStock} onChange={(event) => setPrintProductDialog((current) => ({ ...current, minimumStock: Number(event.target.value) }))} /></Grid>
             <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Custo adicional" value={printProductDialog.additionalCost} onChange={(event) => setPrintProductDialog((current) => ({ ...current, additionalCost: Number(event.target.value) }))} /></Grid>
             <Grid item xs={12} md={6}><TextField fullWidth select label="Impressora" value={printProductDialog.printerProfileId} onChange={(event) => setPrintProductDialog((current) => ({ ...current, printerProfileId: event.target.value }))}><MenuItem value="">Sem impressora</MenuItem>{(metadata?.printers ?? []).map((printer) => <MenuItem key={printer.id} value={printer.id}>{printer.name}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={6}><TextField fullWidth select label="Marketplace" value={printProductDialog.marketplaceFeeId} onChange={(event) => setPrintProductDialog((current) => ({ ...current, marketplaceFeeId: event.target.value }))}><MenuItem value="">Sem marketplace</MenuItem>{(metadata?.marketplaces ?? []).map((marketplace) => <MenuItem key={marketplace.id} value={marketplace.id}>{marketplace.name}</MenuItem>)}</TextField></Grid>

@@ -470,7 +470,6 @@ export function InventoryPage() {
                       {renderCategoryWithColor(p.categoryId, p.category)}
                     </Stack>
                     <Typography color="text.secondary">Estoque: {p.currentStock}</Typography>
-                    <Typography color="text.secondary">Mínimo: {p.minimumStock}</Typography>
                     <Typography color="text.secondary">SKU: {p.sku}</Typography>
                   </Stack>
                 </Paper>
@@ -486,7 +485,6 @@ export function InventoryPage() {
                     <TableCell>Fornecedor</TableCell>
                     <TableCell>SKU</TableCell>
                     <TableCell>Estoque</TableCell>
-                    <TableCell>Estoque mínimo</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -497,7 +495,6 @@ export function InventoryPage() {
                       <TableCell>{p.supplier ?? 'Lojinha Sem Nome'}</TableCell>
                       <TableCell>{p.sku}</TableCell>
                       <TableCell>{p.currentStock}</TableCell>
-                      <TableCell>{p.minimumStock}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

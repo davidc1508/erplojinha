@@ -43,7 +43,6 @@ public sealed record PersonalizedPrintProductRequest(
     string? Description,
     Guid? SupplierId,
     bool GenerateProductionExpenseOnStockEntry,
-    decimal MinimumStock,
     int ItemsPerPlate,
     decimal EstimatedPrintTimeMinutes,
     decimal HeightCentimeters,

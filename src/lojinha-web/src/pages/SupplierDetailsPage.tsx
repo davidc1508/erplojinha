@@ -67,13 +67,12 @@ export function SupplierDetailsPage() {
       return soldAt.getUTCFullYear() === now.getUTCFullYear() && soldAt.getUTCMonth() === now.getUTCMonth();
     });
     const lowStockProducts = products
-      .filter((product) => product.supplierId === id && product.currentStock <= product.minimumStock)
+      .filter((product) => product.supplierId === id && product.currentStock <= 0)
       .sort((left, right) => left.currentStock - right.currentStock)
       .slice(0, 6)
       .map((product) => ({
         productName: product.name,
-        currentStock: product.currentStock,
-        minimumStock: product.minimumStock
+        currentStock: product.currentStock
       }));
     const topProducts = Object.values(supplierItems.reduce<Record<string, { productName: string; quantitySold: number; revenue: number }>>((acc, item) => {
       if (!acc[item.productName]) {
@@ -313,7 +312,7 @@ export function SupplierDetailsPage() {
               {summary.lowStockProducts.length === 0 ? <Alert severity="info">Nenhum produto deste fornecedor com estoque baixo.</Alert> : summary.lowStockProducts.map((item) => (
                 <Paper key={item.productName} sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.65)' }}>
                   <Typography fontWeight={700}>{item.productName}</Typography>
-                  <Typography color="text.secondary">Atual: {item.currentStock} | Mínimo: {item.minimumStock}</Typography>
+                  <Typography color="text.secondary">Atual: {item.currentStock}</Typography>
                 </Paper>
               ))}
             </Stack>
