@@ -377,6 +377,7 @@ Base URL: /api
 - U-20260601-04 Estoque: secoes "Produtos em estoque" e "Analise operacional do estoque" receberam filtros dedicados e paginacao configuravel por quantidade de itens por pagina.
 - U-20260601-05 Estoque: status "Ruptura" foi substituido por nomenclatura operacional mais clara na analise ("Sem estoque", "Cobertura baixa" e "Estavel").
 - U-20260601-06 Feiras: agrupamento por linha na tabela foi removido e substituido por abas por dia com contagem por data e paginacao aplicada na aba selecionada.
+- U-20260601-07 Deploy Oracle: correcoes de UX publicadas com a tag `20260601-ui-fixes-v1` (API e Web), com validacao HTTP 200 para API (`/health`) e app web.
 
 ### 12.6 Regras de personalizados
 
