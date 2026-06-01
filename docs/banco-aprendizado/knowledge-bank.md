@@ -379,6 +379,7 @@ Base URL: /api
 - U-20260601-06 Feiras: agrupamento por linha na tabela foi removido e substituido por abas por dia com contagem por data e paginacao aplicada na aba selecionada.
 - U-20260601-07 Deploy Oracle: correcoes de UX publicadas com a tag `20260601-ui-fixes-v1` (API e Web), com validacao HTTP 200 para API (`/health`) e app web.
 - U-20260601-08 Feiras: corrigida quebra ao abrir detalhe da feira causada por ordem de hooks no `FairDetailsPage`; bloco de carregamento foi movido para depois dos hooks para manter ordem estavel entre renders.
+- U-20260601-09 Deploy Oracle: hotfix da quebra da tela de feira publicado com a tag `20260601-fair-details-crashfix-v1`, com API e web saudaveis (HTTP 200).
 
 ### 12.6 Regras de personalizados
 
