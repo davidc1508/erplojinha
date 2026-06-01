@@ -369,6 +369,11 @@ Base URL: /api
 - U-20260531-07 Vendas/Contratos: `SaleLineDto` e tipo frontend `SaleLine` agora expõem `ProductId` para cruzamentos analiticos confiaveis.
 - U-20260531-08 Estoque: InventoryPage recebeu KPIs adicionais (itens em risco de ruptura, itens sem movimento 30+ dias) e nova tabela analitica com vendido em 30 dias, saida media diaria, cobertura estimada e status operacional por item.
 
+## 13.1) Atualizacoes de 2026-06-01
+
+- U-20260601-01 Deploy Oracle: publicacao concluida com a tag `20260531-fairs-product-inventory-erp-v1` para API e Web, com validacao final HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
+- U-20260601-02 Deploy Oracle: na atualizacao de `docker-compose.yml` remoto, comandos com `sed` usando delimitador `|` falharam por escaping no shell; execucao estavel foi feita com delimitador `@` e tag fixa no comando remoto.
+
 ### 12.6 Regras de personalizados
 
 - R-PERS-001: projeto personalizado segue etapas fixas de budget/modeling/approval/printing/finishing/finalization.
