@@ -18,7 +18,7 @@ export function InventoryPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const supplierId = session?.supplierId ?? '';
-  const rowsPerPage = 8;
+  const movementRowsPerPage = 8;
   const queryClient = useQueryClient();
   const { data: movements = [] } = useQuery({ queryKey: ['inventory'], queryFn: inventoryApi.getMovements });
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => productsApi.getAll() });
@@ -31,10 +31,16 @@ export function InventoryPage() {
   const [scopeFilter, setScopeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [stockSearch, setStockSearch] = useState('');
+  const [stockCategoryFilter, setStockCategoryFilter] = useState('all');
+  const [analysisSearch, setAnalysisSearch] = useState('');
+  const [analysisStatusFilter, setAnalysisStatusFilter] = useState('all');
   const [entryPage, setEntryPage] = useState(0);
   const [exitPage, setExitPage] = useState(0);
   const [stockPage, setStockPage] = useState(0);
   const [analysisPage, setAnalysisPage] = useState(0);
+  const [stockRowsPerPage, setStockRowsPerPage] = useState(8);
+  const [analysisRowsPerPage, setAnalysisRowsPerPage] = useState(8);
   const [form, setForm] = useState({ itemType: 'Product', itemId: '', type: 'Entry', quantity: 1, unitCost: 0, notes: '' });
 
   const managedProducts = useMemo(
@@ -113,10 +119,6 @@ export function InventoryPage() {
     });
   }, [productMovements, scopedProducts]);
 
-  const pagedStockAnalytics = useMemo(
-    () => stockAnalytics.slice(analysisPage * rowsPerPage, analysisPage * rowsPerPage + rowsPerPage),
-    [analysisPage, stockAnalytics]
-  );
   const kpiAtRisk = useMemo(
     () => stockAnalytics.filter((item) => item.stockRisk).length,
     [stockAnalytics]
@@ -146,16 +148,50 @@ export function InventoryPage() {
     () => filteredMovements.filter((m) => m.type === 'Exit' || m.type === 'Sale' || m.type === 'Adjustment'),
     [filteredMovements]
   );
-  const pagedEntryMovements = entryMovements.slice(entryPage * rowsPerPage, entryPage * rowsPerPage + rowsPerPage);
-  const pagedExitMovements = exitMovements.slice(exitPage * rowsPerPage, exitPage * rowsPerPage + rowsPerPage);
+  const pagedEntryMovements = entryMovements.slice(entryPage * movementRowsPerPage, entryPage * movementRowsPerPage + movementRowsPerPage);
+  const pagedExitMovements = exitMovements.slice(exitPage * movementRowsPerPage, exitPage * movementRowsPerPage + movementRowsPerPage);
 
-  const inStockProducts = useMemo(
-    () => scopedProducts.filter((p) => p.currentStock > 0),
-    [scopedProducts]
+  const inStockProducts = useMemo(() => {
+    const normalizedTerm = stockSearch.trim().toLowerCase();
+    return scopedProducts.filter((product) => {
+      if (product.currentStock <= 0) {
+        return false;
+      }
+
+      const matchesText = normalizedTerm.length === 0
+        || product.name.toLowerCase().includes(normalizedTerm)
+        || product.sku.toLowerCase().includes(normalizedTerm);
+      const matchesCategory = stockCategoryFilter === 'all' || product.categoryId === stockCategoryFilter;
+      return matchesText && matchesCategory;
+    });
+  }, [scopedProducts, stockCategoryFilter, stockSearch]);
+
+  const filteredStockAnalytics = useMemo(() => {
+    const normalizedTerm = analysisSearch.trim().toLowerCase();
+
+    return stockAnalytics.filter((item) => {
+      const stockStatus = item.product.currentStock === 0
+        ? 'out'
+        : item.stockRisk
+          ? 'low'
+          : 'stable';
+      const matchesStatus = analysisStatusFilter === 'all' || stockStatus === analysisStatusFilter;
+      const matchesText = normalizedTerm.length === 0
+        || item.product.name.toLowerCase().includes(normalizedTerm)
+        || item.product.sku.toLowerCase().includes(normalizedTerm);
+
+      return matchesStatus && matchesText;
+    });
+  }, [analysisSearch, analysisStatusFilter, stockAnalytics]);
+
+  const pagedStockAnalytics = useMemo(
+    () => filteredStockAnalytics.slice(analysisPage * analysisRowsPerPage, analysisPage * analysisRowsPerPage + analysisRowsPerPage),
+    [analysisPage, analysisRowsPerPage, filteredStockAnalytics]
   );
+
   const pagedInStockProducts = useMemo(
-    () => inStockProducts.slice(stockPage * rowsPerPage, stockPage * rowsPerPage + rowsPerPage),
-    [inStockProducts, stockPage]
+    () => inStockProducts.slice(stockPage * stockRowsPerPage, stockPage * stockRowsPerPage + stockRowsPerPage),
+    [inStockProducts, stockPage, stockRowsPerPage]
   );
 
   const categoryColorsById = useMemo(
@@ -238,7 +274,7 @@ export function InventoryPage() {
         </Grid>
         <Grid item xs={12} sm={6} lg={3}>
           <Paper sx={{ p: 2 }}>
-            <Typography color="text.secondary" variant="body2">Itens em risco de ruptura</Typography>
+            <Typography color="text.secondary" variant="body2">Itens críticos de estoque</Typography>
             <Typography variant="h5">{kpiAtRisk}</Typography>
           </Paper>
         </Grid>
@@ -334,7 +370,7 @@ export function InventoryPage() {
             </Paper>
           )}
           {pagedEntryMovements.length === 0 ? <Alert severity="info">Nenhuma entrada encontrada.</Alert> : null}
-          <TablePagination component="div" count={entryMovements.length} page={entryPage} onPageChange={(_, v) => setEntryPage(v)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
+          <TablePagination component="div" count={entryMovements.length} page={entryPage} onPageChange={(_, v) => setEntryPage(v)} rowsPerPage={movementRowsPerPage} rowsPerPageOptions={[movementRowsPerPage]} labelRowsPerPage="Itens por página" />
 
           <Typography variant="h6">Saídas</Typography>
           {isMobile ? (
@@ -386,12 +422,43 @@ export function InventoryPage() {
             </Paper>
           )}
           {pagedExitMovements.length === 0 ? <Alert severity="info">Nenhuma saída encontrada.</Alert> : null}
-          <TablePagination component="div" count={exitMovements.length} page={exitPage} onPageChange={(_, v) => setExitPage(v)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
+          <TablePagination component="div" count={exitMovements.length} page={exitPage} onPageChange={(_, v) => setExitPage(v)} rowsPerPage={movementRowsPerPage} rowsPerPageOptions={[movementRowsPerPage]} labelRowsPerPage="Itens por página" />
         </Stack>
       </PageSection>
 
       <PageSection title="Produtos em estoque" subtitle="Lista paginada apenas com itens que ainda possuem saldo.">
         <Stack spacing={2}>
+          <Grid container spacing={1.5}>
+            <Grid item xs={12} md={7}>
+              <TextField
+                label="Buscar produto em estoque"
+                value={stockSearch}
+                onChange={(event) => {
+                  setStockSearch(event.target.value);
+                  setStockPage(0);
+                }}
+                placeholder="Nome ou SKU"
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <TextField
+                select
+                label="Categoria"
+                value={stockCategoryFilter}
+                onChange={(event) => {
+                  setStockCategoryFilter(event.target.value);
+                  setStockPage(0);
+                }}
+                fullWidth
+              >
+                <MenuItem value="all">Todas</MenuItem>
+                {categories.map((category) => (
+                  <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          </Grid>
           {isMobile ? (
             <Stack spacing={1.5}>
               {pagedInStockProducts.map((p) => (
@@ -438,12 +505,55 @@ export function InventoryPage() {
             </Paper>
           )}
           {pagedInStockProducts.length === 0 ? <Alert severity="info">Nenhum produto com estoque disponível.</Alert> : null}
-          <TablePagination component="div" count={inStockProducts.length} page={stockPage} onPageChange={(_, v) => setStockPage(v)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
+          <TablePagination
+            component="div"
+            count={inStockProducts.length}
+            page={stockPage}
+            onPageChange={(_, v) => setStockPage(v)}
+            rowsPerPage={stockRowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setStockRowsPerPage(Number(event.target.value));
+              setStockPage(0);
+            }}
+            rowsPerPageOptions={[8, 16, 32]}
+            labelRowsPerPage="Itens por página"
+          />
         </Stack>
       </PageSection>
 
       <PageSection title="Análise operacional do estoque" subtitle="Cobertura estimada, giro recente e ociosidade por produto.">
         <Stack spacing={2}>
+          <Grid container spacing={1.5}>
+            <Grid item xs={12} md={7}>
+              <TextField
+                label="Buscar na análise"
+                value={analysisSearch}
+                onChange={(event) => {
+                  setAnalysisSearch(event.target.value);
+                  setAnalysisPage(0);
+                }}
+                placeholder="Nome ou SKU"
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <TextField
+                select
+                label="Status operacional"
+                value={analysisStatusFilter}
+                onChange={(event) => {
+                  setAnalysisStatusFilter(event.target.value);
+                  setAnalysisPage(0);
+                }}
+                fullWidth
+              >
+                <MenuItem value="all">Todos</MenuItem>
+                <MenuItem value="out">Sem estoque</MenuItem>
+                <MenuItem value="low">Cobertura baixa</MenuItem>
+                <MenuItem value="stable">Estável</MenuItem>
+              </TextField>
+            </Grid>
+          </Grid>
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small" sx={{ minWidth: 960 }}>
               <TableHead>
@@ -472,7 +582,7 @@ export function InventoryPage() {
                       <Chip
                         size="small"
                         color={item.product.currentStock === 0 ? 'error' : item.stockRisk ? 'warning' : 'success'}
-                        label={item.product.currentStock === 0 ? 'Ruptura' : item.stockRisk ? 'Risco' : 'Saudável'}
+                        label={item.product.currentStock === 0 ? 'Sem estoque' : item.stockRisk ? 'Cobertura baixa' : 'Estável'}
                       />
                     </TableCell>
                   </TableRow>
@@ -483,11 +593,15 @@ export function InventoryPage() {
           {pagedStockAnalytics.length === 0 ? <Alert severity="info">Nenhum dado analítico de estoque encontrado para os filtros aplicados.</Alert> : null}
           <TablePagination
             component="div"
-            count={stockAnalytics.length}
+            count={filteredStockAnalytics.length}
             page={analysisPage}
             onPageChange={(_event, page) => setAnalysisPage(page)}
-            rowsPerPage={rowsPerPage}
-            rowsPerPageOptions={[rowsPerPage]}
+            rowsPerPage={analysisRowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setAnalysisRowsPerPage(Number(event.target.value));
+              setAnalysisPage(0);
+            }}
+            rowsPerPageOptions={[8, 16, 32]}
             labelRowsPerPage="Itens por página"
           />
         </Stack>

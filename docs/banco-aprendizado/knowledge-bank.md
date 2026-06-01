@@ -373,6 +373,10 @@ Base URL: /api
 
 - U-20260601-01 Deploy Oracle: publicacao concluida com a tag `20260531-fairs-product-inventory-erp-v1` para API e Web, com validacao final HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
 - U-20260601-02 Deploy Oracle: na atualizacao de `docker-compose.yml` remoto, comandos com `sed` usando delimitador `|` falharam por escaping no shell; execucao estavel foi feita com delimitador `@` e tag fixa no comando remoto.
+- U-20260601-03 Produtos: layout das acoes na listagem foi refeito para evitar icones espremidos/sobrepostos (coluna mais larga, espacamento maior e botoes com borda/tooltip para melhor leitura).
+- U-20260601-04 Estoque: secoes "Produtos em estoque" e "Analise operacional do estoque" receberam filtros dedicados e paginacao configuravel por quantidade de itens por pagina.
+- U-20260601-05 Estoque: status "Ruptura" foi substituido por nomenclatura operacional mais clara na analise ("Sem estoque", "Cobertura baixa" e "Estavel").
+- U-20260601-06 Feiras: agrupamento por linha na tabela foi removido e substituido por abas por dia com contagem por data e paginacao aplicada na aba selecionada.
 
 ### 12.6 Regras de personalizados
 

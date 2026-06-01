@@ -330,7 +330,7 @@ export function ProductsPage() {
             </Stack>
           ) : (
             <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-              <Table size="small" sx={{ tableLayout: 'fixed' }}>
+              <Table size="small" sx={{ minWidth: isReseller ? 980 : 1320 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ width: '24%' }}>{renderSortLabel('name', 'Produto')}</TableCell>
@@ -346,7 +346,7 @@ export function ProductsPage() {
                         <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>{renderSortLabel('profit', 'Lucro estimado')}</TableCell>
                       </>
                     )}
-                    {!isReseller ? <TableCell align="right" sx={{ width: '9%', whiteSpace: 'nowrap' }}>Ações</TableCell> : null}
+                    {!isReseller ? <TableCell align="right" sx={{ width: '14%', whiteSpace: 'nowrap' }}>Ações</TableCell> : null}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -378,30 +378,64 @@ export function ProductsPage() {
                       {!isReseller ? (
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap', pl: 0.5, pr: 0.5 }}>
                           {canManageProduct(product) ? (
-                            <Stack direction="row" spacing={0.25} justifyContent="flex-end">
+                            <Stack direction="row" spacing={0.75} justifyContent="flex-end" sx={{ minWidth: 200 }}>
                               {!isBudgetMode ? (
-                                <IconButton size="small" color="default" onClick={() => navigate(`/produtos/${product.id}`, { state: { preserveState: true } })} title="Ver detalhes">
-                                  <OpenInNewRoundedIcon />
-                                </IconButton>
+                                    <Tooltip title="Ver detalhes">
+                                      <IconButton
+                                        size="small"
+                                        color="default"
+                                        onClick={() => navigate(`/produtos/${product.id}`, { state: { preserveState: true } })}
+                                        sx={{ border: '1px solid rgba(121, 99, 88, 0.25)', borderRadius: 1.5 }}
+                                      >
+                                        <OpenInNewRoundedIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
                               ) : null}
-                              <IconButton size="small" color="default" onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })} title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
-                                <ContentCopyRoundedIcon />
-                              </IconButton>
-                              <IconButton size="small" color="primary" onClick={() => navigate(`${isBudgetMode ? '/orcamentos' : '/produtos'}/${product.id}/editar`, { state: { preserveState: true } })}>
-                                <EditRoundedIcon />
-                              </IconButton>
+                                  <Tooltip title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
+                                    <IconButton
+                                      size="small"
+                                      color="default"
+                                      onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })}
+                                      sx={{ border: '1px solid rgba(121, 99, 88, 0.25)', borderRadius: 1.5 }}
+                                    >
+                                      <ContentCopyRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Editar">
+                                    <IconButton
+                                      size="small"
+                                      color="primary"
+                                      onClick={() => navigate(`${isBudgetMode ? '/orcamentos' : '/produtos'}/${product.id}/editar`, { state: { preserveState: true } })}
+                                      sx={{ border: '1px solid rgba(217, 107, 135, 0.35)', borderRadius: 1.5 }}
+                                    >
+                                      <EditRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
                               {isBudgetMode ? (
                                 <Tooltip title="Transformar em produto">
                                   <span>
-                                    <IconButton size="small" color="success" onClick={() => convertMutation.mutate(product.id)} disabled={convertMutation.isLoading}>
-                                      <SyncAltRoundedIcon />
+                                        <IconButton
+                                          size="small"
+                                          color="success"
+                                          onClick={() => convertMutation.mutate(product.id)}
+                                          disabled={convertMutation.isLoading}
+                                          sx={{ border: '1px solid rgba(123, 207, 192, 0.45)', borderRadius: 1.5 }}
+                                        >
+                                          <SyncAltRoundedIcon fontSize="small" />
                                     </IconButton>
                                   </span>
                                 </Tooltip>
                               ) : null}
-                              <IconButton size="small" color="error" onClick={() => setProductToDelete(product)}>
-                                <DeleteOutlineRoundedIcon />
-                              </IconButton>
+                                  <Tooltip title="Excluir">
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={() => setProductToDelete(product)}
+                                      sx={{ border: '1px solid rgba(211, 47, 47, 0.3)', borderRadius: 1.5 }}
+                                    >
+                                      <DeleteOutlineRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
                             </Stack>
                           ) : null}
                         </TableCell>
