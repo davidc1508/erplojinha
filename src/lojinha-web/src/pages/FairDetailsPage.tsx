@@ -341,24 +341,15 @@ export function FairDetailsPage() {
     };
   });
 
-  if (!fair) {
-    return (
-      <Stack spacing={3}>
-        <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/feiras', { state: { preserveState: true } })} sx={{ alignSelf: 'flex-start' }}>
-          Voltar para feiras
-        </Button>
-        <Typography color="text.secondary">Carregando dados da feira...</Typography>
-      </Stack>
-    );
-  }
-
-  const canStartFair = !isSupplier && fair.status === 'Awaiting' && isUtcDateTodayOrPast(fair.eventDateUtc);
-  const canRegisterSale = fair.status === 'Open';
-  const canCancelFair = !isSupplier && fair.totalSales === 0 && (fair.status === 'Awaiting' || fair.status === 'Open');
+  const canStartFair = !isSupplier && fair?.status === 'Awaiting' && Boolean(fair?.eventDateUtc) && isUtcDateTodayOrPast(fair.eventDateUtc);
+  const canRegisterSale = fair?.status === 'Open';
+  const canCancelFair = !isSupplier && (fair?.totalSales ?? 0) === 0 && (fair?.status === 'Awaiting' || fair?.status === 'Open');
   const supplierPool = report?.supplierRegistrationFee ?? 0;
   const supplierCount = report?.suppliers.length ?? 0;
   const averageQuotaPerSupplier = supplierCount > 0 ? supplierPool / supplierCount : 0;
-  const isMultiDayFair = fair.eventDateUtc.slice(0, 10) !== fair.endDateUtc.slice(0, 10);
+  const isMultiDayFair = fair
+    ? fair.eventDateUtc.slice(0, 10) !== fair.endDateUtc.slice(0, 10)
+    : false;
 
   const sourceSales = report?.sales ?? [];
   const normalizedSalesSearch = salesSearch.trim().toLowerCase();
@@ -446,6 +437,17 @@ export function FairDetailsPage() {
 
     setSalesSortField(field);
     setSalesSortDirection(field === 'soldAtUtc' ? 'desc' : 'asc');
+  }
+
+  if (!fair) {
+    return (
+      <Stack spacing={3}>
+        <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/feiras', { state: { preserveState: true } })} sx={{ alignSelf: 'flex-start' }}>
+          Voltar para feiras
+        </Button>
+        <Typography color="text.secondary">Carregando dados da feira...</Typography>
+      </Stack>
+    );
   }
 
   return (
