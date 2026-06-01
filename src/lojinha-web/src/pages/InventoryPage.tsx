@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { useMemo, useState } from 'react';
 import { CurrencyField } from '../components/CurrencyField';
 import { ProductLookupField } from '../components/ProductLookupField';
@@ -26,7 +26,7 @@ export function InventoryPage() {
   const { data: metadata } = useQuery({ queryKey: ['products-metadata'], queryFn: productsApi.getMetadata, enabled: !isSupplier });
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [reverseTarget, setReverseTarget] = useState<InventoryMovement | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<InventoryMovement | null>(null);
   const [search, setSearch] = useState('');
   const [scopeFilter, setScopeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
@@ -210,17 +210,17 @@ export function InventoryPage() {
     }
   });
 
-  const reverseMutation = useMutation({
-    mutationFn: async (id: string) => inventoryApi.reverseMovement(id),
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => inventoryApi.deleteMovement(id),
     onSuccess: () => {
-      setFeedback('Estorno registrado com sucesso.');
-      setReverseTarget(null);
+      setFeedback('Movimentação excluída com sucesso.');
+      setDeleteTarget(null);
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
     onError: () => {
-      setFeedback('Erro ao estornar a movimentação.');
-      setReverseTarget(null);
+      setFeedback('Erro ao excluir a movimentação.');
+      setDeleteTarget(null);
     }
   });
 
@@ -239,12 +239,12 @@ export function InventoryPage() {
     );
   }
 
-  function renderReverseButton(movement: InventoryMovement) {
+  function renderDeleteButton(movement: InventoryMovement) {
     if (movement.type === 'Sale') return null;
     return (
-      <Tooltip title="Estornar movimentação">
-        <IconButton size="small" onClick={() => setReverseTarget(movement)}>
-          <UndoRoundedIcon fontSize="small" />
+      <Tooltip title="Excluir movimentação">
+        <IconButton size="small" color="error" onClick={() => setDeleteTarget(movement)}>
+          <DeleteOutlineRoundedIcon fontSize="small" />
         </IconButton>
       </Tooltip>
     );
@@ -328,7 +328,7 @@ export function InventoryPage() {
                   <Stack spacing={1.1}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                       <Typography fontWeight={700}>{m.itemName}</Typography>
-                      {renderReverseButton(m)}
+                      {renderDeleteButton(m)}
                     </Stack>
                     <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
                     <Typography color="text.secondary">Movimento: {inventoryMovementTypeLabel(m.type)}</Typography>
@@ -362,7 +362,7 @@ export function InventoryPage() {
                       <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
                       <TableCell sx={{ py: 1.5 }}>{Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                       <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{renderReverseButton(m)}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{renderDeleteButton(m)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -380,7 +380,7 @@ export function InventoryPage() {
                   <Stack spacing={1.1}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                       <Typography fontWeight={700}>{m.itemName}</Typography>
-                      {renderReverseButton(m)}
+                      {renderDeleteButton(m)}
                     </Stack>
                     <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
                     <Typography color="text.secondary">Movimento: <Chip label={inventoryMovementTypeLabel(m.type)} size="small" /></Typography>
@@ -414,7 +414,7 @@ export function InventoryPage() {
                       <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
                       <TableCell sx={{ py: 1.5 }}>{Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                       <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{renderReverseButton(m)}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{renderDeleteButton(m)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -641,30 +641,30 @@ export function InventoryPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog: confirmação de estorno */}
-      <Dialog open={!!reverseTarget} onClose={() => setReverseTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Confirmar estorno</DialogTitle>
+      {/* Dialog: confirmação de exclusão */}
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirmar exclusão</DialogTitle>
         <DialogContent>
           <Stack spacing={1}>
-            <Typography>Deseja estornar a seguinte movimentação?</Typography>
-            <Typography><strong>Item:</strong> {reverseTarget?.itemName}</Typography>
-            <Typography><strong>Tipo:</strong> {reverseTarget ? inventoryMovementTypeLabel(reverseTarget.type) : ''}</Typography>
-            <Typography><strong>Quantidade:</strong> {reverseTarget?.quantity}</Typography>
-            <Typography><strong>Data:</strong> {reverseTarget ? formatUtcDate(reverseTarget.occurredAtUtc) : ''}</Typography>
+            <Typography>Deseja excluir a seguinte movimentação?</Typography>
+            <Typography><strong>Item:</strong> {deleteTarget?.itemName}</Typography>
+            <Typography><strong>Tipo:</strong> {deleteTarget ? inventoryMovementTypeLabel(deleteTarget.type) : ''}</Typography>
+            <Typography><strong>Quantidade:</strong> {deleteTarget?.quantity}</Typography>
+            <Typography><strong>Data:</strong> {deleteTarget ? formatUtcDate(deleteTarget.occurredAtUtc) : ''}</Typography>
             <Alert severity="warning" sx={{ mt: 1 }}>
-              Será registrada uma contra-movimentação automática para corrigir o estoque.
+              A movimentação será removida do histórico e não será gerada contra-movimentação.
             </Alert>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button variant="outlined" onClick={() => setReverseTarget(null)}>Cancelar</Button>
+          <Button variant="outlined" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
           <Button
             variant="contained"
-            color="warning"
-            onClick={() => reverseTarget && reverseMutation.mutate(reverseTarget.id)}
-            disabled={reverseMutation.isLoading}
+            color="error"
+            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            disabled={deleteMutation.isLoading}
           >
-            Confirmar estorno
+            Confirmar exclusão
           </Button>
         </DialogActions>
       </Dialog>

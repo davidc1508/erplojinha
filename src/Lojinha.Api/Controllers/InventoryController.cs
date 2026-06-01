@@ -43,4 +43,18 @@ public sealed class InventoryController(IInventoryService inventoryService) : Co
             return BadRequest(new { message = exception.Message });
         }
     }
+
+    [HttpDelete("movements/{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await inventoryService.DeleteAsync(id, User.GetEmail(), ScopedSupplierId, cancellationToken);
+            return NoContent();
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
 }

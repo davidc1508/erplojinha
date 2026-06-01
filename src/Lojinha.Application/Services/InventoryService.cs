@@ -11,6 +11,7 @@ public interface IInventoryService
     Task<IReadOnlyList<InventoryMovementDto>> GetRecentAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
     Task<InventoryMovementDto> RegisterAsync(ManualInventoryMovementRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
     Task<InventoryMovementDto> ReverseAsync(Guid movementId, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid movementId, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
 }
 
 public sealed class InventoryService(
@@ -186,4 +187,73 @@ public sealed class InventoryService(
 
         return await RegisterAsync(reversalRequest, actor, scopedSupplierId, cancellationToken);
     }
+
+    public async Task DeleteAsync(Guid movementId, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
+    {
+        var movement = await inventoryRepository.GetByIdAsync(movementId, cancellationToken)
+            ?? throw new InvalidOperationException("Movimentacao nao encontrada.");
+
+        if (movement.Type == InventoryMovementType.Sale)
+            throw new InvalidOperationException("Movimentacoes de venda nao podem ser excluidas aqui. Cancele a venda correspondente.");
+
+        Guid? affectedSupplierId = null;
+        if (movement.ItemType == InventoryItemType.Product)
+        {
+            var product = await productRepository.GetByIdAsync(movement.ItemId, cancellationToken)
+                ?? throw new InvalidOperationException("Produto nao encontrado.");
+
+            if (scopedSupplierId.HasValue && product.SupplierId != scopedSupplierId.Value)
+            {
+                throw new InvalidOperationException("Fornecedor so pode excluir movimentacoes dos proprios produtos.");
+            }
+
+            product.CurrentStock = ComputeStockAfterMovementRemoval(product.CurrentStock, movement);
+            productRepository.Update(product);
+            affectedSupplierId = product.SupplierId;
+        }
+        else
+        {
+            if (scopedSupplierId.HasValue)
+            {
+                throw new InvalidOperationException("Fornecedor nao pode excluir movimentacoes de insumos.");
+            }
+
+            var supply = await supplyRepository.GetByIdAsync(movement.ItemId, cancellationToken)
+                ?? throw new InvalidOperationException("Insumo nao encontrado.");
+            supply.StockQuantity = ComputeStockAfterMovementRemoval(supply.StockQuantity, movement);
+            supplyRepository.Update(supply);
+        }
+
+        inventoryRepository.Remove(movement);
+
+        await auditRepository.AddAsync(new AuditLog
+        {
+            EntityName = nameof(InventoryMovement),
+            EntityId = movement.Id.ToString(),
+            Action = AuditAction.Deleted,
+            ChangedBy = actor,
+            PayloadJson = JsonSerializer.Serialize(new
+            {
+                movement.ItemType,
+                movement.ItemId,
+                movement.Type,
+                movement.Quantity,
+                Operation = "DeleteMovement"
+            })
+        }, cancellationToken);
+
+        await inventoryRepository.SaveChangesAsync(cancellationToken);
+
+        if (movement.ItemType == InventoryItemType.Product)
+        {
+            var supplierIds = affectedSupplierId.HasValue ? new[] { affectedSupplierId.Value } : [];
+            await cacheInvalidationService.InvalidateProductReadModelsAsync(supplierIds, cancellationToken);
+            await cacheInvalidationService.InvalidateDashboardAsync(supplierIds, cancellationToken: cancellationToken);
+        }
+    }
+
+    private static decimal ComputeStockAfterMovementRemoval(decimal currentStock, InventoryMovement movement)
+        => movement.Type is InventoryMovementType.Entry or InventoryMovementType.Adjustment
+            ? Math.Max(0m, currentStock - movement.Quantity)
+            : currentStock + movement.Quantity;
 }

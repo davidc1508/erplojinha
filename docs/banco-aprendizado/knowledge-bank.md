@@ -383,6 +383,9 @@ Base URL: /api
 - U-20260601-10 Estoque/Produtos: campo `MinimumStock` foi removido do dominio de produtos (backend + frontend), mantendo `minimumStock` somente para insumos (`Supply`).
 - U-20260601-11 Estoque/Operacao: migration `20260601182211_RemoveProductMinimumStockAndResetInventory` passou a zerar `CurrentStock` de todos os produtos e remover historico de movimentacoes `Entry` antes de remover a coluna `Products.MinimumStock`.
 - U-20260601-12 UI: telas de produtos/estoque/fornecedor foram ajustadas para nao depender de minimo configurado (detalhes de produto, listagem de estoque, fluxo de personalizado e alertas de fornecedor).
+- U-20260601-13 Operacao (SQL direto em producao): limpeza do produto `Vassoura Harry Potter` removendo 100% das movimentacoes de estoque (`InventoryMovements`) e fixando `Products.CurrentStock = 0` para o item alvo.
+- U-20260601-14 API Estoque: adicionada exclusao real de movimentacao via `DELETE /api/inventory/movements/{id}` sem gerar contra-movimentacao automatica.
+- U-20260601-15 UI Estoque: tabela de movimentacoes passou a usar botao `Excluir movimentacao` com confirmacao dedicada; mensagem explicita que a acao remove do historico e nao cria novo lancamento.
 
 ### 12.6 Regras de personalizados
 

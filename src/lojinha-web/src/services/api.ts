@@ -355,6 +355,9 @@ export const inventoryApi = {
   reverseMovement: async (id: string) => {
     const { data } = await api.post<InventoryMovement>(`/inventory/movements/${id}/reverse`);
     return data;
+  },
+  deleteMovement: async (id: string) => {
+    await api.delete(`/inventory/movements/${id}`);
   }
 };
 
