@@ -387,6 +387,7 @@ Base URL: /api
 - U-20260601-14 API Estoque: adicionada exclusao real de movimentacao via `DELETE /api/inventory/movements/{id}` sem gerar contra-movimentacao automatica.
 - U-20260601-15 UI Estoque: tabela de movimentacoes passou a usar botao `Excluir movimentacao` com confirmacao dedicada; mensagem explicita que a acao remove do historico e nao cria novo lancamento.
 - U-20260601-16 Deploy Oracle: correcao de exclusao real de movimentacao publicada na tag `20260601-inventory-delete-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
+- U-20260601-17 Ajuste de regra no inventario: exclusao direta ficou restrita a `Entry`; para `Exit` e `Adjustment` a tela voltou a usar estorno com contra-movimentacao (logica original preservada).
 
 ### 12.6 Regras de personalizados
 

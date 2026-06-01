@@ -196,6 +196,9 @@ public sealed class InventoryService(
         if (movement.Type == InventoryMovementType.Sale)
             throw new InvalidOperationException("Movimentacoes de venda nao podem ser excluidas aqui. Cancele a venda correspondente.");
 
+        if (movement.Type != InventoryMovementType.Entry)
+            throw new InvalidOperationException("A exclusao direta e permitida somente para movimentacoes de entrada.");
+
         Guid? affectedSupplierId = null;
         if (movement.ItemType == InventoryItemType.Product)
         {
@@ -253,7 +256,5 @@ public sealed class InventoryService(
     }
 
     private static decimal ComputeStockAfterMovementRemoval(decimal currentStock, InventoryMovement movement)
-        => movement.Type is InventoryMovementType.Entry or InventoryMovementType.Adjustment
-            ? Math.Max(0m, currentStock - movement.Quantity)
-            : currentStock + movement.Quantity;
+        => Math.Max(0m, currentStock - movement.Quantity);
 }
