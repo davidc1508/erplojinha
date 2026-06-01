@@ -386,6 +386,7 @@ Base URL: /api
 - U-20260601-13 Operacao (SQL direto em producao): limpeza do produto `Vassoura Harry Potter` removendo 100% das movimentacoes de estoque (`InventoryMovements`) e fixando `Products.CurrentStock = 0` para o item alvo.
 - U-20260601-14 API Estoque: adicionada exclusao real de movimentacao via `DELETE /api/inventory/movements/{id}` sem gerar contra-movimentacao automatica.
 - U-20260601-15 UI Estoque: tabela de movimentacoes passou a usar botao `Excluir movimentacao` com confirmacao dedicada; mensagem explicita que a acao remove do historico e nao cria novo lancamento.
+- U-20260601-16 Deploy Oracle: correcao de exclusao real de movimentacao publicada na tag `20260601-inventory-delete-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
 
 ### 12.6 Regras de personalizados
 
