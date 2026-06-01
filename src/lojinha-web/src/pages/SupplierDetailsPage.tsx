@@ -33,7 +33,7 @@ export function SupplierDetailsPage() {
   });
   const { data: sales = [] } = useQuery({ queryKey: ['sales'], queryFn: salesApi.getAll });
   const { data: fairs = [] } = useQuery({ queryKey: ['fairs'], queryFn: fairsApi.getAll });
-  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => productsApi.getAll() });
+  const { data: products = [] } = useQuery({ queryKey: ['products', 'supplier-details'], queryFn: () => productsApi.getAll({ isBudget: false }) });
 
   const summary = useMemo(() => {
     const now = new Date();

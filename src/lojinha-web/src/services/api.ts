@@ -196,11 +196,11 @@ export const dashboardApi = {
 
 export const productsApi = {
   getAll: async (params?: { isBudget?: boolean; includeAllForSupplier?: boolean }) => {
-    const { data } = await api.get<Product[]>('/products', { params });
+    const { data } = await api.get<Product[]>('/products', { params: { isBudget: false, ...params } });
     return data;
   },
   getSalesCatalog: async () => {
-    const { data } = await api.get<Product[]>('/products', { params: { includeAllForSupplier: true } });
+    const { data } = await api.get<Product[]>('/products', { params: { includeAllForSupplier: true, isBudget: false } });
     return data;
   },
   getMetadata: async () => {

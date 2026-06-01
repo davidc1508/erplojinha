@@ -74,7 +74,7 @@ export function ProjectsPage() {
   });
   const { data: products = [] } = useQuery({
     queryKey: ['products-projects-link'],
-    queryFn: () => productsApi.getAll()
+    queryFn: () => productsApi.getAll({ isBudget: false })
   });
 
   const productMap = useMemo(() => new Map(products.map((item) => [item.id, item.name])), [products]);

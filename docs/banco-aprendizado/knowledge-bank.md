@@ -388,6 +388,9 @@ Base URL: /api
 - U-20260601-15 UI Estoque: tabela de movimentacoes passou a usar botao `Excluir movimentacao` com confirmacao dedicada; mensagem explicita que a acao remove do historico e nao cria novo lancamento.
 - U-20260601-16 Deploy Oracle: correcao de exclusao real de movimentacao publicada na tag `20260601-inventory-delete-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
 - U-20260601-17 Ajuste de regra no inventario: exclusao direta ficou restrita a `Entry`; para `Exit` e `Adjustment` a tela voltou a usar estorno com contra-movimentacao (logica original preservada).
+- U-20260601-18 Deploy Oracle: ajuste de regra do inventario publicado na tag `20260601-inventory-entry-delete-only-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
+- U-20260601-19 UI/Seletores: consultas de produtos para estoque/vendas/projetos/listas operacionais foram padronizadas com `isBudget=false` e chaves de React Query especificas por contexto, evitando mistura de cache e impedindo que itens de orcamento aparecam como opcao de venda/estoque.
+- U-20260601-20 UI Produtos: tabela desktop da listagem foi ajustada para layout fixo em largura total, removendo barra horizontal na area da listagem e mantendo truncamento dos textos longos.
 
 ### 12.6 Regras de personalizados
 

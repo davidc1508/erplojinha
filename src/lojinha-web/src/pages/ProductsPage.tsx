@@ -329,8 +329,8 @@ export function ProductsPage() {
               ))}
             </Stack>
           ) : (
-            <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-              <Table size="small" sx={{ minWidth: isReseller ? 980 : 1320 }}>
+            <Paper sx={{ overflowX: 'hidden', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+              <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ width: '24%' }}>{renderSortLabel('name', 'Produto')}</TableCell>
@@ -378,7 +378,7 @@ export function ProductsPage() {
                       {!isReseller ? (
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap', pl: 0.5, pr: 0.5 }}>
                           {canManageProduct(product) ? (
-                            <Stack direction="row" spacing={0.75} justifyContent="flex-end" sx={{ minWidth: 200 }}>
+                            <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ flexWrap: 'nowrap' }}>
                               {!isBudgetMode ? (
                                     <Tooltip title="Ver detalhes">
                                       <IconButton

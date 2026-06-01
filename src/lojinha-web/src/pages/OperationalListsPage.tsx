@@ -135,7 +135,7 @@ export function OperationalListsPage() {
 
   const { data: products = [] } = useQuery({
     queryKey: ['products', isSupplier ? 'catalog' : 'all'],
-    queryFn: () => productsApi.getAll({ includeAllForSupplier: isSupplier || undefined })
+    queryFn: () => productsApi.getAll({ includeAllForSupplier: isSupplier || undefined, isBudget: false })
   });
   const { data: restockItems = [] } = useQuery({ queryKey: ['operational-restock'], queryFn: operationalListsApi.getRestockItems });
   const { data: todoItems = [] } = useQuery({ queryKey: ['operational-todo'], queryFn: operationalListsApi.getTodoItems });
