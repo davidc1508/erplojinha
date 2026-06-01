@@ -15,6 +15,7 @@ public sealed record SaleItemRequest(
 public sealed record CreateSaleRequest(PaymentMethod PaymentMethod, DateTime? SoldAtUtc, string? Notes, IReadOnlyList<SaleItemRequest> Items, bool CreateTodoForProducedItems = false);
 
 public sealed record SaleLineDto(
+    Guid ProductId,
     string ProductName,
     decimal Quantity,
     decimal UnitPrice,

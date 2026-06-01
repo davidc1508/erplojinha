@@ -145,6 +145,9 @@ public sealed class FairRequestValidator : AbstractValidator<FairRequest>
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(150);
         RuleFor(x => x.Location).NotEmpty().MaximumLength(180);
+        RuleFor(x => x.EndDateUtc)
+            .GreaterThanOrEqualTo(x => x.EventDateUtc)
+            .WithMessage("A data final da feira nao pode ser anterior a data inicial.");
         RuleFor(x => x.RegistrationFee).GreaterThanOrEqualTo(0);
         RuleFor(x => x.RegistrationFeeSplitCount).GreaterThan(0);
         RuleFor(x => x.StoreFeePercentage).InclusiveBetween(0, 100);

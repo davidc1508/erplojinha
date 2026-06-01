@@ -109,6 +109,7 @@ internal static class FairMappings
             sale.Status,
             sale.Notes,
             sale.Items.Select(item => new SaleLineDto(
+                item.ProductId,
                 item.Product?.Name ?? string.Empty,
                 item.Quantity,
                 item.UnitPrice,

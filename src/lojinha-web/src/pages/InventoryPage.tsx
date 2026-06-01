@@ -34,6 +34,7 @@ export function InventoryPage() {
   const [entryPage, setEntryPage] = useState(0);
   const [exitPage, setExitPage] = useState(0);
   const [stockPage, setStockPage] = useState(0);
+  const [analysisPage, setAnalysisPage] = useState(0);
   const [form, setForm] = useState({ itemType: 'Product', itemId: '', type: 'Entry', quantity: 1, unitCost: 0, notes: '' });
 
   const managedProducts = useMemo(
@@ -61,6 +62,70 @@ export function InventoryPage() {
   );
 
   const productMovements = useMemo(() => movements.filter((m) => m.itemType === 'Product'), [movements]);
+
+  const stockAnalytics = useMemo(() => {
+    const now = new Date();
+    const lastMovementByProduct = new Map<string, string>();
+    const soldInLast30ByProduct = new Map<string, number>();
+
+    productMovements.forEach((movement) => {
+      const currentLast = lastMovementByProduct.get(movement.itemId);
+      if (!currentLast || new Date(movement.occurredAtUtc).getTime() > new Date(currentLast).getTime()) {
+        lastMovementByProduct.set(movement.itemId, movement.occurredAtUtc);
+      }
+
+      if (movement.type === 'Sale') {
+        const movementDate = new Date(movement.occurredAtUtc);
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+        if (movementDate >= thirtyDaysAgo) {
+          soldInLast30ByProduct.set(
+            movement.itemId,
+            (soldInLast30ByProduct.get(movement.itemId) ?? 0) + movement.quantity
+          );
+        }
+      }
+    });
+
+    const rows = scopedProducts.map((product) => {
+      const soldIn30 = soldInLast30ByProduct.get(product.id) ?? 0;
+      const dailyOutflow = soldIn30 / 30;
+      const coverageDays = dailyOutflow > 0 ? product.currentStock / dailyOutflow : null;
+      const lastMovement = lastMovementByProduct.get(product.id);
+      const daysWithoutMovement = lastMovement
+        ? Math.floor((now.getTime() - new Date(lastMovement).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      return {
+        product,
+        soldIn30,
+        dailyOutflow,
+        coverageDays,
+        daysWithoutMovement,
+        stockRisk: product.currentStock === 0 || (coverageDays !== null && coverageDays <= 15)
+      };
+    });
+
+    return rows.sort((left, right) => {
+      const leftCoverage = left.coverageDays ?? Number.MAX_SAFE_INTEGER;
+      const rightCoverage = right.coverageDays ?? Number.MAX_SAFE_INTEGER;
+      return leftCoverage - rightCoverage;
+    });
+  }, [productMovements, scopedProducts]);
+
+  const pagedStockAnalytics = useMemo(
+    () => stockAnalytics.slice(analysisPage * rowsPerPage, analysisPage * rowsPerPage + rowsPerPage),
+    [analysisPage, stockAnalytics]
+  );
+  const kpiAtRisk = useMemo(
+    () => stockAnalytics.filter((item) => item.stockRisk).length,
+    [stockAnalytics]
+  );
+  const kpiIdle = useMemo(
+    () => stockAnalytics.filter((item) => (item.daysWithoutMovement ?? 0) >= 30).length,
+    [stockAnalytics]
+  );
+
   const filteredMovements = useMemo(() => {
     const term = search.trim().toLowerCase();
     return productMovements
@@ -153,22 +218,34 @@ export function InventoryPage() {
     <Stack spacing={3}>
       {/* KPIs reais */}
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={4} md={4}>
+        <Grid item xs={12} sm={6} lg={3}>
           <Paper sx={{ p: 2 }}>
             <Typography color="text.secondary" variant="body2">Produtos em estoque</Typography>
             <Typography variant="h5">{kpiInStock}</Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={4} md={4}>
+        <Grid item xs={12} sm={6} lg={3}>
           <Paper sx={{ p: 2 }}>
             <Typography color="text.secondary" variant="body2">Sem estoque</Typography>
             <Typography variant="h5">{kpiOutOfStock}</Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={4} md={4}>
+        <Grid item xs={12} sm={6} lg={3}>
           <Paper sx={{ p: 2 }}>
             <Typography color="text.secondary" variant="body2">Valor estimado (custo)</Typography>
             <Typography variant="h5">{kpiStockValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} lg={3}>
+          <Paper sx={{ p: 2 }}>
+            <Typography color="text.secondary" variant="body2">Itens em risco de ruptura</Typography>
+            <Typography variant="h5">{kpiAtRisk}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} lg={3}>
+          <Paper sx={{ p: 2 }}>
+            <Typography color="text.secondary" variant="body2">Sem movimento há 30+ dias</Typography>
+            <Typography variant="h5">{kpiIdle}</Typography>
           </Paper>
         </Grid>
       </Grid>
@@ -362,6 +439,57 @@ export function InventoryPage() {
           )}
           {pagedInStockProducts.length === 0 ? <Alert severity="info">Nenhum produto com estoque disponível.</Alert> : null}
           <TablePagination component="div" count={inStockProducts.length} page={stockPage} onPageChange={(_, v) => setStockPage(v)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
+        </Stack>
+      </PageSection>
+
+      <PageSection title="Análise operacional do estoque" subtitle="Cobertura estimada, giro recente e ociosidade por produto.">
+        <Stack spacing={2}>
+          <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+            <Table size="small" sx={{ minWidth: 960 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Produto</TableCell>
+                  <TableCell>SKU</TableCell>
+                  <TableCell>Estoque atual</TableCell>
+                  <TableCell>Vendido 30d</TableCell>
+                  <TableCell>Saída média/dia</TableCell>
+                  <TableCell>Cobertura estimada</TableCell>
+                  <TableCell>Dias sem movimento</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pagedStockAnalytics.map((item) => (
+                  <TableRow key={item.product.id} hover>
+                    <TableCell>{item.product.name}</TableCell>
+                    <TableCell>{item.product.sku}</TableCell>
+                    <TableCell>{item.product.currentStock}</TableCell>
+                    <TableCell>{item.soldIn30}</TableCell>
+                    <TableCell>{item.dailyOutflow.toFixed(2)}</TableCell>
+                    <TableCell>{item.coverageDays === null ? 'Sem consumo recente' : `${Math.floor(item.coverageDays)} dia(s)`}</TableCell>
+                    <TableCell>{item.daysWithoutMovement === null ? 'Sem histórico' : `${item.daysWithoutMovement} dia(s)`}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        color={item.product.currentStock === 0 ? 'error' : item.stockRisk ? 'warning' : 'success'}
+                        label={item.product.currentStock === 0 ? 'Ruptura' : item.stockRisk ? 'Risco' : 'Saudável'}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+          {pagedStockAnalytics.length === 0 ? <Alert severity="info">Nenhum dado analítico de estoque encontrado para os filtros aplicados.</Alert> : null}
+          <TablePagination
+            component="div"
+            count={stockAnalytics.length}
+            page={analysisPage}
+            onPageChange={(_event, page) => setAnalysisPage(page)}
+            rowsPerPage={rowsPerPage}
+            rowsPerPageOptions={[rowsPerPage]}
+            labelRowsPerPage="Itens por página"
+          />
         </Stack>
       </PageSection>
 

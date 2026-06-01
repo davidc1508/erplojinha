@@ -176,7 +176,7 @@ public sealed class SalesServiceTests
 
     private sealed class NoOpCacheInvalidationService : IAppCacheInvalidationService
     {
-        public Task InvalidateDashboardAsync(IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task InvalidateDashboardAsync(IEnumerable<Guid>? supplierIds = null, IEnumerable<string>? resellerActors = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateProductReadModelsAsync(IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateCatalogAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateMetadataAsync(IEnumerable<Guid>? supplierIds = null, CancellationToken cancellationToken = default) => Task.CompletedTask;

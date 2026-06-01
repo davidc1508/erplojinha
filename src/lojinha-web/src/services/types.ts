@@ -159,6 +159,7 @@ export interface Supply {
 }
 
 export interface SaleLine {
+  productId: string;
   productName: string;
   quantity: number;
   unitPrice: number;

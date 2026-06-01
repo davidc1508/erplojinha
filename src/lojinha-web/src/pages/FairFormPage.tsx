@@ -174,7 +174,25 @@ export function FairFormPage() {
   });
 
   function updateField(field: keyof typeof emptyForm, value: string | number | string[]) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      if (field === 'eventDateUtc' && typeof value === 'string') {
+        const adjustedEndDate = current.endDateUtc < value ? value : current.endDateUtc;
+        return {
+          ...current,
+          eventDateUtc: value,
+          endDateUtc: adjustedEndDate
+        };
+      }
+
+      if (field === 'endDateUtc' && typeof value === 'string') {
+        return {
+          ...current,
+          endDateUtc: value < current.eventDateUtc ? current.eventDateUtc : value
+        };
+      }
+
+      return { ...current, [field]: value };
+    });
   }
 
   function updateSupplierIds(value: string | string[]) {
@@ -279,6 +297,7 @@ export function FairFormPage() {
                     value={form.endDateUtc}
                     onChange={(event) => updateField('endDateUtc', event.target.value)}
                     InputLabelProps={{ shrink: true }}
+                    inputProps={{ min: form.eventDateUtc }}
                     fullWidth
                   />
                 </Grid>

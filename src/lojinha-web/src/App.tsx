@@ -15,6 +15,7 @@ import { LoginPage } from './pages/LoginPage';
 import { OperationalListsPage } from './pages/OperationalListsPage';
 import { PrintersPage } from './pages/PrintersPage';
 import { ProductFormPage } from './pages/ProductFormPage';
+import { ProductDetailsPage } from './pages/ProductDetailsPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
@@ -40,6 +41,7 @@ function ProtectedApp() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/produtos" element={<ProductsPage />} />
+        <Route path="/produtos/:id" element={<ProductDetailsPage />} />
         {!isReseller ? <Route path="/produtos/novo" element={<ProductFormPage />} /> : null}
         {!isReseller ? <Route path="/produtos/:id/editar" element={<ProductFormPage />} /> : null}
         {!isReseller ? <Route path="/orcamentos" element={<ProductsPage />} /> : null}

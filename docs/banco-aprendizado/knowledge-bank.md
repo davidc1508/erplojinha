@@ -358,6 +358,17 @@ Base URL: /api
 - R-PROJ-004: reprint e autoordenacao de mesas foram incorporados ao fluxo de producao.
 - R-PROJ-005: conclusao de projeto pode atualizar/gerar produto derivado.
 
+## 13) Atualizacoes de 2026-05-31
+
+- U-20260531-01 Feiras: bloco "Simulador de break-even" removido por completo da tela de detalhes.
+- U-20260531-02 Feiras: tabela "Vendas da feira" evoluida com busca textual, filtro por pagamento, intervalo de datas, ordenacao por colunas (data/receita/lucro), paginação e estado vazio com feedback.
+- U-20260531-03 Feiras: agrupamento visual de vendas por dia adicionado somente para feiras multi-dia.
+- U-20260531-04 Feiras: no cadastro, data final agora respeita automaticamente a data inicial como minimo; backend tambem valida `EndDateUtc >= EventDateUtc` no validator de request.
+- U-20260531-05 Produtos: criada nova tela de visao 360 do produto em `/produtos/:id` com KPIs, evolucao de vendas, composicao de custos, historico de vendas, historico de movimentacoes e historico de preco.
+- U-20260531-06 Produtos: listagem ganhou acao direta "Ver detalhes" para abrir a nova tela de produto.
+- U-20260531-07 Vendas/Contratos: `SaleLineDto` e tipo frontend `SaleLine` agora expõem `ProductId` para cruzamentos analiticos confiaveis.
+- U-20260531-08 Estoque: InventoryPage recebeu KPIs adicionais (itens em risco de ruptura, itens sem movimento 30+ dias) e nova tabela analitica com vendido em 30 dias, saida media diaria, cobertura estimada e status operacional por item.
+
 ### 12.6 Regras de personalizados
 
 - R-PERS-001: projeto personalizado segue etapas fixas de budget/modeling/approval/printing/finishing/finalization.

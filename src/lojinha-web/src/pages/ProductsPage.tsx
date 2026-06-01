@@ -25,6 +25,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import SyncAltRoundedIcon from '@mui/icons-material/SyncAltRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { useMemo, useState } from 'react';
@@ -295,6 +296,11 @@ export function ProductsPage() {
                       </>
                     )}
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      {!isBudgetMode ? (
+                        <IconButton color="default" onClick={() => navigate(`/produtos/${product.id}`, { state: { preserveState: true } })} title="Ver detalhes">
+                          <OpenInNewRoundedIcon />
+                        </IconButton>
+                      ) : null}
                       {canManageProduct(product) ? (
                         <>
                           <IconButton color="default" onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })} title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
@@ -373,6 +379,11 @@ export function ProductsPage() {
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap', pl: 0.5, pr: 0.5 }}>
                           {canManageProduct(product) ? (
                             <Stack direction="row" spacing={0.25} justifyContent="flex-end">
+                              {!isBudgetMode ? (
+                                <IconButton size="small" color="default" onClick={() => navigate(`/produtos/${product.id}`, { state: { preserveState: true } })} title="Ver detalhes">
+                                  <OpenInNewRoundedIcon />
+                                </IconButton>
+                              ) : null}
                               <IconButton size="small" color="default" onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })} title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
                                 <ContentCopyRoundedIcon />
                               </IconButton>

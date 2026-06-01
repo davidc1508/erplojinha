@@ -17,7 +17,9 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
   Typography
 } from '@mui/material';
@@ -31,6 +33,7 @@ import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import { useMemo, useState } from 'react';
+import { Fragment } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -41,6 +44,9 @@ import { PageSection } from '../components/PageSection';
 import { fairsApi, productsApi, salesApi } from '../services/api';
 import { formatUtcDate, formatUtcDateRange, getTodayDateInputValue, isUtcDateTodayOrPast, toUtcDateOnlyIso } from '../services/date';
 import { fairStatusLabel, formatCurrency, paymentMethodLabel } from '../services/labels';
+import type { Sale } from '../services/types';
+
+type FairSaleSortField = 'soldAtUtc' | 'totalAmount' | 'profitAmount';
 
 export function FairDetailsPage() {
   const { session } = useAuth();
@@ -53,6 +59,14 @@ export function FairDetailsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
+  const [salesSearch, setSalesSearch] = useState('');
+  const [salesPaymentFilter, setSalesPaymentFilter] = useState('all');
+  const [salesStartDate, setSalesStartDate] = useState('');
+  const [salesEndDate, setSalesEndDate] = useState('');
+  const [salesSortField, setSalesSortField] = useState<FairSaleSortField>('soldAtUtc');
+  const [salesSortDirection, setSalesSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [salesPage, setSalesPage] = useState(0);
+  const [salesRowsPerPage, setSalesRowsPerPage] = useState(10);
   const [saleForm, setSaleForm] = useState({
     paymentMethod: 'Pix',
     soldAtUtc: getTodayDateInputValue(),
@@ -69,9 +83,6 @@ export function FairDetailsPage() {
       commissionAmount: ''
     }]
   });
-  const [breakEvenTicket, setBreakEvenTicket] = useState<number>(0);
-  const [breakEvenMargin, setBreakEvenMargin] = useState<number>(45);
-
   const { data: fair } = useQuery({
     queryKey: ['fair', id],
     queryFn: () => fairsApi.getById(id!),
@@ -345,9 +356,57 @@ export function FairDetailsPage() {
   const supplierPool = report?.supplierRegistrationFee ?? 0;
   const supplierCount = report?.suppliers.length ?? 0;
   const averageQuotaPerSupplier = supplierCount > 0 ? supplierPool / supplierCount : 0;
-  const requiredGrossForBreakEven = breakEvenMargin > 0 ? (report?.storeRegistrationFee ?? 0) / (breakEvenMargin / 100) : 0;
-  const missingGrossForBreakEven = Math.max(0, requiredGrossForBreakEven - (report?.grossRevenue ?? 0));
-  const salesNeededForBreakEven = breakEvenTicket > 0 ? Math.ceil(missingGrossForBreakEven / breakEvenTicket) : 0;
+  const isMultiDayFair = fair.eventDateUtc.slice(0, 10) !== fair.endDateUtc.slice(0, 10);
+
+  const sourceSales = report?.sales ?? [];
+  const normalizedSalesSearch = salesSearch.trim().toLowerCase();
+  const filteredSales = sourceSales.filter((sale) => {
+    const soldAt = new Date(sale.soldAtUtc);
+    const saleText = `${sale.items.map((item) => item.productName).join(' ')} ${sale.notes} ${paymentMethodLabel(sale.paymentMethod)}`.toLowerCase();
+    const matchesSearch = normalizedSalesSearch.length === 0 || saleText.includes(normalizedSalesSearch);
+    const matchesPayment = salesPaymentFilter === 'all' || sale.paymentMethod === salesPaymentFilter;
+    const matchesStartDate = !salesStartDate || soldAt >= new Date(`${salesStartDate}T00:00:00`);
+    const matchesEndDate = !salesEndDate || soldAt <= new Date(`${salesEndDate}T23:59:59`);
+
+    return matchesSearch && matchesPayment && matchesStartDate && matchesEndDate;
+  });
+
+  const sortedSales = [...filteredSales].sort((left, right) => {
+    const leftValue = salesSortField === 'soldAtUtc'
+      ? new Date(left.soldAtUtc).getTime()
+      : left[salesSortField];
+    const rightValue = salesSortField === 'soldAtUtc'
+      ? new Date(right.soldAtUtc).getTime()
+      : right[salesSortField];
+    const comparison = leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
+    return salesSortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  const pagedSales = sortedSales.slice(salesPage * salesRowsPerPage, salesPage * salesRowsPerPage + salesRowsPerPage);
+
+  const groupedPagedSales = !isMultiDayFair
+    ? [{ label: '', sales: pagedSales }]
+    : pagedSales.reduce<Array<{ label: string; sales: Sale[] }>>((acc, sale) => {
+      const label = formatUtcDate(sale.soldAtUtc);
+      const existing = acc.find((item) => item.label === label);
+      if (existing) {
+        existing.sales.push(sale);
+      } else {
+        acc.push({ label, sales: [sale] });
+      }
+
+      return acc;
+    }, []);
+
+  function handleSalesSort(field: FairSaleSortField) {
+    if (field === salesSortField) {
+      setSalesSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSalesSortField(field);
+    setSalesSortDirection(field === 'soldAtUtc' ? 'desc' : 'asc');
+  }
 
   return (
     <Stack spacing={3}>
@@ -492,7 +551,7 @@ export function FairDetailsPage() {
             </Grid>
 
             <Grid container spacing={2}>
-              <Grid item xs={12} lg={6}>
+              <Grid item xs={12}>
                 <Paper sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.62)' }}>
                   <Typography variant="h6" mb={1}>Rateio transparente da cota</Typography>
                   <Typography color="text.secondary">Taxa total: {formatCurrency(report.registrationFee)}</Typography>
@@ -527,30 +586,6 @@ export function FairDetailsPage() {
                   </Table>
                 </Paper>
               </Grid>
-
-              <Grid item xs={12} lg={6}>
-                <Paper sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.62)' }}>
-                  <Typography variant="h6" mb={1}>Simulador de break-even</Typography>
-                  <Typography color="text.secondary" mb={2}>Estimativa para cobrir a parcela da loja na taxa da feira.</Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <CurrencyField label="Ticket médio esperado" value={breakEvenTicket} onValueChange={setBreakEvenTicket} fullWidth />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        label="Margem líquida esperada (%)"
-                        type="number"
-                        value={breakEvenMargin}
-                        onChange={(event) => setBreakEvenMargin(Number(event.target.value))}
-                        fullWidth
-                      />
-                    </Grid>
-                    <Grid item xs={12}><Typography color="text.secondary">Receita bruta para empatar: {formatCurrency(requiredGrossForBreakEven)}</Typography></Grid>
-                    <Grid item xs={12}><Typography color="text.secondary">Receita adicional necessária: {formatCurrency(missingGrossForBreakEven)}</Typography></Grid>
-                    <Grid item xs={12}><Typography color="text.secondary">Vendas adicionais estimadas: {salesNeededForBreakEven} venda(s)</Typography></Grid>
-                  </Grid>
-                </Paper>
-              </Grid>
             </Grid>
 
             <ResponsiveContainer width="100%" height={280}>
@@ -580,60 +615,185 @@ export function FairDetailsPage() {
 
             <Stack spacing={2}>
               <Typography variant="h6">Vendas da feira</Typography>
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Buscar venda"
+                    value={salesSearch}
+                    onChange={(event) => {
+                      setSalesSearch(event.target.value);
+                      setSalesPage(0);
+                    }}
+                    placeholder="Produto, observação ou pagamento"
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    select
+                    label="Pagamento"
+                    value={salesPaymentFilter}
+                    onChange={(event) => {
+                      setSalesPaymentFilter(event.target.value);
+                      setSalesPage(0);
+                    }}
+                    fullWidth
+                  >
+                    <MenuItem value="all">Todos</MenuItem>
+                    <MenuItem value="Pix">Pix</MenuItem>
+                    <MenuItem value="CreditCard">Cartão crédito</MenuItem>
+                    <MenuItem value="DebitCard">Cartão débito</MenuItem>
+                    <MenuItem value="Cash">Dinheiro</MenuItem>
+                    <MenuItem value="Transfer">Transferência</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    label="Data inicial"
+                    type="date"
+                    value={salesStartDate}
+                    onChange={(event) => {
+                      setSalesStartDate(event.target.value);
+                      setSalesPage(0);
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    label="Data final"
+                    type="date"
+                    value={salesEndDate}
+                    onChange={(event) => {
+                      setSalesEndDate(event.target.value);
+                      setSalesPage(0);
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    select
+                    label="Itens por página"
+                    value={String(salesRowsPerPage)}
+                    onChange={(event) => {
+                      setSalesRowsPerPage(Number(event.target.value));
+                      setSalesPage(0);
+                    }}
+                    fullWidth
+                  >
+                    <MenuItem value="10">10</MenuItem>
+                    <MenuItem value="20">20</MenuItem>
+                    <MenuItem value="50">50</MenuItem>
+                  </TextField>
+                </Grid>
+              </Grid>
+              {isMultiDayFair ? <Alert severity="info">As vendas estão agrupadas por dia porque esta feira possui mais de um dia.</Alert> : null}
               <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
                 <Table size="small" sx={{ minWidth: 1100 }}>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <TableSortLabel
+                          active={salesSortField === 'soldAtUtc'}
+                          direction={salesSortField === 'soldAtUtc' ? salesSortDirection : 'desc'}
+                          onClick={() => handleSalesSort('soldAtUtc')}
+                        >
+                          Data
+                        </TableSortLabel>
+                      </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>Produtos vendidos</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Receita bruta</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Lucro lojinha</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <TableSortLabel
+                          active={salesSortField === 'totalAmount'}
+                          direction={salesSortField === 'totalAmount' ? salesSortDirection : 'asc'}
+                          onClick={() => handleSalesSort('totalAmount')}
+                        >
+                          Receita bruta
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <TableSortLabel
+                          active={salesSortField === 'profitAmount'}
+                          direction={salesSortField === 'profitAmount' ? salesSortDirection : 'asc'}
+                          onClick={() => handleSalesSort('profitAmount')}
+                        >
+                          Lucro lojinha
+                        </TableSortLabel>
+                      </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>Caixinha</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>Pagamento</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap', minWidth: 120, pr: 2 }}>Ações</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {report.sales.map((sale) => {
-                      const totalItems = sale.items.reduce((sum, item) => sum + item.quantity, 0);
-                      const piggyBankAmount = Math.max(sale.profitAmount, 0) / 2;
+                    {groupedPagedSales.map((group) => (
+                      <Fragment key={`sales-group-${group.label || 'single-day'}`}>
+                        {isMultiDayFair ? (
+                          <TableRow key={`group-${group.label}`} sx={{ backgroundColor: 'rgba(121, 99, 88, 0.08)' }}>
+                            <TableCell colSpan={7}>
+                              <Typography fontWeight={700}>Dia {group.label}</Typography>
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                        {group.sales.map((sale) => {
+                          const totalItems = sale.items.reduce((sum, item) => sum + item.quantity, 0);
+                          const piggyBankAmount = Math.max(sale.profitAmount, 0) / 2;
 
-                      return (
-                        <TableRow key={sale.id} hover>
-                          <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(sale.soldAtUtc)}</TableCell>
-                          <TableCell sx={{ py: 1.5, minWidth: 360 }}>
-                            <Typography fontWeight={700} sx={{ lineHeight: 1.3 }}>
-                              {sale.items.map((item) => item.productName).join(', ')}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {totalItems} item(ns) • {sale.items.length} produto(s)
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ py: 1.5 }}>{formatCurrency(sale.totalAmount)}</TableCell>
-                          <TableCell sx={{ py: 1.5 }}>{formatCurrency(sale.profitAmount)}</TableCell>
-                          <TableCell sx={{ py: 1.5 }}>{formatCurrency(piggyBankAmount)}</TableCell>
-                          <TableCell sx={{ py: 1.5 }}>{paymentMethodLabel(sale.paymentMethod)}</TableCell>
-                          <TableCell align="right" sx={{ py: 1.5, pr: 1.5, whiteSpace: 'nowrap' }}>
-                            <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ minWidth: 90 }}>
-                              <IconButton
-                                size="small"
-                                onClick={() => navigate(`/vendas/${sale.id}`, { state: { preserveState: true } })}
-                                aria-label="Abrir venda"
-                                sx={{ border: '1px solid rgba(217, 107, 135, 0.45)', borderRadius: 1.5 }}
-                              >
-                                <OpenInNewRoundedIcon fontSize="small" />
-                              </IconButton>
-                              {sale.canDelete ? <IconButton size="small" color="error" onClick={() => setSaleToDelete(sale.id)} disabled={deleteSaleMutation.isLoading} aria-label="Excluir venda">
-                                <DeleteOutlineRoundedIcon fontSize="small" />
-                              </IconButton> : null}
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                          return (
+                            <TableRow key={sale.id} hover>
+                              <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(sale.soldAtUtc)}</TableCell>
+                              <TableCell sx={{ py: 1.5, minWidth: 360 }}>
+                                <Typography fontWeight={700} sx={{ lineHeight: 1.3 }}>
+                                  {sale.items.map((item) => item.productName).join(', ')}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {totalItems} item(ns) • {sale.items.length} produto(s)
+                                </Typography>
+                              </TableCell>
+                              <TableCell sx={{ py: 1.5 }}>{formatCurrency(sale.totalAmount)}</TableCell>
+                              <TableCell sx={{ py: 1.5 }}>{formatCurrency(sale.profitAmount)}</TableCell>
+                              <TableCell sx={{ py: 1.5 }}>{formatCurrency(piggyBankAmount)}</TableCell>
+                              <TableCell sx={{ py: 1.5 }}>{paymentMethodLabel(sale.paymentMethod)}</TableCell>
+                              <TableCell align="right" sx={{ py: 1.5, pr: 1.5, whiteSpace: 'nowrap' }}>
+                                <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ minWidth: 90 }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => navigate(`/vendas/${sale.id}`, { state: { preserveState: true } })}
+                                    aria-label="Abrir venda"
+                                    sx={{ border: '1px solid rgba(217, 107, 135, 0.45)', borderRadius: 1.5 }}
+                                  >
+                                    <OpenInNewRoundedIcon fontSize="small" />
+                                  </IconButton>
+                                  {sale.canDelete ? <IconButton size="small" color="error" onClick={() => setSaleToDelete(sale.id)} disabled={deleteSaleMutation.isLoading} aria-label="Excluir venda">
+                                    <DeleteOutlineRoundedIcon fontSize="small" />
+                                  </IconButton> : null}
+                                </Stack>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </Fragment>
+                    ))}
                   </TableBody>
                 </Table>
               </Paper>
+              {pagedSales.length === 0 ? <Alert severity="info">Nenhuma venda encontrada com os filtros selecionados.</Alert> : null}
+              <TablePagination
+                component="div"
+                count={sortedSales.length}
+                page={salesPage}
+                onPageChange={(_event, page) => setSalesPage(page)}
+                rowsPerPage={salesRowsPerPage}
+                onRowsPerPageChange={(event) => {
+                  setSalesRowsPerPage(Number(event.target.value));
+                  setSalesPage(0);
+                }}
+                rowsPerPageOptions={[10, 20, 50]}
+                labelRowsPerPage="Itens por página"
+              />
             </Stack>
             <Grid container spacing={2}>
               <Grid item xs={12}><Typography variant="h6">{isSupplier ? 'Resumo dos fornecedores na feira' : 'Visão de fornecedores'}</Typography></Grid>
