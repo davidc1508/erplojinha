@@ -50,6 +50,11 @@ export function InventoryPage() {
     [isSupplier, products, supplierId]
   );
 
+  const selectedMovementProduct = useMemo(
+    () => managedProducts.find((product) => product.id === form.itemId) ?? null,
+    [managedProducts, form.itemId]
+  );
+
   const scopedProducts = useMemo(
     () => managedProducts.filter((p) =>
       scopeFilter === 'all' ? true
@@ -355,7 +360,7 @@ export function InventoryPage() {
                   <Stack spacing={1.1}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                       <Typography fontWeight={700}>{m.itemName}</Typography>
-                      {renderReverseButton(m)}
+                      {renderDeleteButton(m)}
                     </Stack>
                     <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
                     <Typography color="text.secondary">Movimento: {inventoryMovementTypeLabel(m.type)}</Typography>
@@ -389,7 +394,7 @@ export function InventoryPage() {
                       <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
                       <TableCell sx={{ py: 1.5 }}>{Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                       <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{renderReverseButton(m)}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{renderDeleteButton(m)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -407,7 +412,7 @@ export function InventoryPage() {
                   <Stack spacing={1.1}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                       <Typography fontWeight={700}>{m.itemName}</Typography>
-                      {renderDeleteButton(m)}
+                      {renderReverseButton(m)}
                     </Stack>
                     <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
                     <Typography color="text.secondary">Movimento: <Chip label={inventoryMovementTypeLabel(m.type)} size="small" /></Typography>
@@ -441,7 +446,7 @@ export function InventoryPage() {
                       <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
                       <TableCell sx={{ py: 1.5 }}>{Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                       <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{renderDeleteButton(m)}</TableCell>
+                      <TableCell sx={{ py: 1.5 }}>{renderReverseButton(m)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -657,6 +662,24 @@ export function InventoryPage() {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <CurrencyField label="Custo unitário" value={form.unitCost} onValueChange={(v) => setForm({ ...form, unitCost: v })} fullWidth />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Valor sugerido (visual)"
+                  value={selectedMovementProduct ? selectedMovementProduct.suggestedPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : ''}
+                  InputProps={{ readOnly: true }}
+                  placeholder="Selecione um produto"
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Valor de venda real (visual)"
+                  value={selectedMovementProduct ? selectedMovementProduct.salePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : ''}
+                  InputProps={{ readOnly: true }}
+                  placeholder="Selecione um produto"
+                  fullWidth
+                />
               </Grid>
             </Grid>
             <TextField label="Observação" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} multiline minRows={3} />

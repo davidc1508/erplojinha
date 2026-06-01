@@ -391,6 +391,8 @@ Base URL: /api
 - U-20260601-18 Deploy Oracle: ajuste de regra do inventario publicado na tag `20260601-inventory-entry-delete-only-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
 - U-20260601-19 UI/Seletores: consultas de produtos para estoque/vendas/projetos/listas operacionais foram padronizadas com `isBudget=false` e chaves de React Query especificas por contexto, evitando mistura de cache e impedindo que itens de orcamento aparecam como opcao de venda/estoque.
 - U-20260601-20 UI Produtos: tabela desktop da listagem foi ajustada para layout fixo em largura total, removendo barra horizontal na area da listagem e mantendo truncamento dos textos longos.
+- U-20260601-21 UI Estoque: corrigida inversao das acoes na tabela de movimentacoes; `Excluir` voltou para `Entry` e `Estornar` voltou para `Exit`/`Adjustment` (sem estorno para `Sale`).
+- U-20260601-22 UI Estoque: modal `Registrar movimentacao` passou a exibir, em modo apenas visual (read-only), `Valor sugerido` e `Valor de venda real` do produto selecionado.
 
 ### 12.6 Regras de personalizados
 
