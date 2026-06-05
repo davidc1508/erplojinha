@@ -73,7 +73,7 @@ export function SalesEntryFormPage() {
       await queryClient.invalidateQueries({ queryKey: ['finance-entries'] });
       await queryClient.invalidateQueries({ queryKey: ['finance-report'] });
       await queryClient.invalidateQueries({ queryKey: ['fairs'] });
-      await queryClient.invalidateQueries({ queryKey: ['operational-todo'] });
+      await queryClient.invalidateQueries({ queryKey: ['operational-restock'] });
       navigate('/vendas', { state: { preserveState: true } });
     },
     onError: () => {

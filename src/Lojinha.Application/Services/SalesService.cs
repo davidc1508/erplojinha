@@ -342,7 +342,7 @@ public sealed class SalesService(
                     ? $"Gerado automaticamente da venda {sale.Id}"
                     : $"Gerado automaticamente da venda {sale.Id} na feira {fair.Name}";
 
-                await operationalListService.CreateRestockItemAsync(
+                await operationalListService.QueueRestockItemAsync(
                     new RestockItemRequest(sold.ProductId, decimal.Round(sold.Quantity, 2), source),
                     actor,
                     sold.SupplierId,

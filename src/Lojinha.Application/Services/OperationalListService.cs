@@ -9,6 +9,7 @@ public interface IOperationalListService
 {
     Task<IReadOnlyList<RestockItemDto>> GetRestockItemsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<RestockItemDto> CreateRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
+    Task QueueRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<RestockItemDto?> UpdateRestockItemAsync(Guid id, RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<bool> DeleteRestockItemAsync(Guid id, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TodoItemDto>> GetTodoItemsAsync(Guid? scopedSupplierId, CancellationToken cancellationToken = default);
@@ -42,6 +43,16 @@ public sealed class OperationalListService(
     }
 
     public async Task<RestockItemDto> CreateRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+    {
+        var item = await UpsertRestockItemAsync(request, actor, scopedSupplierId, cancellationToken);
+        await restockRepository.SaveChangesAsync(cancellationToken);
+        return item;
+    }
+
+    public async Task QueueRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+        => await UpsertRestockItemAsync(request, actor, scopedSupplierId, cancellationToken);
+
+    private async Task<RestockItemDto> UpsertRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken)
     {
         ValidateTargetQuantity(request.TargetQuantity);
 
@@ -82,7 +93,6 @@ public sealed class OperationalListService(
                 activeItem.Status,
                 activeItem.Notes
             }), cancellationToken);
-            await restockRepository.SaveChangesAsync(cancellationToken);
 
             var existingCategoryName = productRepository.Query()
                 .Where(value => value.Id == product.Id)
@@ -118,8 +128,7 @@ public sealed class OperationalListService(
         };
 
         await restockRepository.AddAsync(entity, cancellationToken);
-        await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), entity.Id, AuditAction.Created, actor, entity), cancellationToken);
-        await restockRepository.SaveChangesAsync(cancellationToken);
+        await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), entity.Id, AuditAction.Created, actor, CreateRestockAuditPayload(entity)), cancellationToken);
 
         var categoryName = productRepository.Query()
             .Where(value => value.Id == product.Id)
@@ -167,7 +176,7 @@ public sealed class OperationalListService(
         entity.Notes = request.Notes?.Trim() ?? string.Empty;
 
         restockRepository.Update(entity);
-        await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), entity.Id, AuditAction.Updated, actor, entity), cancellationToken);
+        await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), entity.Id, AuditAction.Updated, actor, CreateRestockAuditPayload(entity)), cancellationToken);
         await restockRepository.SaveChangesAsync(cancellationToken);
 
         var categoryName = productRepository.Query()
@@ -202,7 +211,7 @@ public sealed class OperationalListService(
         }
 
         restockRepository.Remove(entity);
-        await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), entity.Id, AuditAction.Deleted, actor, entity), cancellationToken);
+        await auditRepository.AddAsync(CreateAudit(nameof(OperationalRestockItem), entity.Id, AuditAction.Deleted, actor, CreateRestockAuditPayload(entity)), cancellationToken);
         await restockRepository.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -470,6 +479,19 @@ public sealed class OperationalListService(
             item.Source,
             item.CreatedAtUtc,
             item.UpdatedAtUtc);
+
+    private static object CreateRestockAuditPayload(OperationalRestockItem item)
+        => new
+        {
+            item.ProductId,
+            item.OwnerSupplierId,
+            item.TargetQuantity,
+            item.Priority,
+            item.Status,
+            item.Notes,
+            item.DueDateUtc,
+            item.CompletedAtUtc
+        };
 
     private static AuditLog CreateAudit(string entityName, Guid entityId, AuditAction action, string actor, object payload)
         => new()

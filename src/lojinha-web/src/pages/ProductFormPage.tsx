@@ -569,12 +569,11 @@ export function ProductFormPage() {
                 </Grid>
 
                 <Stack spacing={0.75}>
-                  <Typography fontWeight={700}>Precificação e estoque</Typography>
+                  <Typography fontWeight={700}>Precificação</Typography>
                   <Divider />
                 </Stack>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={4}><TextField label="Estoque" type="number" value={form.currentStock} onChange={(event) => updateForm('currentStock', Number(event.target.value))} fullWidth /></Grid>
                   <Grid item xs={12}>
                     <FormControlLabel
                       control={<Checkbox checked={form.generateProductionExpenseOnStockEntry} onChange={(event) => updateForm('generateProductionExpenseOnStockEntry', event.target.checked)} />}

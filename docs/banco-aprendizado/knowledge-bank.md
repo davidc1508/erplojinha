@@ -394,6 +394,13 @@ Base URL: /api
 - U-20260601-21 UI Estoque: corrigida inversao das acoes na tabela de movimentacoes; `Excluir` voltou para `Entry` e `Estornar` voltou para `Exit`/`Adjustment` (sem estorno para `Sale`).
 - U-20260601-22 UI Estoque: modal `Registrar movimentacao` passou a exibir, em modo apenas visual (read-only), `Valor sugerido` e `Valor de venda real` do produto selecionado.
 
+## 13.2) Atualizacoes de 2026-06-05
+
+- U-20260605-01 Vendas/Reposicao: venda direta ou por feira com `CreateTodoForProducedItems` ativo passou a gerar restock no mesmo commit da venda; audit de restock usa payload escalar para evitar ciclo JSON com Produto/Categoria.
+- U-20260605-02 UI Vendas/Feiras: apos venda com reposicao automatica, a tela invalida a chave `operational-restock`, que e a lista efetivamente atualizada pelo backend.
+- U-20260605-03 UI Produtos: campo manual "Estoque" foi removido do cadastro/edicao de produto; estoque permanece controlado por fluxos de estoque, projeto e venda.
+- U-20260605-04 Deploy Oracle: correcao de venda com reposicao automatica e remocao do campo de estoque publicada na tag `20260605-sale-restock-product-stock-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
+
 ### 12.6 Regras de personalizados
 
 - R-PERS-001: projeto personalizado segue etapas fixas de budget/modeling/approval/printing/finishing/finalization.
@@ -460,6 +467,7 @@ Fonte: testes de servico presentes no repositorio.
 - T-SALE-001: CreateAsync deve permitir venda mesmo com estoque insuficiente.
 - T-SALE-002: DeleteAsync restaura estoque e remove registros correlatos da venda.
 - T-SALE-003: DeleteAsync reduz alvo de restock quando a venda criou itens automaticos.
+- T-SALE-004: CreateAsync com CreateTodoForProducedItems ativo deve persistir a venda e gerar item de restock sem serializar ciclos no audit.
 - T-OPS-001: CreateRestockItemAsync incrementa item ativo existente em vez de duplicar.
 - T-OPS-002: DecreaseRestockTargetAsync reduz apenas a quantidade solicitada.
 

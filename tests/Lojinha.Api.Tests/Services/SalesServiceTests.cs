@@ -162,6 +162,60 @@ public sealed class SalesServiceTests
         Assert.Equal(1m, operationalSpy.DecreasedTargets[0].Quantity);
     }
 
+    [Fact]
+    public async Task CreateAsync_ShouldPersistSaleAndRestockItem_WhenSaleRequestsAutomaticRestock()
+    {
+        await using var dbContext = CreateDbContext();
+        var category = new ProductCategory { Name = "Categoria 3", Description = "Teste" };
+        var product = new Product
+        {
+            Name = "Produto 3",
+            Sku = "PROD-003",
+            Category = category,
+            CostPrice = 8m,
+            SalePrice = 22m,
+            SuggestedPrice = 22m,
+            CurrentStock = 4m
+        };
+
+        dbContext.Categories.Add(category);
+        dbContext.Products.Add(product);
+        await dbContext.SaveChangesAsync();
+
+        var operationalService = new OperationalListService(
+            new Repository<OperationalRestockItem>(dbContext),
+            new Repository<OperationalTodoItem>(dbContext),
+            new Repository<Product>(dbContext),
+            new Repository<AuditLog>(dbContext));
+        var service = new SalesService(
+            new NoOpCacheInvalidationService(),
+            new ProductRepository(dbContext),
+            new FairRepository(dbContext),
+            new SaleRepository(dbContext),
+            new InventoryRepository(dbContext),
+            new Repository<Supplier>(dbContext),
+            new Repository<CardFeeSettings>(dbContext),
+            new Repository<FinancialEntry>(dbContext),
+            new Repository<AuditLog>(dbContext),
+            operationalService);
+
+        var sale = await service.CreateAsync(
+            new Contracts.Sales.CreateSaleRequest(
+                PaymentMethod.Pix,
+                null,
+                null,
+                [new Contracts.Sales.SaleItemRequest(product.Id, null, 2m, null, null)],
+                CreateTodoForProducedItems: true),
+            "teste");
+
+        var restockItem = await dbContext.OperationalRestockItems.SingleAsync();
+
+        Assert.NotEqual(Guid.Empty, sale.Id);
+        Assert.Single(dbContext.Sales);
+        Assert.Equal(product.Id, restockItem.ProductId);
+        Assert.Equal(2m, restockItem.TargetQuantity);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -187,6 +241,9 @@ public sealed class SalesServiceTests
 
         public Task<RestockItemDto> CreateRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
+
+        public Task QueueRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
 
         public Task<RestockItemDto?> UpdateRestockItemAsync(Guid id, RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
             => Task.FromResult<RestockItemDto?>(null);
@@ -222,6 +279,9 @@ public sealed class SalesServiceTests
 
         public Task<RestockItemDto> CreateRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
             => Task.FromResult(new RestockItemDto(Guid.NewGuid(), request.ProductId, string.Empty, string.Empty, scopedSupplierId, request.TargetQuantity, OperationalItemPriority.Medium, RestockTaskStatus.Open, request.Notes ?? string.Empty, null, null, DateTime.UtcNow, DateTime.UtcNow));
+
+        public Task QueueRestockItemAsync(RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
 
         public Task<RestockItemDto?> UpdateRestockItemAsync(Guid id, RestockItemRequest request, string actor, Guid? scopedSupplierId, CancellationToken cancellationToken = default)
             => Task.FromResult<RestockItemDto?>(null);

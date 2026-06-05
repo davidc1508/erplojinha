@@ -52,7 +52,7 @@ services:
       retries: 10
 
   api:
-    image: lojinha-api-oracle:20260511-project-sales-mobile-v1
+    image: lojinha-api-oracle:20260605-sale-restock-product-stock-v1
     container_name: lojinha-api
     restart: unless-stopped
     depends_on:
@@ -79,7 +79,7 @@ services:
       retries: 12
 
   web:
-    image: lojinha-web-oracle:20260511-project-sales-mobile-v1
+    image: lojinha-web-oracle:20260605-sale-restock-product-stock-v1
     container_name: lojinha-web
     restart: unless-stopped
     depends_on:

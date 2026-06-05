@@ -205,7 +205,7 @@ export function FairDetailsPage() {
       await queryClient.invalidateQueries({ queryKey: ['finance-entries'] });
       await queryClient.invalidateQueries({ queryKey: ['finance-report'] });
       await queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      await queryClient.invalidateQueries({ queryKey: ['operational-todo'] });
+      await queryClient.invalidateQueries({ queryKey: ['operational-restock'] });
     },
     onError: () => {
       setFeedback({ severity: 'error', message: 'Nao foi possivel registrar a venda para esta feira.' });
