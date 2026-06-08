@@ -133,6 +133,7 @@ Enums funcionais relevantes:
 - Tentativas registram impressora usada, tempos/pesos reais e status.
 - Abertura/conclusao/reabertura de projeto e etapas atualiza totais agregados.
 - Existe fluxo para concluir projeto gerando produto derivado.
+- Nome e observacao do projeto podem ser editados apos o cadastro no detalhe do projeto.
 
 ### 4.5 Financeiro
 
@@ -357,6 +358,7 @@ Base URL: /api
 - R-PROJ-003: concluir/falhar tentativa atualiza status da etapa e agregados do projeto.
 - R-PROJ-004: reprint e autoordenacao de mesas foram incorporados ao fluxo de producao.
 - R-PROJ-005: conclusao de projeto pode atualizar/gerar produto derivado.
+- R-PROJ-006: reexecucao/duplicacao de projeto concluido deve copiar o nome original sem adicionar sufixos operacionais como "(nova execucao)".
 
 ## 13) Atualizacoes de 2026-05-31
 
@@ -400,6 +402,12 @@ Base URL: /api
 - U-20260605-02 UI Vendas/Feiras: apos venda com reposicao automatica, a tela invalida a chave `operational-restock`, que e a lista efetivamente atualizada pelo backend.
 - U-20260605-03 UI Produtos: campo manual "Estoque" foi removido do cadastro/edicao de produto; estoque permanece controlado por fluxos de estoque, projeto e venda.
 - U-20260605-04 Deploy Oracle: correcao de venda com reposicao automatica e remocao do campo de estoque publicada na tag `20260605-sale-restock-product-stock-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
+
+## 13.3) Atualizacoes de 2026-06-08
+
+- U-20260608-01 Projetos: reexecucao/duplicacao de projeto concluido passou a copiar o nome original sem acrescentar "(nova execucao)"; limpeza direta em producao removeu o sufixo de 6 projetos e deixou 0 ocorrencias restantes no banco operacional.
+- U-20260608-02 UI Projetos: detalhe do projeto ganhou edicao direta de nome e observacao, preservando produto vinculado e status atual.
+- U-20260608-03 Deploy Oracle: ajuste de reexecucao e edicao de projeto publicado na tag `20260608-project-edit-rerun-name-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
 
 ### 12.6 Regras de personalizados
 

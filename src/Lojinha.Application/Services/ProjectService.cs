@@ -611,7 +611,7 @@ public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(Guid? scopedSuppli
 
         var duplicatedProject = new Project
         {
-            Name = $"{sourceProject.Name} (nova execucao)",
+            Name = sourceProject.Name,
             Description = sourceProject.Description,
             Status = ProjectStatus.Planejado,
             OwnerSupplierId = sourceProject.OwnerSupplierId,

@@ -66,6 +66,7 @@ export function ProjectDetailPage() {
   const queryClient = useQueryClient();
   const [selectedStep, setSelectedStep] = useState<ProjectStep | null>(null);
   const [openAddStepDialog, setOpenAddStepDialog] = useState(false);
+  const [openEditProjectDialog, setOpenEditProjectDialog] = useState(false);
   const [openEditStepDialog, setOpenEditStepDialog] = useState(false);
   const [openFailStepDialog, setOpenFailStepDialog] = useState(false);
   const [openConcludeExistingProductDialog, setOpenConcludeExistingProductDialog] = useState(false);
@@ -82,6 +83,10 @@ export function ProjectDetailPage() {
   const [stepDuration, setStepDuration] = useState(() => minutesToDurationParts(0));
   const [failStepForm, setFailStepForm] = useState({ timeLostMinutes: 0, weightLostGrams: '', failureReason: '' });
   const [failDuration, setFailDuration] = useState(() => minutesToDurationParts(0));
+  const [projectForm, setProjectForm] = useState({
+    name: '',
+    description: ''
+  });
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', id],
@@ -159,6 +164,18 @@ export function ProjectDetailPage() {
     },
     onError: () => {
       setActionFeedback('Nao foi possivel iniciar a reimpressao da mesa.');
+    }
+  });
+  const updateProjectMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => projectsApi.update(id!, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      setOpenEditProjectDialog(false);
+      setActionFeedback('Projeto atualizado com sucesso.');
+    },
+    onError: () => {
+      setActionFeedback('Nao foi possivel atualizar o projeto.');
     }
   });
   const duplicateProjectMutation = useMutation({
@@ -302,6 +319,25 @@ export function ProjectDetailPage() {
 
   if (!project) {
     return <Alert severity="error">Projeto não encontrado.</Alert>;
+  }
+
+  const currentProject = project;
+
+  function startEditProject() {
+    setProjectForm({
+      name: currentProject.name,
+      description: currentProject.description ?? ''
+    });
+    setOpenEditProjectDialog(true);
+  }
+
+  function buildProjectPayload() {
+    return {
+      name: projectForm.name.trim(),
+      description: projectForm.description.trim(),
+      productId: currentProject.productId || null,
+      status: currentProject.status
+    };
   }
 
   const normalizedProjectStatus = project.status
@@ -497,6 +533,11 @@ export function ProjectDetailPage() {
           <Typography variant="h4" fontWeight={700}>{project.name}</Typography>
           <Typography variant="body2" color="text.secondary">Produto: {productName}</Typography>
         </Box>
+        <Tooltip title="Editar projeto">
+          <IconButton onClick={startEditProject} size="small">
+            <EditRoundedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <Chip
           label={project.status}
           color={isProjectConcluded ? 'success' : project.status === 'EmAndamento' ? 'info' : 'default'}
@@ -723,6 +764,39 @@ export function ProjectDetailPage() {
         <DialogActions>
           <Button onClick={() => setOpenAddStepDialog(false)}>Cancelar</Button>
           <Button onClick={() => addStepMutation.mutate(buildStepPayload())} variant="contained" disabled={!stepForm.name.trim() || stepForm.timeEstimatedMinutes <= 0 || stepForm.filaments.length === 0 || stepForm.filaments.reduce((sum, f) => sum + (Number(f.weightGrams) || 0), 0) <= 0 || addStepMutation.isLoading}>Adicionar</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openEditProjectDialog} onClose={() => setOpenEditProjectDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Editar projeto</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {updateProjectMutation.isError ? <Alert severity="error" sx={{ mb: 2 }}>Erro ao atualizar projeto.</Alert> : null}
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Nome do projeto"
+              value={projectForm.name}
+              onChange={(event) => setProjectForm((current) => ({ ...current, name: event.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Observacao"
+              value={projectForm.description}
+              onChange={(event) => setProjectForm((current) => ({ ...current, description: event.target.value }))}
+              multiline
+              minRows={3}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEditProjectDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={() => updateProjectMutation.mutate(buildProjectPayload())}
+            variant="contained"
+            disabled={!projectForm.name.trim() || updateProjectMutation.isLoading}
+          >
+            {updateProjectMutation.isLoading ? 'Salvando...' : 'Salvar'}
+          </Button>
         </DialogActions>
       </Dialog>
 
