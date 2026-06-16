@@ -239,6 +239,8 @@ export function OutsourcedProductionFormPage() {
                 options={(metadata?.suppliers ?? []).map((s) => ({ id: s.id, name: s.name }))}
                 value={form.producerSupplierId}
                 onChange={(v) => setField('producerSupplierId', v)}
+                minQueryLength={0}
+                placeholder="Selecione o produtor"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -247,6 +249,8 @@ export function OutsourcedProductionFormPage() {
                 options={(metadata?.suppliers ?? []).map((s) => ({ id: s.id, name: s.name }))}
                 value={form.ownerSupplierId}
                 onChange={(v) => setField('ownerSupplierId', v)}
+                minQueryLength={0}
+                placeholder="Selecione o destinatário"
               />
             </Grid>
           </Grid>
