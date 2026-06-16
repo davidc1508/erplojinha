@@ -198,17 +198,17 @@ export function OutsourcedProductionListPage() {
             ))}
           </Stack>
         ) : (
-          <Paper sx={{ overflowX: 'hidden', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-            <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
+          <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+            <Table size="small" sx={{ minWidth: 750 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ width: '26%' }}>{sortLabel('name', 'Produção')}</TableCell>
-                  <TableCell sx={{ width: '17%' }}>{sortLabel('producerSupplier', 'Produtor')}</TableCell>
-                  <TableCell sx={{ width: '17%' }}>{sortLabel('ownerSupplier', 'Destinatário')}</TableCell>
-                  <TableCell sx={{ width: '14%', whiteSpace: 'nowrap' }} align="right">{sortLabel('productionCost', 'Custo produção')}</TableCell>
-                  <TableCell sx={{ width: '14%', whiteSpace: 'nowrap' }} align="right">{sortLabel('supplierCost', 'Custo fornecedor')}</TableCell>
-                  <TableCell sx={{ width: '8%', whiteSpace: 'nowrap' }} align="center">{sortLabel('productionFeePercentage', 'Taxa')}</TableCell>
-                  <TableCell sx={{ width: '4%' }} align="right"></TableCell>
+                  <TableCell>{sortLabel('name', 'Produção')}</TableCell>
+                  <TableCell>{sortLabel('producerSupplier', 'Produtor')}</TableCell>
+                  <TableCell>{sortLabel('ownerSupplier', 'Destinatário')}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }} align="right">{sortLabel('productionCost', 'Custo produção')}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }} align="right">{sortLabel('supplierCost', 'Custo fornecedor')}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }} align="center">{sortLabel('productionFeePercentage', 'Taxa')}</TableCell>
+                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
