@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   IconButton,
   MenuItem,
   Paper,
@@ -33,19 +32,13 @@ import { PageSection } from '../components/PageSection';
 import { TableSkeleton } from '../components/TableSkeleton';
 import { usePreservedListState } from '../hooks/useSessionState';
 import { outsourcedProductionsApi } from '../services/api';
-import type { OutsourcedProduction, OutsourcedProductionStatus } from '../services/types';
+import type { OutsourcedProduction } from '../services/types';
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function StatusChip({ status }: { status: OutsourcedProductionStatus }) {
-  if (status === 'ConvertidoEmProduto') return <Chip label="Convertido" color="success" size="small" />;
-  if (status === 'Cancelado') return <Chip label="Cancelado" color="error" size="small" />;
-  return <Chip label="Pendente" color="warning" size="small" />;
-}
-
-type SortField = 'name' | 'producerSupplier' | 'ownerSupplier' | 'productionCost' | 'supplierCost' | 'productionFeePercentage' | 'status';
+type SortField = 'name' | 'producerSupplier' | 'ownerSupplier' | 'productionCost' | 'supplierCost' | 'productionFeePercentage';
 
 const defaultListState = {
   search: '',
@@ -169,10 +162,7 @@ export function OutsourcedProductionListPage() {
             {paged.map((p) => (
               <Paper key={p.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
                 <Stack spacing={1}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography fontWeight={700}>{p.name}</Typography>
-                    <StatusChip status={p.status} />
-                  </Stack>
+                  <Typography fontWeight={700}>{p.name}</Typography>
                   {p.category && <Typography fontSize={13} color="text.secondary">{p.category}</Typography>}
                   <Stack direction="row" spacing={1} flexWrap="wrap">
                     <Typography fontSize={13} color="text.secondary">Produtor: {p.producerSupplier}</Typography>
@@ -212,20 +202,19 @@ export function OutsourcedProductionListPage() {
             <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ width: '22%' }}>{sortLabel('name', 'Produção')}</TableCell>
-                  <TableCell sx={{ width: '16%' }}>{sortLabel('producerSupplier', 'Produtor')}</TableCell>
-                  <TableCell sx={{ width: '16%' }}>{sortLabel('ownerSupplier', 'Destinatário')}</TableCell>
-                  <TableCell sx={{ width: '13%', whiteSpace: 'nowrap' }} align="right">{sortLabel('productionCost', 'Custo produção')}</TableCell>
-                  <TableCell sx={{ width: '13%', whiteSpace: 'nowrap' }} align="right">{sortLabel('supplierCost', 'Custo fornecedor')}</TableCell>
+                  <TableCell sx={{ width: '26%' }}>{sortLabel('name', 'Produção')}</TableCell>
+                  <TableCell sx={{ width: '17%' }}>{sortLabel('producerSupplier', 'Produtor')}</TableCell>
+                  <TableCell sx={{ width: '17%' }}>{sortLabel('ownerSupplier', 'Destinatário')}</TableCell>
+                  <TableCell sx={{ width: '14%', whiteSpace: 'nowrap' }} align="right">{sortLabel('productionCost', 'Custo produção')}</TableCell>
+                  <TableCell sx={{ width: '14%', whiteSpace: 'nowrap' }} align="right">{sortLabel('supplierCost', 'Custo fornecedor')}</TableCell>
                   <TableCell sx={{ width: '8%', whiteSpace: 'nowrap' }} align="center">{sortLabel('productionFeePercentage', 'Taxa')}</TableCell>
-                  <TableCell sx={{ width: '8%' }} align="center">{sortLabel('status', 'Status')}</TableCell>
                   <TableCell sx={{ width: '4%' }} align="right"></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8}>
+                    <TableCell colSpan={7}>
                       <Box py={4} textAlign="center">
                         <Typography color="text.secondary">Nenhuma produção terceirizada encontrada.</Typography>
                       </Box>
@@ -242,7 +231,6 @@ export function OutsourcedProductionListPage() {
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(p.productionCost)}</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 700, color: 'primary.main' }}>{formatCurrency(p.supplierCost)}</TableCell>
                     <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>{p.productionFeePercentage}%</TableCell>
-                    <TableCell align="center"><StatusChip status={p.status} /></TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap', pl: 0.5, pr: 0.5 }}>
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ flexWrap: 'nowrap' }}>
                         <Tooltip title="Ver detalhes">

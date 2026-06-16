@@ -200,7 +200,7 @@ export function OutsourcedProductionDetailsPage() {
   const isConverted = production.status === 'ConvertidoEmProduto';
 
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: 3 }}>
       <Stack direction="row" spacing={1} alignItems="center" mb={1}>
         <IconButton onClick={() => navigate('/producao-terceirizada')}>
           <ArrowBackRoundedIcon />
@@ -302,20 +302,14 @@ export function OutsourcedProductionDetailsPage() {
 
         {/* Parâmetros Técnicos */}
         <PageSection title="Parâmetros Técnicos">
-          <Grid container spacing={0}>
-            <Grid item xs={12} sm={6}>
-              <InfoRow label="Impressora" value={production.printer ?? '—'} />
-              <InfoRow label="Marketplace" value={production.marketplace ?? '—'} />
-              <InfoRow label="Itens por placa" value={production.itemsPerPlate} />
-              <InfoRow label="Tempo de impressão" value={`${Math.floor(production.estimatedPrintTimeMinutes / 60)}h ${Math.round(production.estimatedPrintTimeMinutes % 60)}min`} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <InfoRow label="Tarifa kWh" value={formatCurrency(production.tariffPerKwh)} />
-              <InfoRow label="Acabamento" value={`${production.finishingPercentage}%`} />
-              <InfoRow label="Custo adicional" value={formatCurrency(production.additionalCost)} />
-              <InfoRow label="Markup" value={`${production.desiredMarkup}x`} />
-            </Grid>
-          </Grid>
+          <InfoRow label="Impressora" value={production.printer ?? '—'} />
+          <InfoRow label="Marketplace" value={production.marketplace ?? '—'} />
+          <InfoRow label="Itens por placa" value={production.itemsPerPlate} />
+          <InfoRow label="Tempo de impressão" value={`${Math.floor(production.estimatedPrintTimeMinutes / 60)}h ${Math.round(production.estimatedPrintTimeMinutes % 60)}min`} />
+          <InfoRow label="Tarifa kWh" value={formatCurrency(production.tariffPerKwh)} />
+          <InfoRow label="Acabamento" value={`${production.finishingPercentage}%`} />
+          <InfoRow label="Custo adicional" value={formatCurrency(production.additionalCost)} />
+          <InfoRow label="Markup" value={`${production.desiredMarkup}x`} />
         </PageSection>
 
         {/* Filamentos */}
