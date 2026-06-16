@@ -1,4 +1,5 @@
 export type PaymentMethod = 'Pix' | 'CreditCard' | 'DebitCard' | 'Cash' | 'Transfer';
+export type OutsourcedProductionStatus = 'Pendente' | 'ConvertidoEmProduto' | 'Cancelado';
 export type FinancialEntryType = 'Income' | 'Expense';
 export type FinancialClassification = 'Fixed' | 'Variable';
 export type InventoryItemType = 'Product' | 'Supply';
@@ -103,6 +104,49 @@ export interface Product {
   marketplaceFeeId?: string;
   marketplace?: string;
   lifecycleStatus: ProductLifecycleStatus;
+  outsourcedProductionId?: string;
+  producerSupplierId?: string;
+  producerSupplier?: string;
+  productionFeeAmount?: number;
+}
+
+export interface OutsourcedProductionFilamentItem {
+  filamentProfileId: string;
+  filamentName: string;
+  weightGrams: number;
+}
+
+export interface OutsourcedProduction {
+  id: string;
+  name: string;
+  description: string;
+  categoryId?: string;
+  category?: string;
+  producerSupplierId: string;
+  producerSupplier: string;
+  ownerSupplierId: string;
+  ownerSupplier: string;
+  itemsPerPlate: number;
+  estimatedPrintTimeMinutes: number;
+  heightCentimeters: number;
+  estimatedWeightGrams: number;
+  lengthMetersUsed: number;
+  tariffPerKwh: number;
+  finishingPercentage: number;
+  additionalCost: number;
+  printerProfileId?: string;
+  printer?: string;
+  filaments: OutsourcedProductionFilamentItem[];
+  marketplaceFeeId?: string;
+  marketplace?: string;
+  desiredMarkup: number;
+  productionFeePercentage: number;
+  productionCost: number;
+  supplierCost: number;
+  status: OutsourcedProductionStatus;
+  convertedProductId?: string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
 }
 
 export interface ProductMetadata {

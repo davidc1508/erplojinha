@@ -409,6 +409,17 @@ Base URL: /api
 - U-20260608-02 UI Projetos: detalhe do projeto ganhou edicao direta de nome e observacao, preservando produto vinculado e status atual.
 - U-20260608-03 Deploy Oracle: ajuste de reexecucao e edicao de projeto publicado na tag `20260608-project-edit-rerun-name-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
 
+## 13.4) Atualizacoes de 2026-06-16
+
+- U-20260616-01 Producao Terceirizada: novo modulo completo (backend + frontend). Entidades: OutsourcedProduction, OutsourcedProductionRecipe, OutsourcedProductionFilament. Migration: AddOutsourcedProduction.
+- U-20260616-02 Producao Terceirizada: SupplierCost = ProductionCost * (1 + ProductionFeePercentage / 100), padrao 50%. Produtor e Destinatario sao fornecedores; "Lojinha" como produtor e representada por fornecedor especial.
+- U-20260616-03 Producao Terceirizada: conversao em Produto e opcional. Ao converter, campos de custo ficam bloqueados no formulario de produto; editaveis apenas Acabamento, Comissao, Markup e Preco de Venda.
+- U-20260616-04 Producao Terceirizada: ao dar entrada em estoque ou vender sem estoque, gera Contas a Pagar para o dono (SupplierId) e Contas a Receber para o produtor (ProducerSupplierId), ambos usando ProductionFeeAmount * quantidade.
+- U-20260616-05 Producao Terceirizada: custo calculado via PricingService reutilizando BuildProductProxy (objeto Product temporario com campos equivalentes), sem alterar assinatura do PricingService.
+- U-20260616-06 UI: novas paginas OutsourcedProductionListPage, OutsourcedProductionFormPage, OutsourcedProductionDetailsPage. Rotas sob /producao-terceirizada. Nav item visivel para Admin e Supplier.
+- U-20260616-07 UI ProductFormPage: campos de custo bloqueados (disabled) quando produto veio de producao terceirizada (isFromOutsourcedProduction). Alert informativo exibido. Apenas Acabamento, Comissao, Markup e Preco de Venda permanecem editaveis.
+- U-20260616-08 Deploy Oracle: modulo de producao terceirizada publicado na tag `20260616-producao-terceirizada-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
+
 ### 12.6 Regras de personalizados
 
 - R-PERS-001: projeto personalizado segue etapas fixas de budget/modeling/approval/printing/finishing/finalization.

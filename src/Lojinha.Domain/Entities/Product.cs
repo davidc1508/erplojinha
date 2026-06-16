@@ -30,6 +30,11 @@ public sealed class Product : AuditableEntity
     public PrinterProfile? PrinterProfile { get; set; }
     public Guid? DefaultMarketplaceFeeId { get; set; }
     public MarketplaceFee? DefaultMarketplaceFee { get; set; }
+    public Guid? OutsourcedProductionId { get; set; }
+    public OutsourcedProduction? OutsourcedProduction { get; set; }
+    public Guid? ProducerSupplierId { get; set; }
+    public Supplier? ProducerSupplier { get; set; }
+    public decimal ProductionFeeAmount { get; set; }
     public ProductRecipe? Recipe { get; set; }
     public ICollection<SaleItem> SaleItems { get; set; } = new List<SaleItem>();
     public ICollection<ProductFilament> Filaments { get; set; } = [];

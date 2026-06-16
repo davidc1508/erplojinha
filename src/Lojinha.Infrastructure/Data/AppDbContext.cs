@@ -32,6 +32,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ProductFilament> ProductFilaments => Set<ProductFilament>();
     public DbSet<ProjectStepFilament> ProjectStepFilaments => Set<ProjectStepFilament>();
     public DbSet<ProjectStepAttemptFilament> ProjectStepAttemptFilaments => Set<ProjectStepAttemptFilament>();
+    public DbSet<OutsourcedProduction> OutsourcedProductions => Set<OutsourcedProduction>();
+    public DbSet<OutsourcedProductionRecipe> OutsourcedProductionRecipes => Set<OutsourcedProductionRecipe>();
+    public DbSet<OutsourcedProductionFilament> OutsourcedProductionFilaments => Set<OutsourcedProductionFilament>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -209,6 +212,56 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany(x => x.FairLinks)
             .HasForeignKey(x => x.SupplierId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OutsourcedProduction>().Property(x => x.Status).HasConversion<string>();
+
+        modelBuilder.Entity<OutsourcedProduction>()
+            .HasOne(x => x.ProducerSupplier)
+            .WithMany()
+            .HasForeignKey(x => x.ProducerSupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<OutsourcedProduction>()
+            .HasOne(x => x.OwnerSupplier)
+            .WithMany()
+            .HasForeignKey(x => x.OwnerSupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<OutsourcedProduction>()
+            .HasOne(x => x.Category)
+            .WithMany()
+            .HasForeignKey(x => x.CategoryId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<OutsourcedProduction>()
+            .HasOne(x => x.ConvertedProduct)
+            .WithOne(x => x.OutsourcedProduction)
+            .HasForeignKey<OutsourcedProduction>(x => x.ConvertedProductId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<OutsourcedProductionRecipe>()
+            .HasOne(x => x.OutsourcedProduction)
+            .WithOne(x => x.Recipe)
+            .HasForeignKey<OutsourcedProductionRecipe>(x => x.OutsourcedProductionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OutsourcedProductionFilament>()
+            .HasOne(x => x.OutsourcedProduction)
+            .WithMany(x => x.Filaments)
+            .HasForeignKey(x => x.OutsourcedProductionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OutsourcedProductionFilament>()
+            .HasOne(x => x.FilamentProfile)
+            .WithMany()
+            .HasForeignKey(x => x.FilamentProfileId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Product>()
+            .HasOne(x => x.ProducerSupplier)
+            .WithMany()
+            .HasForeignKey(x => x.ProducerSupplierId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

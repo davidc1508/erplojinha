@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOperationalListService, OperationalListService>();
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IPersonalizedService, PersonalizedService>();
+        services.AddScoped<IOutsourcedProductionService, OutsourcedProductionService>();
 
         return services;
     }

@@ -115,3 +115,10 @@ public enum ProjectStepAttemptStatus
     Concluida = 2,
     Falhada = 3
 }
+
+public enum OutsourcedProductionStatus
+{
+    Pendente = 1,
+    ConvertidoEmProduto = 2,
+    Cancelado = 3
+}

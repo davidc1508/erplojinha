@@ -258,12 +258,17 @@ public sealed class SalesService(
             ReferenceId = sale.Id
         }, cancellationToken);
 
+        var regularProductionItems = sale.Items
+            .Where(item => item.Product is not null && !item.Product.GenerateProductionExpenseOnStockEntry && item.Product.OutsourcedProductionId is null)
+            .ToList();
+
+        var outsourcedProductionItems = sale.Items
+            .Where(item => item.Product is not null && !item.Product.GenerateProductionExpenseOnStockEntry && item.Product.OutsourcedProductionId is not null)
+            .ToList();
+
         var productionExpenseAmount = decimal.Round(
-            sale.Items
-                .Where(item => item.Product is null || !item.Product.GenerateProductionExpenseOnStockEntry)
-                .Sum(item => item.CostPrice * item.Quantity),
-            2,
-            MidpointRounding.AwayFromZero);
+            regularProductionItems.Sum(item => item.CostPrice * item.Quantity),
+            2, MidpointRounding.AwayFromZero);
 
         if (productionExpenseAmount > 0)
         {
@@ -277,6 +282,44 @@ public sealed class SalesService(
                 OccurredOnUtc = sale.SoldAtUtc,
                 ReferenceId = sale.Id
             }, cancellationToken);
+        }
+
+        // Outsourced production: generate expense for owner + income for producer
+        foreach (var item in outsourcedProductionItems)
+        {
+            var product = item.Product!;
+            var feeAmount = decimal.Round(product.ProductionFeeAmount * item.Quantity, 2, MidpointRounding.AwayFromZero);
+            if (feeAmount <= 0m)
+            {
+                continue;
+            }
+
+            await financeRepository.AddAsync(new FinancialEntry
+            {
+                Type = FinancialEntryType.Expense,
+                Classification = FinancialClassification.Variable,
+                Category = "Custo de producao terceirizada na venda",
+                Description = fair is null ? $"Custo de producao terceirizada da venda {sale.Id}" : $"Custo de producao terceirizada da venda {sale.Id} na feira {fair.Name}",
+                Amount = feeAmount,
+                OccurredOnUtc = sale.SoldAtUtc,
+                SupplierId = item.SupplierId,
+                ReferenceId = sale.Id
+            }, cancellationToken);
+
+            if (product.ProducerSupplierId.HasValue)
+            {
+                await financeRepository.AddAsync(new FinancialEntry
+                {
+                    Type = FinancialEntryType.Income,
+                    Classification = FinancialClassification.Variable,
+                    Category = "Producao terceirizada",
+                    Description = fair is null ? $"Repasse de producao da venda {sale.Id}" : $"Repasse de producao da venda {sale.Id} na feira {fair.Name}",
+                    Amount = feeAmount,
+                    OccurredOnUtc = sale.SoldAtUtc,
+                    SupplierId = product.ProducerSupplierId,
+                    ReferenceId = sale.Id
+                }, cancellationToken);
+            }
         }
 
         var commissionedPayoutsBySeller = sale.Items

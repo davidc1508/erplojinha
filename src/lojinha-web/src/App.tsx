@@ -17,6 +17,9 @@ import { PrintersPage } from './pages/PrintersPage';
 import { ProductFormPage } from './pages/ProductFormPage';
 import { ProductDetailsPage } from './pages/ProductDetailsPage';
 import { ProductsPage } from './pages/ProductsPage';
+import { OutsourcedProductionListPage } from './pages/OutsourcedProductionListPage';
+import { OutsourcedProductionFormPage } from './pages/OutsourcedProductionFormPage';
+import { OutsourcedProductionDetailsPage } from './pages/OutsourcedProductionDetailsPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { PersonalizadosPage } from './pages/PersonalizadosPage';
@@ -65,6 +68,10 @@ function ProtectedApp() {
         {!isReseller ? <Route path="/listas-operacionais" element={<OperationalListsPage />} /> : null}
         {!isReseller ? <Route path="/projetos" element={<ProjectsPage />} /> : null}
         {!isReseller ? <Route path="/projetos/:id" element={<ProjectDetailPage />} /> : null}
+        {!isReseller ? <Route path="/producao-terceirizada" element={<OutsourcedProductionListPage />} /> : null}
+        {!isReseller ? <Route path="/producao-terceirizada/nova" element={<OutsourcedProductionFormPage />} /> : null}
+        {!isReseller ? <Route path="/producao-terceirizada/:id" element={<OutsourcedProductionDetailsPage />} /> : null}
+        {!isReseller ? <Route path="/producao-terceirizada/:id/editar" element={<OutsourcedProductionFormPage />} /> : null}
         {!isReseller ? <Route path="/personalizados" element={<PersonalizadosPage />} /> : null}
         <Route path="/minha-conta/senha" element={<ChangePasswordPage />} />
         {!isSupplier && !isReseller ? <Route path="/configuracoes/taxas" element={<CardFeeSettingsPage />} /> : null}

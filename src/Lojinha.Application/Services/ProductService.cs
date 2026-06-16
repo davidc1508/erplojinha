@@ -129,17 +129,7 @@ public sealed class ProductService(
 
             if (product.GenerateProductionExpenseOnStockEntry)
             {
-                await financeRepository.AddAsync(new FinancialEntry
-                {
-                    Type = FinancialEntryType.Expense,
-                    Classification = FinancialClassification.Variable,
-                    Category = "Custo de producao",
-                    Description = $"Entrada em estoque do produto {product.Name}",
-                    Amount = decimal.Round(product.CostPrice * product.CurrentStock, 2, MidpointRounding.AwayFromZero),
-                    OccurredOnUtc = DateTime.UtcNow,
-                    SupplierId = product.SupplierId,
-                    ReferenceId = product.Id
-                }, cancellationToken);
+                await AddProductionFinancialEntriesAsync(product, product.CurrentStock, cancellationToken);
             }
         }
 
@@ -527,6 +517,41 @@ public sealed class ProductService(
             .ToList();
     }
 
+    private async Task AddProductionFinancialEntriesAsync(Product product, decimal quantity, CancellationToken cancellationToken)
+    {
+        var isOutsourced = product.OutsourcedProductionId.HasValue && product.ProducerSupplierId.HasValue && product.ProductionFeeAmount > 0m;
+        var expenseAmount = decimal.Round(
+            isOutsourced ? product.ProductionFeeAmount * quantity : product.CostPrice * quantity,
+            2, MidpointRounding.AwayFromZero);
+
+        await financeRepository.AddAsync(new FinancialEntry
+        {
+            Type = FinancialEntryType.Expense,
+            Classification = FinancialClassification.Variable,
+            Category = isOutsourced ? "Custo de producao terceirizada" : "Custo de producao",
+            Description = $"Entrada em estoque do produto {product.Name}",
+            Amount = expenseAmount,
+            OccurredOnUtc = DateTime.UtcNow,
+            SupplierId = product.SupplierId,
+            ReferenceId = product.Id
+        }, cancellationToken);
+
+        if (isOutsourced)
+        {
+            await financeRepository.AddAsync(new FinancialEntry
+            {
+                Type = FinancialEntryType.Income,
+                Classification = FinancialClassification.Variable,
+                Category = "Producao terceirizada",
+                Description = $"Repasse de producao do produto {product.Name}",
+                Amount = expenseAmount,
+                OccurredOnUtc = DateTime.UtcNow,
+                SupplierId = product.ProducerSupplierId,
+                ReferenceId = product.Id
+            }, cancellationToken);
+        }
+    }
+
     private static void EnsurePrinterWhenFilaments(IReadOnlyList<FilamentItemRequest> filaments, Guid? printerProfileId)
     {
         var hasFilaments = filaments.Any(item => item.FilamentProfileId != Guid.Empty && item.WeightGrams > 0m);
@@ -570,7 +595,11 @@ public sealed class ProductService(
             product.PrinterProfile?.Name,
             product.DefaultMarketplaceFee?.Name,
             product.DefaultMarketplaceFeeId,
-            product.LifecycleStatus);
+            product.LifecycleStatus,
+            product.OutsourcedProductionId,
+            product.ProducerSupplierId,
+            product.ProducerSupplier?.Name,
+            product.ProductionFeeAmount);
 
     private static PriceSuggestionDto Map(PricingSnapshot pricing)
         => new(

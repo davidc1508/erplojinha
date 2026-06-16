@@ -10,6 +10,7 @@ import type {
   FinanceReport,
   FinancialEntry,
   InventoryMovement,
+  OutsourcedProduction,
   Product,
   ProductMetadata,
   ProductPriceHistoryEntry,
@@ -576,6 +577,36 @@ export const personalizadosApi = {
   },
   finalize: async (projectId: string, payload: Record<string, unknown>) => {
     const { data } = await api.post<PersonalizedProject>(`/personalizados/${projectId}/finalizar`, payload);
+    return data;
+  }
+};
+
+export const outsourcedProductionsApi = {
+  getAll: async () => {
+    const { data } = await api.get<OutsourcedProduction[]>('/outsourced-productions');
+    return data;
+  },
+  getById: async (id: string) => {
+    const { data } = await api.get<OutsourcedProduction>(`/outsourced-productions/${id}`);
+    return data;
+  },
+  create: async (payload: Record<string, unknown>) => {
+    const { data } = await api.post<OutsourcedProduction>('/outsourced-productions', payload);
+    return data;
+  },
+  update: async (id: string, payload: Record<string, unknown>) => {
+    const { data } = await api.put<OutsourcedProduction>(`/outsourced-productions/${id}`, payload);
+    return data;
+  },
+  remove: async (id: string) => {
+    await api.delete(`/outsourced-productions/${id}`);
+  },
+  convertToProduct: async (id: string, payload: Record<string, unknown>) => {
+    const { data } = await api.post<Product>(`/outsourced-productions/${id}/convert-to-product`, payload);
+    return data;
+  },
+  previewPricing: async (payload: Record<string, unknown>) => {
+    const { data } = await api.post<ProductPricing>('/outsourced-productions/pricing-preview', payload);
     return data;
   }
 };

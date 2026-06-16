@@ -61,7 +61,11 @@ public sealed record ProductDto(
     string? Printer,
     string? Marketplace,
     Guid? MarketplaceFeeId,
-    ProductLifecycleStatus LifecycleStatus = ProductLifecycleStatus.Disponivel);
+    ProductLifecycleStatus LifecycleStatus = ProductLifecycleStatus.Disponivel,
+    Guid? OutsourcedProductionId = null,
+    Guid? ProducerSupplierId = null,
+    string? ProducerSupplier = null,
+    decimal ProductionFeeAmount = 0m);
 
 public sealed record ProductPriceHistoryEntryDto(
     DateTime ChangedAtUtc,

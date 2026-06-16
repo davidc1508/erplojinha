@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProductRecipeRepository, ProductRecipeRepository>();
         services.AddScoped<ISaleRepository, SaleRepository>();
         services.AddScoped<IInventoryRepository, InventoryRepository>();
+        services.AddScoped<IOutsourcedProductionRepository, OutsourcedProductionRepository>();
         services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
         services.AddSingleton<IAppCache, DistributedAppCache>();
         services.AddSingleton<IAppCacheInvalidationService, AppCacheInvalidationService>();

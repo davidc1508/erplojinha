@@ -37,6 +37,7 @@ import ChecklistRoundedIcon from '@mui/icons-material/ChecklistRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import RequestQuoteRoundedIcon from '@mui/icons-material/RequestQuoteRounded';
+import PrecisionManufacturingRoundedIcon from '@mui/icons-material/PrecisionManufacturingRounded';
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -58,6 +59,7 @@ const navigation = [
   { label: 'Listas', path: '/listas-operacionais', icon: <ChecklistRoundedIcon /> },
   { label: 'Projetos', path: '/projetos', icon: <TaskAltRoundedIcon /> },
   { label: 'Personalizados', path: '/personalizados', icon: <AutoFixHighRoundedIcon /> },
+  { label: 'Prod. Terceirizada', path: '/producao-terceirizada', icon: <PrecisionManufacturingRoundedIcon /> },
   { label: 'Taxas', path: '/configuracoes/taxas', icon: <SettingsSuggestRoundedIcon /> },
   { label: 'Fornecedores', path: '/fornecedores', icon: <HandshakeRoundedIcon /> },
   { label: 'Usuários', path: '/usuarios', icon: <PeopleAltRoundedIcon /> }
@@ -85,7 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     if (session?.role === 'Supplier') {
-      return navigation.filter((item) => ['/', '/produtos', '/orcamentos', '/categorias', '/impressoras', '/insumos', '/estoque', '/vendas', '/feiras', '/financeiro', '/listas-operacionais', '/projetos', '/personalizados'].includes(item.path));
+      return navigation.filter((item) => ['/', '/produtos', '/orcamentos', '/categorias', '/impressoras', '/insumos', '/estoque', '/vendas', '/feiras', '/financeiro', '/listas-operacionais', '/projetos', '/personalizados', '/producao-terceirizada'].includes(item.path));
     }
 
     return navigation;

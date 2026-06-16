@@ -10,6 +10,7 @@ public sealed class ProductRepository(AppDbContext dbContext) : Repository<Produ
         => DbSet
             .Include(x => x.Category)
             .Include(x => x.Supplier)
+            .Include(x => x.ProducerSupplier)
             .Include(x => x.PrinterProfile)
                 .Include(x => x.Filaments)
                     .ThenInclude(x => x.FilamentProfile)
@@ -25,6 +26,7 @@ public sealed class ProductRepository(AppDbContext dbContext) : Repository<Produ
         => DbSet
             .Include(x => x.Category)
             .Include(x => x.Supplier)
+            .Include(x => x.ProducerSupplier)
             .Include(x => x.PrinterProfile)
                 .Include(x => x.Filaments)
                     .ThenInclude(x => x.FilamentProfile)
