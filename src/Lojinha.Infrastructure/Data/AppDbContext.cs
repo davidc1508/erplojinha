@@ -219,7 +219,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasOne(x => x.ProducerSupplier)
             .WithMany()
             .HasForeignKey(x => x.ProducerSupplierId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<OutsourcedProduction>()
             .HasOne(x => x.OwnerSupplier)

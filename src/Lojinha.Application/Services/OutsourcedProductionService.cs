@@ -454,10 +454,13 @@ public sealed class OutsourcedProductionService(
             SalePrice = 0m
         };
 
-    private async Task ValidateSuppliersAsync(Guid producerId, Guid ownerId, CancellationToken cancellationToken)
+    private async Task ValidateSuppliersAsync(Guid? producerId, Guid ownerId, CancellationToken cancellationToken)
     {
-        _ = await supplierRepository.GetByIdAsync(producerId, cancellationToken)
-            ?? throw new InvalidOperationException("Fornecedor produtor não encontrado.");
+        if (producerId.HasValue)
+        {
+            _ = await supplierRepository.GetByIdAsync(producerId.Value, cancellationToken)
+                ?? throw new InvalidOperationException("Fornecedor produtor não encontrado.");
+        }
         _ = await supplierRepository.GetByIdAsync(ownerId, cancellationToken)
             ?? throw new InvalidOperationException("Fornecedor destinatário não encontrado.");
     }
@@ -517,7 +520,7 @@ public sealed class OutsourcedProductionService(
             p.CategoryId,
             p.Category?.Name,
             p.ProducerSupplierId,
-            p.ProducerSupplier?.Name ?? string.Empty,
+            p.ProducerSupplier?.Name ?? (p.ProducerSupplierId.HasValue ? string.Empty : "Lojinha"),
             p.OwnerSupplierId,
             p.OwnerSupplier?.Name ?? string.Empty,
             p.ItemsPerPlate,

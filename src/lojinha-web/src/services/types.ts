@@ -122,7 +122,7 @@ export interface OutsourcedProduction {
   description: string;
   categoryId?: string;
   category?: string;
-  producerSupplierId: string;
+  producerSupplierId?: string | null;
   producerSupplier: string;
   ownerSupplierId: string;
   ownerSupplier: string;

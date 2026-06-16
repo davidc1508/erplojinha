@@ -75,7 +75,7 @@ export function OutsourcedProductionFormPage() {
       name: production.name,
       description: production.description,
       categoryId: production.categoryId ?? '',
-      producerSupplierId: production.producerSupplierId,
+      producerSupplierId: production.producerSupplierId ?? 'lojinha',
       ownerSupplierId: production.ownerSupplierId,
       itemsPerPlate: production.itemsPerPlate,
       estimatedPrintTimeMinutes: production.estimatedPrintTimeMinutes,
@@ -110,7 +110,7 @@ export function OutsourcedProductionFormPage() {
     printerProfileId: form.printerProfileId || null,
     filaments: form.filaments.filter((f) => f.filamentProfileId),
     marketplaceFeeId: form.marketplaceFeeId || null,
-    producerSupplierId: form.producerSupplierId || '00000000-0000-0000-0000-000000000000',
+    producerSupplierId: (form.producerSupplierId && form.producerSupplierId !== 'lojinha') ? form.producerSupplierId : '00000000-0000-0000-0000-000000000000',
     ownerSupplierId: form.ownerSupplierId || '00000000-0000-0000-0000-000000000000'
   }), [form]);
 
@@ -133,7 +133,8 @@ export function OutsourcedProductionFormPage() {
         printerProfileId: form.printerProfileId || null,
         filaments: form.filaments.filter((f) => f.filamentProfileId),
         marketplaceFeeId: form.marketplaceFeeId || null,
-        desiredMarkup: Number(form.desiredMarkup)
+        desiredMarkup: Number(form.desiredMarkup),
+        producerSupplierId: form.producerSupplierId === 'lojinha' ? null : form.producerSupplierId || null
       };
       if (isEditing) {
         return outsourcedProductionsApi.update(id!, payload);
@@ -152,8 +153,8 @@ export function OutsourcedProductionFormPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.producerSupplierId || !form.ownerSupplierId) {
-      setFeedback('Selecione o fornecedor produtor e o destinatário.');
+    if (!form.ownerSupplierId) {
+      setFeedback('Selecione o fornecedor destinatário.');
       return;
     }
     saveMutation.mutate();
@@ -175,7 +176,7 @@ export function OutsourcedProductionFormPage() {
   const title = isEditing ? 'Editar Produção Terceirizada' : 'Nova Produção Terceirizada';
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+    <Box component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
       <Stack direction="row" spacing={1} alignItems="center" mb={3}>
         <IconButton onClick={() => navigate('/producao-terceirizada')}>
           <ArrowBackRoundedIcon />
@@ -236,7 +237,7 @@ export function OutsourcedProductionFormPage() {
             <Grid item xs={12} sm={6}>
               <SearchSelectField
                 label="Produtor (quem fabrica)"
-                options={(metadata?.suppliers ?? []).map((s) => ({ id: s.id, name: s.name }))}
+                options={[{ id: 'lojinha', name: 'Lojinha (própria loja)' }, ...(metadata?.suppliers ?? []).map((s) => ({ id: s.id, name: s.name }))]}
                 value={form.producerSupplierId}
                 onChange={(v) => setField('producerSupplierId', v)}
                 minQueryLength={0}

@@ -7,8 +7,8 @@ public sealed class OutsourcedProduction : AuditableEntity
     public Guid? CategoryId { get; set; }
     public ProductCategory? Category { get; set; }
 
-    // Who produces the item
-    public Guid ProducerSupplierId { get; set; }
+    // Who produces the item (null = Lojinha / the store itself)
+    public Guid? ProducerSupplierId { get; set; }
     public Supplier? ProducerSupplier { get; set; }
 
     // Who will own/sell the item
