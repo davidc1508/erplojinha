@@ -419,6 +419,9 @@ Base URL: /api
 - U-20260616-06 UI: novas paginas OutsourcedProductionListPage, OutsourcedProductionFormPage, OutsourcedProductionDetailsPage. Rotas sob /producao-terceirizada. Nav item visivel para Admin e Supplier.
 - U-20260616-07 UI ProductFormPage: campos de custo bloqueados (disabled) quando produto veio de producao terceirizada (isFromOutsourcedProduction). Alert informativo exibido. Apenas Acabamento, Comissao, Markup e Preco de Venda permanecem editaveis.
 - U-20260616-08 Deploy Oracle: modulo de producao terceirizada publicado na tag `20260616-producao-terceirizada-v1` (API e Web), com validacao HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`.
+- U-20260616-09 Producao Terceirizada: ProducerSupplierId tornada nullable (Guid?) no backend. null = Lojinha (a propria loja). Migration: MakeProducerSupplierNullable. ValidateSuppliersAsync pula validacao de produtor quando null. Map retorna "Lojinha" como ProducerSupplier quando ProducerSupplierId is null.
+- U-20260616-10 UI: Dropdown de Produtor no formulario de producao terceirizada inclui opcao fixa "Lojinha (propria loja)" com sentinel id='lojinha'. Frontend mapeia sentinel para null ao salvar e null para 'lojinha' ao carregar. Remocao do maxWidth: 900 do container do formulario.
+- U-20260616-11 Deploy Oracle: tag `20260616-lojinha-producer-v3` publicada (API e Web). HTTP 200 confirmado. Migracao aplicada automaticamente via DatabaseInitializer.
 
 ### 12.6 Regras de personalizados
 
