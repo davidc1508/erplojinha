@@ -17,11 +17,26 @@ services:
       - caddy-config:/config
     networks:
       - lojinha-net
+    deploy:
+      resources:
+        limits:
+          memory: 96m
 
   postgres:
     image: postgres:16-alpine
     container_name: lojinha-postgres
     restart: unless-stopped
+    command: >
+      postgres
+      -c shared_buffers=32MB
+      -c max_connections=20
+      -c work_mem=2MB
+      -c maintenance_work_mem=16MB
+      -c effective_cache_size=128MB
+      -c wal_buffers=4MB
+      -c checkpoint_completion_target=0.9
+      -c random_page_cost=1.1
+      -c autovacuum_max_workers=1
     environment:
       POSTGRES_DB: lojinha
       POSTGRES_USER: lojinha
@@ -35,12 +50,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 96m
 
   redis:
     image: redis:7-alpine
     container_name: lojinha-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: >
+      redis-server
+      --maxmemory 24mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+      --hz 5
+      --dynamic-hz no
+      --lazyfree-lazy-eviction yes
     volumes:
       - redis-data:/data
     networks:
@@ -50,9 +77,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 40m
 
   api:
-    image: lojinha-api-oracle:20260605-sale-restock-product-stock-v1
+    image: lojinha-api-oracle:20260616-lojinha-producer-v3
     container_name: lojinha-api
     restart: unless-stopped
     depends_on:
@@ -68,6 +99,9 @@ services:
       Jwt__Issuer: Lojinha.Api
       Jwt__Audience: Lojinha.Web
       Cors__AllowedOrigins__0: https://app.alojinhasemnome.com.br
+      DOTNET_GCHeapHardLimit: "251658240"
+      DOTNET_GCConserve: "1"
+      DOTNET_ThreadPool_UnfairSemaphoreSpinLimit: "0"
     networks:
       - lojinha-net
     secrets:
@@ -77,9 +111,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+    deploy:
+      resources:
+        limits:
+          memory: 320m
 
   web:
-    image: lojinha-web-oracle:20260605-sale-restock-product-stock-v1
+    image: lojinha-web-oracle:20260616-lojinha-producer-v5
     container_name: lojinha-web
     restart: unless-stopped
     depends_on:
@@ -92,6 +130,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+    deploy:
+      resources:
+        limits:
+          memory: 24m
 
 volumes:
   caddy-data:
