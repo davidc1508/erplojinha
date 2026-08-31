@@ -13,6 +13,7 @@ internal static class FairFinanceCategories
 {
     public const string StoreFairRegistrationCategory = "Inscricao de feira";
     public const string SupplierFairPayableCategory = "Contas a pagar de feiras";
+    public const string FairOperationalExpenseCategory = "Despesa de feira";
 }
 
 public sealed record CreateFairCommand(FairRequest Request, string Actor) : ICommand<FairDto>;
@@ -312,7 +313,8 @@ public sealed class CancelFairCommandHandler(
             .Where(entry => entry.ReferenceId == fair.Id
                 && entry.Type == FinancialEntryType.Expense
                 && (entry.Category == FairFinanceCategories.StoreFairRegistrationCategory
-                    || entry.Category == FairFinanceCategories.SupplierFairPayableCategory))
+                    || entry.Category == FairFinanceCategories.SupplierFairPayableCategory
+                    || entry.Category == FairFinanceCategories.FairOperationalExpenseCategory))
             .ToList();
 
         foreach (var expense in relatedFairExpenses)
@@ -335,6 +337,105 @@ public sealed class CancelFairCommandHandler(
     }
 }
 
+public sealed record AddFairExpenseCommand(Guid FairId, FairExpenseRequest Request, string Actor) : ICommand<FairExpenseDto?>;
+
+public sealed class AddFairExpenseCommandHandler(
+    IAppCacheInvalidationService cacheInvalidationService,
+    IFairRepository fairRepository,
+    IRepository<FinancialEntry> financeRepository,
+    IRepository<AuditLog> auditRepository) : ICommandHandler<AddFairExpenseCommand, FairExpenseDto?>
+{
+    public async Task<FairExpenseDto?> HandleAsync(AddFairExpenseCommand command, CancellationToken cancellationToken = default)
+    {
+        var fair = await fairRepository.GetDetailedByIdAsync(command.FairId, cancellationToken);
+        if (fair is null)
+        {
+            return null;
+        }
+
+        var amount = decimal.Round(command.Request.Amount, 2, MidpointRounding.AwayFromZero);
+        if (amount <= 0m)
+        {
+            throw new InvalidOperationException("O valor da despesa da feira deve ser maior do que zero.");
+        }
+
+        var entry = new FinancialEntry
+        {
+            Type = FinancialEntryType.Expense,
+            Classification = FinancialClassification.Variable,
+            Category = FairFinanceCategories.FairOperationalExpenseCategory,
+            Description = command.Request.Description.Trim(),
+            Amount = amount,
+            OccurredOnUtc = NormalizeUtcDate(command.Request.OccurredOnUtc ?? DateTime.UtcNow),
+            ReferenceId = fair.Id
+        };
+
+        await financeRepository.AddAsync(entry, cancellationToken);
+        await auditRepository.AddAsync(new AuditLog
+        {
+            EntityName = nameof(Fair),
+            EntityId = fair.Id.ToString(),
+            Action = AuditAction.Updated,
+            ChangedBy = command.Actor,
+            PayloadJson = JsonSerializer.Serialize(new { Operation = "AddFairExpense", entry.Description, entry.Amount })
+        }, cancellationToken);
+        await financeRepository.SaveChangesAsync(cancellationToken);
+        await cacheInvalidationService.InvalidateFairReadModelsAsync(fair.Id, fair.Suppliers.Select(link => link.SupplierId), cancellationToken);
+        await cacheInvalidationService.InvalidateDashboardAsync(cancellationToken: cancellationToken);
+
+        return new FairExpenseDto(entry.Id, entry.Description, entry.Amount, entry.OccurredOnUtc);
+    }
+
+    private static DateTime NormalizeUtcDate(DateTime value)
+        => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+}
+
+public sealed record DeleteFairExpenseCommand(Guid FairId, Guid ExpenseId, string Actor) : ICommand<bool>;
+
+public sealed class DeleteFairExpenseCommandHandler(
+    IAppCacheInvalidationService cacheInvalidationService,
+    IFairRepository fairRepository,
+    IRepository<FinancialEntry> financeRepository,
+    IRepository<AuditLog> auditRepository) : ICommandHandler<DeleteFairExpenseCommand, bool>
+{
+    public async Task<bool> HandleAsync(DeleteFairExpenseCommand command, CancellationToken cancellationToken = default)
+    {
+        var fair = await fairRepository.GetDetailedByIdAsync(command.FairId, cancellationToken);
+        if (fair is null)
+        {
+            return false;
+        }
+
+        var entry = await financeRepository.GetByIdAsync(command.ExpenseId, cancellationToken);
+        if (entry is null
+            || entry.ReferenceId != command.FairId
+            || entry.Category != FairFinanceCategories.FairOperationalExpenseCategory)
+        {
+            return false;
+        }
+
+        financeRepository.Remove(entry);
+        await auditRepository.AddAsync(new AuditLog
+        {
+            EntityName = nameof(Fair),
+            EntityId = command.FairId.ToString(),
+            Action = AuditAction.Updated,
+            ChangedBy = command.Actor,
+            PayloadJson = JsonSerializer.Serialize(new { Operation = "DeleteFairExpense", entry.Description, entry.Amount })
+        }, cancellationToken);
+        await financeRepository.SaveChangesAsync(cancellationToken);
+
+        await cacheInvalidationService.InvalidateFairReadModelsAsync(command.FairId, fair.Suppliers.Select(link => link.SupplierId), cancellationToken);
+        await cacheInvalidationService.InvalidateDashboardAsync(cancellationToken: cancellationToken);
+        return true;
+    }
+}
+
 public sealed record RegisterFairSaleCommand(Guid FairId, CreateSaleRequest Request, string Actor) : ICommand<SaleDto>;
 
 public sealed class RegisterFairSaleCommandHandler(ISalesService salesService) : ICommandHandler<RegisterFairSaleCommand, SaleDto>
@@ -349,6 +450,7 @@ public sealed class DeleteFairCommandHandler(
     IAppCacheInvalidationService cacheInvalidationService,
     IFairRepository fairRepository,
     ISalesService salesService,
+    IRepository<FinancialEntry> financeRepository,
     IRepository<AuditLog> auditRepository) : ICommandHandler<DeleteFairCommand, bool>
 {
     public async Task<bool> HandleAsync(DeleteFairCommand command, CancellationToken cancellationToken = default)
@@ -364,6 +466,15 @@ public sealed class DeleteFairCommandHandler(
         foreach (var saleId in saleIds)
         {
             await salesService.DeleteAsync(saleId, command.Actor, null, null, cancellationToken);
+        }
+
+        var fairFinanceEntries = financeRepository.Query()
+            .Where(entry => entry.ReferenceId == command.FairId
+                && entry.Category == FairFinanceCategories.FairOperationalExpenseCategory)
+            .ToList();
+        foreach (var entry in fairFinanceEntries)
+        {
+            financeRepository.Remove(entry);
         }
 
                 await cacheInvalidationService.InvalidateFairReadModelsAsync(command.FairId, supplierIds, cancellationToken);

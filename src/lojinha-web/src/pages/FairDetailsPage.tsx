@@ -57,6 +57,9 @@ export function FairDetailsPage() {
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', occurredOnUtc: getTodayDateInputValue() });
+  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
@@ -210,6 +213,41 @@ export function FairDetailsPage() {
     onError: () => {
       setFeedback({ severity: 'error', message: 'Nao foi possivel registrar a venda para esta feira.' });
     }
+  });
+
+  const addExpenseMutation = useMutation({
+    mutationFn: async () => fairsApi.addExpense(id!, {
+      description: expenseForm.description.trim(),
+      amount: Number(expenseForm.amount),
+      occurredOnUtc: toUtcDateOnlyIso(expenseForm.occurredOnUtc)
+    }),
+    onSuccess: async () => {
+      setFeedback({ severity: 'success', message: 'Despesa lançada na feira.' });
+      setExpenseForm({ description: '', amount: '', occurredOnUtc: getTodayDateInputValue() });
+      setIsExpenseModalOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['fairs'] });
+      await queryClient.invalidateQueries({ queryKey: ['fair', id] });
+      await queryClient.invalidateQueries({ queryKey: ['fair-report', id] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['finance-entries'] });
+      await queryClient.invalidateQueries({ queryKey: ['finance-report'] });
+    },
+    onError: () => setFeedback({ severity: 'error', message: 'Nao foi possivel lançar a despesa da feira.' })
+  });
+
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (expenseId: string) => fairsApi.removeExpense(id!, expenseId),
+    onSuccess: async () => {
+      setFeedback({ severity: 'success', message: 'Despesa removida da feira.' });
+      setExpenseToDelete(null);
+      await queryClient.invalidateQueries({ queryKey: ['fairs'] });
+      await queryClient.invalidateQueries({ queryKey: ['fair', id] });
+      await queryClient.invalidateQueries({ queryKey: ['fair-report', id] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['finance-entries'] });
+      await queryClient.invalidateQueries({ queryKey: ['finance-report'] });
+    },
+    onError: () => setFeedback({ severity: 'error', message: 'Nao foi possivel remover a despesa da feira.' })
   });
 
   const deleteSaleMutation = useMutation({
@@ -559,7 +597,8 @@ export function FairDetailsPage() {
                   <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">% da lojinha</Typography><Typography variant="h5">{report.storeFeePercentage.toFixed(2)}%</Typography></Paper></Grid>
                   <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Taxa da loja</Typography><Typography variant="h5">{formatCurrency(report.storeRegistrationFee)}</Typography></Paper></Grid>
                   <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Taxa dos fornecedores</Typography><Typography variant="h5">{formatCurrency(report.supplierRegistrationFee)}</Typography></Paper></Grid>
-                  <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultado</Typography><Typography variant="h5">{formatCurrency(report.result)}</Typography></Paper></Grid>
+                  <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Despesas da feira</Typography><Typography variant="h5">{formatCurrency(report.totalExpenses)}</Typography></Paper></Grid>
+                  <Grid item xs={12} md={6} lg={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultado</Typography><Typography variant="h5" color={report.result < 0 ? 'error.main' : undefined}>{formatCurrency(report.result)}</Typography></Paper></Grid>
                   <Grid item xs={12}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Fornecedores participantes</Typography><Typography variant="h6">{report.suppliers.length === 0 ? 'Nenhum fornecedor vinculado' : report.suppliers.map((item) => item.supplierName).join(', ')}</Typography></Paper></Grid>
                   <Grid item xs={12}>
                     <Paper sx={{ p: 2 }}>
@@ -629,6 +668,50 @@ export function FairDetailsPage() {
                 </Paper>
               </Grid>
             </Grid>
+
+            {!isSupplier ? (
+              <Paper sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.62)' }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1.5} mb={1.5}>
+                  <div>
+                    <Typography variant="h6">Despesas da feira</Typography>
+                    <Typography color="text.secondary">Alimentação, combustível, hospedagem e outros custos do evento. Entram no resultado e no financeiro geral.</Typography>
+                  </div>
+                  <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setIsExpenseModalOpen(true)}>Nova despesa</Button>
+                </Stack>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
+                      <TableCell>Descrição</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Valor</TableCell>
+                      <TableCell align="right" sx={{ pr: 2 }}>Ações</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(report.expenses ?? []).map((expense) => (
+                      <TableRow key={expense.id} hover>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatUtcDate(expense.occurredOnUtc)}</TableCell>
+                        <TableCell>{expense.description}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(expense.amount)}</TableCell>
+                        <TableCell align="right" sx={{ pr: 1 }}>
+                          <IconButton size="small" color="error" onClick={() => setExpenseToDelete(expense.id)} disabled={deleteExpenseMutation.isLoading} aria-label="Remover despesa">
+                            <DeleteOutlineRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(report.expenses ?? []).length > 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={2} sx={{ fontWeight: 700 }}>Total</TableCell>
+                        <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatCurrency(report.totalExpenses)}</TableCell>
+                        <TableCell />
+                      </TableRow>
+                    ) : null}
+                  </TableBody>
+                </Table>
+                {(report.expenses ?? []).length === 0 ? <Alert severity="info" sx={{ mt: 1 }}>Nenhuma despesa lançada para esta feira.</Alert> : null}
+              </Paper>
+            ) : null}
 
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={report.series}>
@@ -930,6 +1013,54 @@ export function FairDetailsPage() {
         onCancel={() => setIsDeleteDialogOpen(false)}
         onConfirm={() => deleteFairMutation.mutate()}
       />
+
+      <ConfirmDialog
+        open={expenseToDelete !== null}
+        title="Remover despesa"
+        description="Deseja remover esta despesa da feira? O resultado e o financeiro serão recalculados."
+        confirmLabel="Remover"
+        confirmColor="error"
+        isLoading={deleteExpenseMutation.isLoading}
+        onCancel={() => setExpenseToDelete(null)}
+        onConfirm={() => {
+          if (expenseToDelete) {
+            deleteExpenseMutation.mutate(expenseToDelete);
+          }
+        }}
+      />
+
+      <Dialog open={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Nova despesa da feira</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Descrição"
+              value={expenseForm.description}
+              onChange={(event) => setExpenseForm({ ...expenseForm, description: event.target.value })}
+              placeholder="Ex.: Gasolina ida e volta, almoço da equipe, diária do hotel"
+              fullWidth
+            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <CurrencyField label="Valor" value={expenseForm.amount === '' ? 0 : Number(expenseForm.amount)} onValueChange={(value) => setExpenseForm({ ...expenseForm, amount: String(value) })} fullWidth />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField label="Data" type="date" value={expenseForm.occurredOnUtc} onChange={(event) => setExpenseForm({ ...expenseForm, occurredOnUtc: event.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+              </Grid>
+            </Grid>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button variant="outlined" onClick={() => setIsExpenseModalOpen(false)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            onClick={() => addExpenseMutation.mutate()}
+            disabled={addExpenseMutation.isLoading || expenseForm.description.trim() === '' || expenseForm.amount === '' || Number(expenseForm.amount) <= 0}
+          >
+            Lançar despesa
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={isSaleModalOpen} onClose={handleCloseSaleModal} fullWidth maxWidth="md">
         <DialogTitle>Registrar venda na feira</DialogTitle>

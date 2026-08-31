@@ -353,6 +353,14 @@ export interface Fair {
   grossRevenue: number;
   netRevenue: number;
   piggyBankAmount: number;
+  totalExpenses: number;
+}
+
+export interface FairExpense {
+  id: string;
+  description: string;
+  amount: number;
+  occurredOnUtc: string;
 }
 
 export interface FairReportSeries {
@@ -391,6 +399,8 @@ export interface FairReport {
   topProducts: TopProduct[];
   sales: Sale[];
   series: FairReportSeries[];
+  totalExpenses: number;
+  expenses: FairExpense[];
 }
 
 export interface OperationalRestockItem {

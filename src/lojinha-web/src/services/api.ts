@@ -458,6 +458,13 @@ export const fairsApi = {
     const { data } = await api.post<Sale>(`/fairs/${id}/sales`, payload);
     return data;
   },
+  addExpense: async (id: string, payload: Record<string, unknown>) => {
+    const { data } = await api.post(`/fairs/${id}/expenses`, payload);
+    return data;
+  },
+  removeExpense: async (id: string, expenseId: string) => {
+    await api.delete(`/fairs/${id}/expenses/${expenseId}`);
+  },
   exportReport: async (id: string) => {
     const response = await api.get<Blob>(`/fairs/${id}/report/export`, { responseType: 'blob' });
     return response.data;

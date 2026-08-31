@@ -8,6 +8,10 @@ public sealed record FairSupplierDto(Guid SupplierId, string SupplierName);
 
 public sealed record FairRegistrationInstallmentRequest(DateTime DueDateUtc, decimal Amount);
 
+public sealed record FairExpenseRequest(string Description, decimal Amount, DateTime? OccurredOnUtc);
+
+public sealed record FairExpenseDto(Guid Id, string Description, decimal Amount, DateTime OccurredOnUtc);
+
 public sealed record FairRequest(
     string Name,
     DateTime EventDateUtc,
@@ -39,7 +43,8 @@ public sealed record FairDto(
     int TotalSales,
     decimal GrossRevenue,
     decimal NetRevenue,
-    decimal PiggyBankAmount);
+    decimal PiggyBankAmount,
+    decimal TotalExpenses = 0m);
 
 public sealed record FairReportSeriesDto(string Label, decimal GrossRevenue, decimal NetRevenue, decimal ItemsSold);
 
@@ -72,4 +77,6 @@ public sealed record FairReportDto(
     IReadOnlyList<FairSupplierQuotaStatusDto> SupplierQuotaStatus,
     IReadOnlyList<TopProductDto> TopProducts,
     IReadOnlyList<SaleDto> Sales,
-    IReadOnlyList<FairReportSeriesDto> Series);
+    IReadOnlyList<FairReportSeriesDto> Series,
+    decimal TotalExpenses = 0m,
+    IReadOnlyList<FairExpenseDto>? Expenses = null);

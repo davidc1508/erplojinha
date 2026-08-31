@@ -24,6 +24,8 @@ public sealed class FairsController(
     ICommandHandler<ReopenFairCommand, FairDto?> reopenFairHandler,
     ICommandHandler<CancelFairCommand, FairDto?> cancelFairHandler,
     ICommandHandler<DeleteFairCommand, bool> deleteFairHandler,
+    ICommandHandler<AddFairExpenseCommand, FairExpenseDto?> addFairExpenseHandler,
+    ICommandHandler<DeleteFairExpenseCommand, bool> deleteFairExpenseHandler,
     ICommandHandler<RegisterFairSaleCommand, SaleDto> registerFairSaleHandler) : ControllerBase
 {
     private Guid? ScopedSupplierId => User.IsInRole(UserRole.Supplier.ToString()) ? User.GetSupplierId() : null;
@@ -163,6 +165,29 @@ public sealed class FairsController(
         {
             return BadRequest(new { message = exception.Message });
         }
+    }
+
+    [HttpPost("{id:guid}/expenses")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<FairExpenseDto>> AddExpense(Guid id, [FromBody] FairExpenseRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var expense = await addFairExpenseHandler.HandleAsync(new AddFairExpenseCommand(id, request, User.GetEmail()), cancellationToken);
+            return expense is null ? NotFound() : Ok(expense);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}/expenses/{expenseId:guid}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteExpense(Guid id, Guid expenseId, CancellationToken cancellationToken)
+    {
+        var deleted = await deleteFairExpenseHandler.HandleAsync(new DeleteFairExpenseCommand(id, expenseId, User.GetEmail()), cancellationToken);
+        return deleted ? NoContent() : NotFound();
     }
 
     [HttpPost("{id:guid}/sales")]

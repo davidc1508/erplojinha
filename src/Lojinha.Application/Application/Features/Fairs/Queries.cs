@@ -8,24 +8,55 @@ namespace Lojinha.Api.Application.Features.Fairs;
 
 public sealed record GetFairsQuery(Guid? SupplierId = null) : IQuery<IReadOnlyList<FairDto>>;
 
-public sealed class GetFairsQueryHandler(IFairRepository fairRepository, IAppCache cache) : IQueryHandler<GetFairsQuery, IReadOnlyList<FairDto>>
+public sealed class GetFairsQueryHandler(
+    IFairRepository fairRepository,
+    IRepository<FinancialEntry> financeRepository,
+    IAppCache cache) : IQueryHandler<GetFairsQuery, IReadOnlyList<FairDto>>
 {
     public async Task<IReadOnlyList<FairDto>> HandleAsync(GetFairsQuery query, CancellationToken cancellationToken = default)
         => await cache.GetOrCreateAsync(
             AppCacheKeys.Fairs(query.SupplierId),
-            async token => (IReadOnlyList<FairDto>)(await fairRepository.GetAllDetailedAsync(token)).Select(fair => fair.ToDto(query.SupplierId)).ToList(),
+            async token =>
+            {
+                var fairs = await fairRepository.GetAllDetailedAsync(token);
+                var expenseTotals = financeRepository.Query()
+                    .Where(entry => entry.Type == FinancialEntryType.Expense
+                        && entry.SupplierId == null
+                        && entry.ReferenceId != null
+                        && entry.Category == FairFinanceCategories.FairOperationalExpenseCategory)
+                    .GroupBy(entry => entry.ReferenceId!.Value)
+                    .ToDictionary(group => group.Key, group => group.Sum(entry => entry.Amount));
+
+                return (IReadOnlyList<FairDto>)fairs
+                    .Select(fair => fair.ToDto(query.SupplierId, expenseTotals.GetValueOrDefault(fair.Id)))
+                    .ToList();
+            },
             AppCacheDurations.Fairs,
             cancellationToken);
 }
 
 public sealed record GetFairByIdQuery(Guid FairId) : IQuery<FairDto?>;
 
-public sealed class GetFairByIdQueryHandler(IFairRepository fairRepository) : IQueryHandler<GetFairByIdQuery, FairDto?>
+public sealed class GetFairByIdQueryHandler(
+    IFairRepository fairRepository,
+    IRepository<FinancialEntry> financeRepository) : IQueryHandler<GetFairByIdQuery, FairDto?>
 {
     public async Task<FairDto?> HandleAsync(GetFairByIdQuery query, CancellationToken cancellationToken = default)
     {
         var fair = await fairRepository.GetDetailedByIdAsync(query.FairId, cancellationToken);
-        return fair?.ToDto();
+        if (fair is null)
+        {
+            return null;
+        }
+
+        var totalExpenses = financeRepository.Query()
+            .Where(entry => entry.ReferenceId == fair.Id
+                && entry.SupplierId == null
+                && entry.Type == FinancialEntryType.Expense
+                && entry.Category == FairFinanceCategories.FairOperationalExpenseCategory)
+            .Sum(entry => (decimal?)entry.Amount) ?? 0m;
+
+        return fair.ToDto(null, totalExpenses);
     }
 }
 
@@ -98,6 +129,15 @@ public sealed class GetFairReportQueryHandler(
             })
             .ToList();
 
-        return fair.ToReportDto(supplierQuotaStatus);
+        var expenses = financeRepository.Query()
+            .Where(entry => entry.ReferenceId == fair.Id
+                && entry.SupplierId == null
+                && entry.Type == FinancialEntryType.Expense
+                && entry.Category == FairFinanceCategories.FairOperationalExpenseCategory)
+            .OrderByDescending(entry => entry.OccurredOnUtc)
+            .Select(entry => new FairExpenseDto(entry.Id, entry.Description, entry.Amount, entry.OccurredOnUtc))
+            .ToList();
+
+        return fair.ToReportDto(supplierQuotaStatus, expenses);
     }
 }

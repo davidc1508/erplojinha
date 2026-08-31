@@ -32,7 +32,7 @@ internal static class FairMappings
             ? decimal.Round(fair.SupplierRegistrationFee / fair.Suppliers.Count, 2, MidpointRounding.AwayFromZero)
             : 0m;
 
-    public static FairDto ToDto(this Fair fair, Guid? supplierId = null)
+    public static FairDto ToDto(this Fair fair, Guid? supplierId = null, decimal totalExpenses = 0m)
     {
         if (supplierId.HasValue)
         {
@@ -62,12 +62,14 @@ internal static class FairMappings
                 fair.Sales.Count(sale => sale.Items.Any(item => item.SupplierId == supplierId.Value)),
                 supplierGrossRevenue,
                 supplierResult,
-                supplierPiggyBankAmount);
+                supplierPiggyBankAmount,
+                0m);
         }
 
+        var normalizedExpenses = Math.Max(0m, totalExpenses);
         var grossRevenue = fair.Sales.Sum(sale => CalculateStoreGrossRevenue(sale.Items));
         var effectiveStoreRegistrationFee = GetEffectiveStoreRegistrationFee(fair);
-        var netRevenue = fair.Sales.Sum(sale => sale.ProfitAmount) - effectiveStoreRegistrationFee;
+        var netRevenue = fair.Sales.Sum(sale => sale.ProfitAmount) - effectiveStoreRegistrationFee - normalizedExpenses;
         var piggyBankAmount = SalesReportCalculator.CalculatePiggyBankAmount(netRevenue);
         var suppliers = fair.Suppliers
             .OrderBy(link => link.Supplier!.Name)
@@ -92,7 +94,8 @@ internal static class FairMappings
             fair.Sales.Count,
             grossRevenue,
             netRevenue,
-            piggyBankAmount);
+            piggyBankAmount,
+            normalizedExpenses);
     }
 
     public static SaleDto ToSaleDto(this Sale sale)
@@ -125,13 +128,14 @@ internal static class FairMappings
                 item.CommissionAmount)).ToList(),
             false);
 
-    public static FairReportDto ToReportDto(this Fair fair, IReadOnlyList<FairSupplierQuotaStatusDto>? supplierQuotaStatus = null)
+    public static FairReportDto ToReportDto(this Fair fair, IReadOnlyList<FairSupplierQuotaStatusDto>? supplierQuotaStatus = null, IReadOnlyList<FairExpenseDto>? expenses = null)
     {
         var sales = fair.Sales.OrderByDescending(sale => sale.SoldAtUtc).ToList();
         var effectiveStoreRegistrationFee = GetEffectiveStoreRegistrationFee(fair);
         var grossRevenue = sales.Sum(sale => CalculateStoreGrossRevenue(sale.Items));
         var netRevenue = sales.Sum(sale => sale.ProfitAmount);
-        var result = netRevenue - effectiveStoreRegistrationFee;
+        var totalExpenses = decimal.Round(Math.Max(0m, expenses?.Sum(expense => expense.Amount) ?? 0m), 2, MidpointRounding.AwayFromZero);
+        var result = netRevenue - effectiveStoreRegistrationFee - totalExpenses;
         var piggyBankAmount = SalesReportCalculator.CalculatePiggyBankAmount(result);
         var totalItems = sales.SelectMany(sale => sale.Items).Sum(item => item.Quantity);
         var suppliers = fair.Suppliers
@@ -175,6 +179,8 @@ internal static class FairMappings
             supplierQuotaStatus ?? [],
             topProducts,
             sales.Select(sale => sale.ToSaleDto()).ToList(),
-            series);
+            series,
+            totalExpenses,
+            expenses ?? []);
     }
 }

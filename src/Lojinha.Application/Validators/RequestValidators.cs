@@ -183,6 +183,15 @@ public sealed class FairRequestValidator : AbstractValidator<FairRequest>
     }
 }
 
+public sealed class FairExpenseRequestValidator : AbstractValidator<FairExpenseRequest>
+{
+    public FairExpenseRequestValidator()
+    {
+        RuleFor(x => x.Description).NotEmpty().MaximumLength(250);
+        RuleFor(x => x.Amount).GreaterThan(0);
+    }
+}
+
 public sealed class ProductCategoryRequestValidator : AbstractValidator<ProductCategoryRequest>
 {
     public ProductCategoryRequestValidator()
