@@ -437,6 +437,7 @@ Base URL: /api
 - U-20260831-09 Deploy Oracle: tag `20260831-product-types-brinco-botton-v1` (API e Web). Migration `AddProductTypesAndBottonSizes` aplicada automaticamente via DatabaseInitializer. HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`. Limpeza de imagens antigas na Oracle e local concluida.
 - U-20260831-10 Marketplace: existe um registro `MarketplaceFee` chamado "NENHUM" no banco. Os formularios de produto/personalizado/producao terceirizada agora pre-selecionam esse registro por padrao (busca por nome == "nenhum", case-insensitive, padrao `defaultFilamentId`). A opcao sintetica `<MenuItem value="">` so aparece quando o valor atual esta vazio (produtos legados sem marketplace), com rotulo "— Sem marketplace —" — evita as duas opcoes "nenhum" duplicadas.
 - U-20260831-11 Mao de obra: `ProductRequest.LaborCost` (default 0.5) exposto como campo "Mao de obra" (CurrencyField) na secao Precificacao do ProductFormPage. Antes era fixo em `LaborHours=1, LaborCostPerHour=0.5` no ProductService. Agora Create/Update/Preview gravam `LaborHours=1, LaborCostPerHour=request.LaborCost`; `ProductDto.LaborCost` = `round(Recipe.LaborHours * Recipe.LaborCostPerHour, 2)`. Bloqueado quando `isFromOutsourcedProduction`.
+- U-20260831-12 Deploy Oracle: tag `20260831-marketplace-labor-v1` (API e Web). Sem migration. HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`. Limpeza de imagens antigas concluida.
 
 ### 12.6 Regras de personalizados
 
