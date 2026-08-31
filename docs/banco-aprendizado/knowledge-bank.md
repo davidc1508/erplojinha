@@ -434,6 +434,7 @@ Base URL: /api
 - U-20260831-06 PricingService: `Calculate` ganhou parametro opcional `decimal? materialCostOverride`. Quando informado (Brinco/Botton), substitui o custo de material por peso de filamento / itens de receita. Energia/manutencao/falhas ficam 0 automaticamente (printer null). `ProductService.BuildPricingAsync` e `ApplyPricingAsync` propagam o override; `ResolveMaterialCostOverrideFromProduct` recalcula a partir do produto persistido (Recalculate e GetPriceSuggestion).
 - U-20260831-07 UI: campo "Marketplace" padronizado para opcao "Nenhum" (antes "Sem marketplace" / "— Nenhum —") e ja vinha pre-selecionado como vazio em ProductFormPage, PersonalizadosPage e OutsourcedProductionFormPage.
 - U-20260831-08 Validacao: `ProductRequestValidator` exige impressora-com-filamento apenas para Impressao3D; Brinco exige PingenteSupplyId; Botton exige BottonSizeId e BottonSizeQuantity > 0. `ProductRepository` inclui navs `PingenteSupply` e `BottonSize`.
+- U-20260831-09 Deploy Oracle: tag `20260831-product-types-brinco-botton-v1` (API e Web). Migration `AddProductTypesAndBottonSizes` aplicada automaticamente via DatabaseInitializer. HTTP 200 em `https://api.alojinhasemnome.com.br/health` e `https://app.alojinhasemnome.com.br`. Limpeza de imagens antigas na Oracle e local concluida.
 
 ### 12.6 Regras de personalizados
 
