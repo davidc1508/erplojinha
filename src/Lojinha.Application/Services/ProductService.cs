@@ -109,7 +109,7 @@ public sealed class ProductService(
         {
             Product = product,
             LaborHours = 1m,
-            LaborCostPerHour = 0.5m,
+            LaborCostPerHour = Math.Max(0m, request.LaborCost),
             AdditionalCosts = request.AdditionalCost,
             WholesaleMarkup = 2m,
             RetailMarkup = 2.7m,
@@ -224,13 +224,15 @@ public sealed class ProductService(
         {
             ProductId = product.Id,
             LaborHours = 1m,
-            LaborCostPerHour = 0.5m,
+            LaborCostPerHour = Math.Max(0m, request.LaborCost),
             WholesaleMarkup = 2m,
             RetailMarkup = 2.7m,
             ResellerMarkup = request.DesiredMarkup
         };
         recipe.AdditionalCosts = request.AdditionalCost;
         recipe.ResellerMarkup = request.DesiredMarkup;
+        recipe.LaborHours = 1m;
+        recipe.LaborCostPerHour = Math.Max(0m, request.LaborCost);
 
         await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, materialCostOverride, cancellationToken);
 
@@ -411,7 +413,7 @@ public sealed class ProductService(
         {
             Product = product,
             LaborHours = 1m,
-            LaborCostPerHour = 0.5m,
+            LaborCostPerHour = Math.Max(0m, request.LaborCost),
             AdditionalCosts = request.AdditionalCost,
             WholesaleMarkup = 2m,
             RetailMarkup = 2.7m,
@@ -734,7 +736,8 @@ public sealed class ProductService(
             product.BottonSize?.Name,
             product.BottonSizeQuantity,
             product.BottonSize?.StockQuantity ?? 0m,
-            product.BottonSize?.CostPerUnit ?? 0m);
+            product.BottonSize?.CostPerUnit ?? 0m,
+            product.Recipe is null ? 0.5m : decimal.Round(product.Recipe.LaborHours * product.Recipe.LaborCostPerHour, 2));
 
     private static PriceSuggestionDto Map(PricingSnapshot pricing)
         => new(

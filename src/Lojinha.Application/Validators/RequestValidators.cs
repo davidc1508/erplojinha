@@ -46,6 +46,7 @@ public sealed class ProductRequestValidator : AbstractValidator<ProductRequest>
         RuleFor(x => x.FinishingPercentage).InclusiveBetween(0, 1000);
         RuleFor(x => x.CommissionPercentage).InclusiveBetween(0, 99.99m);
         RuleFor(x => x.AdditionalCost).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.LaborCost).GreaterThanOrEqualTo(0);
         RuleFor(x => x.DesiredMarkup).GreaterThanOrEqualTo(2);
         RuleFor(x => x)
             .Must(x => x.ProductType != ProductType.Impressao3D

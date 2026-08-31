@@ -118,6 +118,7 @@ export interface Product {
   bottonSizeQuantity: number;
   bottonSizeStockQuantity: number;
   bottonSizeCostPerUnit: number;
+  laborCost: number;
 }
 
 export interface OutsourcedProductionFilamentItem {

@@ -48,6 +48,7 @@ const emptyForm = {
   finishingPercentage: 2,
   commissionPercentage: 20,
   additionalCost: 0,
+  laborCost: 0.5,
   printerProfileId: '',
   filaments: [{ filamentProfileId: '', weightGrams: 0 }] as { filamentProfileId: string; weightGrams: number }[],
   marketplaceFeeId: '',
@@ -124,6 +125,11 @@ export function ProductFormPage() {
     return pla120?.id ?? '';
   }, [metadata?.filaments]);
 
+  const noneMarketplaceId = useMemo(() => {
+    const none = (metadata?.marketplaces ?? []).find((item) => item.name.trim().toLowerCase() === 'nenhum');
+    return none?.id ?? '';
+  }, [metadata?.marketplaces]);
+
   useEffect(() => {
     if (!product) {
       return;
@@ -150,6 +156,7 @@ export function ProductFormPage() {
       finishingPercentage: product.finishingPercentage,
       commissionPercentage: product.commissionPercentage,
       additionalCost: product.additionalCost,
+      laborCost: product.laborCost ?? 0.5,
       printerProfileId: product.printerProfileId ?? '',
       filaments: (product.filaments ?? []).map((f) => ({ filamentProfileId: f.filamentProfileId, weightGrams: f.weightGrams })),
       marketplaceFeeId: product.marketplaceFeeId ?? '',
@@ -187,6 +194,7 @@ export function ProductFormPage() {
       finishingPercentage: cloneSource.finishingPercentage,
       commissionPercentage: cloneSource.commissionPercentage,
       additionalCost: cloneSource.additionalCost,
+      laborCost: cloneSource.laborCost ?? 0.5,
       printerProfileId: cloneSource.printerProfileId ?? '',
       filaments: (cloneSource.filaments ?? []).map((f) => ({ filamentProfileId: f.filamentProfileId, weightGrams: f.weightGrams })),
       marketplaceFeeId: cloneSource.marketplaceFeeId ?? '',
@@ -227,6 +235,7 @@ export function ProductFormPage() {
       finishingPercentage: projectDraft.finishingPercentage,
       commissionPercentage: projectDraft.commissionPercentage,
       additionalCost: projectDraft.additionalCost,
+      laborCost: 0.5,
       printerProfileId: projectDraft.printerProfileId ?? '',
       filaments: projectDraft.filaments.map((item: { filamentProfileId: string; weightGrams: number }) => ({ filamentProfileId: item.filamentProfileId, weightGrams: item.weightGrams })),
       marketplaceFeeId: projectDraft.marketplaceFeeId ?? '',
@@ -264,6 +273,14 @@ export function ProductFormPage() {
       };
     });
   }, [cloneFromId, defaultFilamentId, isEditing, isProjectDraftMode]);
+
+  useEffect(() => {
+    if (isEditing || cloneFromId || isProjectDraftMode || !noneMarketplaceId) {
+      return;
+    }
+
+    setForm((current) => current.marketplaceFeeId ? current : { ...current, marketplaceFeeId: noneMarketplaceId });
+  }, [cloneFromId, isEditing, isProjectDraftMode, noneMarketplaceId]);
 
   useEffect(() => {
     if (isEditing || cloneFromId || projectId || !todoName || form.name.trim().length > 0) {
@@ -551,8 +568,8 @@ export function ProductFormPage() {
                     </TextField>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction} helperText="Nenhum vem pré-selecionado.">
-                      <MenuItem value="">Nenhum</MenuItem>
+                    <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction} helperText="Vem pré-selecionado como Nenhum.">
+                      {form.marketplaceFeeId === '' ? <MenuItem value="">— Sem marketplace —</MenuItem> : null}
                       {(metadata?.marketplaces ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
                     </TextField>
                   </Grid>
@@ -730,6 +747,7 @@ export function ProductFormPage() {
                   <Grid item xs={12} md={4}><TextField label="Acabamento (%)" type="number" value={form.finishingPercentage} onChange={(event) => updateForm('finishingPercentage', Number(event.target.value))} fullWidth /></Grid>
                   <Grid item xs={12} md={4}><TextField label="Comissão (%)" type="number" value={form.commissionPercentage} onChange={(event) => updateForm('commissionPercentage', Number(event.target.value))} fullWidth /></Grid>
                   <Grid item xs={12} md={4}><CurrencyField label="Custo adicional" value={form.additionalCost} onValueChange={(value) => updateForm('additionalCost', value)} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
+                  <Grid item xs={12} md={4}><CurrencyField label="Mão de obra" value={form.laborCost} onValueChange={(value) => updateForm('laborCost', value)} helperText="Valor por unidade somado ao custo do produto." fullWidth disabled={isFromOutsourcedProduction} /></Grid>
                   <Grid item xs={12} md={4}><TextField label="Markup desejado" type="number" value={form.desiredMarkup} onChange={(event) => updateForm('desiredMarkup', Number(event.target.value))} helperText="Minimo de 2 (200%)." fullWidth /></Grid>
                   <Grid item xs={12} md={4}><CurrencyField label="Preço final de venda" value={form.salePrice === '' ? 0 : Number(form.salePrice)} onValueChange={(value) => updateForm('salePrice', String(value))} helperText={`Minimo: ${formatCurrency(minimumAllowedSalePrice)}`} fullWidth /></Grid>
                   <Grid item xs={12} md={4}><CurrencyField label="Preço para venda comissionada" value={effectiveCommissionedSalePrice} onValueChange={() => undefined} helperText="Calculado automaticamente a partir do preço final e comissão." fullWidth disabled /></Grid>

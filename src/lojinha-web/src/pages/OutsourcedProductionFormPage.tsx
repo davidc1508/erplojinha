@@ -69,6 +69,11 @@ export function OutsourcedProductionFormPage() {
     return pla120?.id ?? '';
   }, [metadata?.filaments]);
 
+  const noneMarketplaceId = useMemo(() => {
+    const none = (metadata?.marketplaces ?? []).find((item) => item.name.trim().toLowerCase() === 'nenhum');
+    return none?.id ?? '';
+  }, [metadata?.marketplaces]);
+
   useEffect(() => {
     if (!production) return;
     setForm({
@@ -103,6 +108,12 @@ export function OutsourcedProductionFormPage() {
       }));
     }
   }, [defaultFilamentId, isEditing, production]);
+
+  useEffect(() => {
+    if (!isEditing && !production && noneMarketplaceId) {
+      setForm((c) => c.marketplaceFeeId ? c : { ...c, marketplaceFeeId: noneMarketplaceId });
+    }
+  }, [noneMarketplaceId, isEditing, production]);
 
   const pricingPayload = useMemo(() => ({
     ...form,
@@ -282,7 +293,7 @@ export function OutsourcedProductionFormPage() {
                 value={form.marketplaceFeeId}
                 onChange={(e) => setField('marketplaceFeeId', e.target.value)}
               >
-                <MenuItem value="">Nenhum</MenuItem>
+                {form.marketplaceFeeId === '' ? <MenuItem value="">— Sem marketplace —</MenuItem> : null}
                 {(metadata?.marketplaces ?? []).map((m) => (
                   <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
                 ))}

@@ -33,7 +33,8 @@ public sealed record ProductRequest(
     Guid? PingenteSupplyId = null,
     decimal PingenteCost = 0m,
     Guid? BottonSizeId = null,
-    decimal BottonSizeQuantity = 1m);
+    decimal BottonSizeQuantity = 1m,
+    decimal LaborCost = 0.5m);
 
 public sealed record ProductDto(
     Guid Id,
@@ -79,7 +80,8 @@ public sealed record ProductDto(
     string? BottonSize = null,
     decimal BottonSizeQuantity = 1m,
     decimal BottonSizeStockQuantity = 0m,
-    decimal BottonSizeCostPerUnit = 0m);
+    decimal BottonSizeCostPerUnit = 0m,
+    decimal LaborCost = 0.5m);
 
 public sealed record ProductPriceHistoryEntryDto(
     DateTime ChangedAtUtc,
