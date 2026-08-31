@@ -19,6 +19,7 @@ public sealed class InventoryService(
     IInventoryRepository inventoryRepository,
     IRepository<Product> productRepository,
     IRepository<Supply> supplyRepository,
+    IRepository<BottonSize> bottonSizeRepository,
     IRepository<FinancialEntry> financeRepository,
     IRepository<AuditLog> auditRepository,
     IOperationalListService operationalListService) : IInventoryService
@@ -66,6 +67,10 @@ public sealed class InventoryService(
             await ApplyStockAsync(product, product.CurrentStock, request, cancellationToken);
             product.CurrentStock = ComputeNewStock(product.CurrentStock, request);
             productRepository.Update(product);
+            if (stockIncrease > 0m)
+            {
+                await AdjustBottonSizeStockAsync(product, -stockIncrease, actor, cancellationToken);
+            }
             itemName = product.Name;
             affectedSupplierId = product.SupplierId;
         }
@@ -185,7 +190,20 @@ public sealed class InventoryService(
             original.UnitCost,
             $"Estorno de {originalTypeLabel} em {original.OccurredAtUtc:dd/MM/yyyy HH:mm}");
 
-        return await RegisterAsync(reversalRequest, actor, scopedSupplierId, cancellationToken);
+        var result = await RegisterAsync(reversalRequest, actor, scopedSupplierId, cancellationToken);
+
+        if (original.ItemType == InventoryItemType.Product
+            && original.Type is InventoryMovementType.Entry or InventoryMovementType.Adjustment)
+        {
+            var product = await productRepository.GetByIdAsync(original.ItemId, cancellationToken);
+            if (product is not null)
+            {
+                await AdjustBottonSizeStockAsync(product, original.Quantity, actor, cancellationToken);
+                await inventoryRepository.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        return result;
     }
 
     public async Task DeleteAsync(Guid movementId, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
@@ -212,6 +230,10 @@ public sealed class InventoryService(
 
             product.CurrentStock = ComputeStockAfterMovementRemoval(product.CurrentStock, movement);
             productRepository.Update(product);
+            if (movement.Type is InventoryMovementType.Entry or InventoryMovementType.Adjustment)
+            {
+                await AdjustBottonSizeStockAsync(product, movement.Quantity, actor, cancellationToken);
+            }
             affectedSupplierId = product.SupplierId;
         }
         else
@@ -257,4 +279,52 @@ public sealed class InventoryService(
 
     private static decimal ComputeStockAfterMovementRemoval(decimal currentStock, InventoryMovement movement)
         => Math.Max(0m, currentStock - movement.Quantity);
+
+    // Bottons consomem o estoque do tamanho selecionado a cada entrada em estoque do produto.
+    // producedQuantityDelta > 0 devolve insumo (estorno/exclusao); < 0 consome.
+    private async Task AdjustBottonSizeStockAsync(Product product, decimal producedQuantityDelta, string actor, CancellationToken cancellationToken)
+    {
+        if (product.ProductType != ProductType.Botton || !product.BottonSizeId.HasValue || producedQuantityDelta == 0m)
+        {
+            return;
+        }
+
+        var size = await bottonSizeRepository.GetByIdAsync(product.BottonSizeId.Value, cancellationToken);
+        if (size is null)
+        {
+            return;
+        }
+
+        var perUnit = product.BottonSizeQuantity > 0m ? product.BottonSizeQuantity : 1m;
+        var amount = Math.Abs(producedQuantityDelta) * perUnit;
+        if (amount <= 0m)
+        {
+            return;
+        }
+
+        if (producedQuantityDelta > 0m)
+        {
+            size.IncreaseStock(amount);
+        }
+        else
+        {
+            size.DecreaseStock(amount);
+        }
+
+        bottonSizeRepository.Update(size);
+        await auditRepository.AddAsync(new AuditLog
+        {
+            EntityName = nameof(BottonSize),
+            EntityId = size.Id.ToString(),
+            Action = AuditAction.StockChanged,
+            ChangedBy = actor,
+            PayloadJson = JsonSerializer.Serialize(new
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                Delta = producedQuantityDelta > 0m ? amount : -amount,
+                RemainingStock = size.StockQuantity
+            })
+        }, cancellationToken);
+    }
 }

@@ -24,6 +24,15 @@ public interface IPrinterProfileService
     Task<bool> DeleteAsync(Guid id, string actor, CancellationToken cancellationToken = default);
 }
 
+public interface IBottonSizeService
+{
+    Task<IReadOnlyList<BottonSizeDto>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<BottonSizeDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<BottonSizeDto> CreateAsync(BottonSizeRequest request, string actor, CancellationToken cancellationToken = default);
+    Task<BottonSizeDto?> UpdateAsync(Guid id, BottonSizeRequest request, string actor, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(Guid id, string actor, CancellationToken cancellationToken = default);
+}
+
 public sealed class ProductCategoryService(
     IAppCache cache,
     IAppCacheInvalidationService cacheInvalidationService,
@@ -237,5 +246,112 @@ public sealed class PrinterProfileService(
             Action = action,
             ChangedBy = actor,
             PayloadJson = JsonSerializer.Serialize(payload)
+        };
+}
+
+public sealed class BottonSizeService(
+    IAppCache cache,
+    IAppCacheInvalidationService cacheInvalidationService,
+    IRepository<BottonSize> bottonSizeRepository,
+    IRepository<Product> productRepository,
+    IRepository<AuditLog> auditRepository) : IBottonSizeService
+{
+    public Task<IReadOnlyList<BottonSizeDto>> GetAllAsync(CancellationToken cancellationToken = default)
+        => cache.GetOrCreateAsync(
+            AppCacheKeys.BottonSizes(),
+            token => Task.FromResult<IReadOnlyList<BottonSizeDto>>(bottonSizeRepository.Query()
+                .OrderBy(x => x.Name)
+                .Select(Map)
+                .ToList()),
+            AppCacheDurations.Catalog,
+            cancellationToken);
+
+    public async Task<BottonSizeDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var bottonSize = await bottonSizeRepository.GetByIdAsync(id, cancellationToken);
+        return bottonSize is null ? null : Map(bottonSize);
+    }
+
+    public async Task<BottonSizeDto> CreateAsync(BottonSizeRequest request, string actor, CancellationToken cancellationToken = default)
+    {
+        var bottonSize = new BottonSize();
+        Apply(bottonSize, request);
+
+        await bottonSizeRepository.AddAsync(bottonSize, cancellationToken);
+        await auditRepository.AddAsync(CreateAudit(nameof(BottonSize), bottonSize.Id, AuditAction.Created, actor, bottonSize), cancellationToken);
+        await bottonSizeRepository.SaveChangesAsync(cancellationToken);
+        await InvalidateAsync(cancellationToken);
+        return Map(bottonSize);
+    }
+
+    public async Task<BottonSizeDto?> UpdateAsync(Guid id, BottonSizeRequest request, string actor, CancellationToken cancellationToken = default)
+    {
+        var bottonSize = await bottonSizeRepository.GetByIdAsync(id, cancellationToken);
+        if (bottonSize is null)
+        {
+            return null;
+        }
+
+        Apply(bottonSize, request);
+        bottonSizeRepository.Update(bottonSize);
+        await auditRepository.AddAsync(CreateAudit(nameof(BottonSize), bottonSize.Id, AuditAction.Updated, actor, bottonSize), cancellationToken);
+        await bottonSizeRepository.SaveChangesAsync(cancellationToken);
+        await InvalidateAsync(cancellationToken);
+        return Map(bottonSize);
+    }
+
+    public async Task<bool> DeleteAsync(Guid id, string actor, CancellationToken cancellationToken = default)
+    {
+        var bottonSize = await bottonSizeRepository.GetByIdAsync(id, cancellationToken);
+        if (bottonSize is null)
+        {
+            return false;
+        }
+
+        if (productRepository.Query().Any(product => product.BottonSizeId == id))
+        {
+            throw new InvalidOperationException("Nao e possivel excluir um tamanho de botton vinculado a produtos.");
+        }
+
+        bottonSizeRepository.Remove(bottonSize);
+        await auditRepository.AddAsync(CreateAudit(nameof(BottonSize), bottonSize.Id, AuditAction.Deleted, actor, bottonSize), cancellationToken);
+        await bottonSizeRepository.SaveChangesAsync(cancellationToken);
+        await InvalidateAsync(cancellationToken);
+        return true;
+    }
+
+    private async Task InvalidateAsync(CancellationToken cancellationToken)
+    {
+        await cacheInvalidationService.InvalidateCatalogAsync(cancellationToken);
+        await cacheInvalidationService.InvalidateMetadataAsync(cancellationToken: cancellationToken);
+        await cacheInvalidationService.InvalidateProductReadModelsAsync(cancellationToken: cancellationToken);
+    }
+
+    private static void Apply(BottonSize bottonSize, BottonSizeRequest request)
+    {
+        bottonSize.Name = request.Name.Trim();
+        bottonSize.CostPerUnit = request.CostPerUnit;
+        bottonSize.StockQuantity = request.StockQuantity;
+        bottonSize.MinimumStock = request.MinimumStock;
+        bottonSize.Notes = request.Notes?.Trim() ?? string.Empty;
+    }
+
+    private static BottonSizeDto Map(BottonSize bottonSize)
+        => new(
+            bottonSize.Id,
+            bottonSize.Name,
+            bottonSize.CostPerUnit,
+            bottonSize.StockQuantity,
+            bottonSize.MinimumStock,
+            bottonSize.Notes);
+
+    private static AuditLog CreateAudit(string entityName, Guid entityId, AuditAction action, string actor, BottonSize payload)
+        => new()
+        {
+            EntityName = entityName,
+            EntityId = entityId.ToString(),
+            Action = action,
+            ChangedBy = actor,
+            PayloadJson = JsonSerializer.Serialize(new { payload.Name, payload.CostPerUnit, payload.StockQuantity, payload.MinimumStock })
         };
 }

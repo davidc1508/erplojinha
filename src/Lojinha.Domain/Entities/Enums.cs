@@ -55,6 +55,13 @@ public enum ProductLifecycleStatus
     Orcamento = 3
 }
 
+public enum ProductType
+{
+    Impressao3D = 1,
+    Brinco = 2,
+    Botton = 3
+}
+
 public enum FairStatus
 {
     Awaiting = 1,

@@ -48,8 +48,25 @@ public sealed class ProductRequestValidator : AbstractValidator<ProductRequest>
         RuleFor(x => x.AdditionalCost).GreaterThanOrEqualTo(0);
         RuleFor(x => x.DesiredMarkup).GreaterThanOrEqualTo(2);
         RuleFor(x => x)
-            .Must(x => !x.Filaments.Any(item => item.FilamentProfileId != Guid.Empty && item.WeightGrams > 0m) || x.PrinterProfileId.HasValue)
+            .Must(x => x.ProductType != ProductType.Impressao3D
+                || !x.Filaments.Any(item => item.FilamentProfileId != Guid.Empty && item.WeightGrams > 0m)
+                || x.PrinterProfileId.HasValue)
             .WithMessage("Selecione uma impressora quando houver filamentos para manter o calculo de custo consistente.");
+        RuleFor(x => x.PingenteSupplyId)
+            .NotNull()
+            .When(x => x.ProductType == ProductType.Brinco)
+            .WithMessage("Selecione o pingente utilizado no brinco.");
+        RuleFor(x => x.PingenteCost)
+            .GreaterThanOrEqualTo(0)
+            .When(x => x.ProductType == ProductType.Brinco);
+        RuleFor(x => x.BottonSizeId)
+            .NotNull()
+            .When(x => x.ProductType == ProductType.Botton)
+            .WithMessage("Selecione o tamanho de botton utilizado.");
+        RuleFor(x => x.BottonSizeQuantity)
+            .GreaterThan(0)
+            .When(x => x.ProductType == ProductType.Botton)
+            .WithMessage("Informe a quantidade do tamanho de botton consumida por unidade.");
     }
 }
 
@@ -188,6 +205,18 @@ public sealed class PrinterProfileRequestValidator : AbstractValidator<PrinterPr
         RuleFor(x => x.PowerKw).GreaterThanOrEqualTo(0);
         RuleFor(x => x.FailureRate).GreaterThanOrEqualTo(0);
         RuleFor(x => x.UsageLevel).NotEmpty().MaximumLength(50);
+    }
+}
+
+public sealed class BottonSizeRequestValidator : AbstractValidator<BottonSizeRequest>
+{
+    public BottonSizeRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(120);
+        RuleFor(x => x.CostPerUnit).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.MinimumStock).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.Notes).MaximumLength(500);
     }
 }
 

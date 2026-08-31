@@ -2,6 +2,7 @@
 import type { AxiosError } from 'axios';
 import type {
   AuthResponse,
+  BottonSize,
   CardFeeReprocessResult,
   CardFeeSettings,
   DashboardSummary,
@@ -274,6 +275,24 @@ export const printersApi = {
   },
   remove: async (id: string) => {
     await api.delete(`/printers/${id}`);
+  }
+};
+
+export const bottonSizesApi = {
+  getAll: async () => {
+    const { data } = await api.get<BottonSize[]>('/bottonsizes');
+    return data;
+  },
+  create: async (payload: Record<string, unknown>) => {
+    const { data } = await api.post<BottonSize>('/bottonsizes', payload);
+    return data;
+  },
+  update: async (id: string, payload: Record<string, unknown>) => {
+    const { data } = await api.put<BottonSize>(`/bottonsizes/${id}`, payload);
+    return data;
+  },
+  remove: async (id: string) => {
+    await api.delete(`/bottonsizes/${id}`);
   }
 };
 

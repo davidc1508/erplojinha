@@ -3,6 +3,7 @@ namespace Lojinha.Api.Entities;
 public sealed class Product : AuditableEntity
 {
     public int NumericIdentifier { get; set; }
+    public ProductType ProductType { get; set; } = ProductType.Impressao3D;
     public string Name { get; set; } = string.Empty;
     public string? Sku { get; set; }
     public string Description { get; set; } = string.Empty;
@@ -28,6 +29,16 @@ public sealed class Product : AuditableEntity
     public ProductLifecycleStatus LifecycleStatus { get; set; } = ProductLifecycleStatus.Disponivel;
     public Guid? PrinterProfileId { get; set; }
     public PrinterProfile? PrinterProfile { get; set; }
+
+    // Brinco: insumo "pingente" reaproveitando o catálogo de Insumos, com custo variável por cadastro.
+    public Guid? PingenteSupplyId { get; set; }
+    public Supply? PingenteSupply { get; set; }
+    public decimal PingenteCost { get; set; }
+
+    // Botton: tamanho selecionado (catálogo próprio) e quantidade consumida por unidade produzida.
+    public Guid? BottonSizeId { get; set; }
+    public BottonSize? BottonSize { get; set; }
+    public decimal BottonSizeQuantity { get; set; } = 1m;
     public Guid? DefaultMarketplaceFeeId { get; set; }
     public MarketplaceFee? DefaultMarketplaceFee { get; set; }
     public Guid? OutsourcedProductionId { get; set; }

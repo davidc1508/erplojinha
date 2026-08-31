@@ -11,6 +11,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Supply> Supplies => Set<Supply>();
     public DbSet<PrinterProfile> PrinterProfiles => Set<PrinterProfile>();
     public DbSet<FilamentProfile> FilamentProfiles => Set<FilamentProfile>();
+    public DbSet<BottonSize> BottonSizes => Set<BottonSize>();
     public DbSet<MarketplaceFee> MarketplaceFees => Set<MarketplaceFee>();
     public DbSet<CardFeeSettings> CardFeeSettings => Set<CardFeeSettings>();
     public DbSet<Product> Products => Set<Product>();
@@ -47,6 +48,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Supply>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<PrinterProfile>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<FilamentProfile>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<BottonSize>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<MarketplaceFee>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<Product>().HasIndex(x => x.Sku).IsUnique();
         modelBuilder.Entity<Product>().HasIndex(x => x.NumericIdentifier).IsUnique();
@@ -73,6 +75,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Sale>().Property(x => x.PaymentMethod).HasConversion<string>();
         modelBuilder.Entity<Sale>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<Product>().Property(x => x.LifecycleStatus).HasConversion<string>();
+        modelBuilder.Entity<Product>().Property(x => x.ProductType).HasConversion<string>();
         modelBuilder.Entity<FinancialEntry>().Property(x => x.Type).HasConversion<string>();
         modelBuilder.Entity<FinancialEntry>().Property(x => x.Classification).HasConversion<string>();
         modelBuilder.Entity<OperationalRestockItem>().Property(x => x.Priority).HasConversion<string>();
@@ -263,6 +266,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany()
             .HasForeignKey(x => x.ProducerSupplierId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Product>()
+            .HasOne(x => x.PingenteSupply)
+            .WithMany()
+            .HasForeignKey(x => x.PingenteSupplyId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Product>()
+            .HasOne(x => x.BottonSize)
+            .WithMany(x => x.Products)
+            .HasForeignKey(x => x.BottonSizeId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

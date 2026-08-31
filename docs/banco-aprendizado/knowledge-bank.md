@@ -275,6 +275,7 @@ Base URL: /api
 - Ao salvar nomes com acento via terminal/ssh, validar com `encode(convert_to("Name", 'UTF8'), 'hex')` para garantir que nao ficou corrompido.
 - Quando uma mesa vier com ordem ambigua de tempo/peso (ex.: `4g, 35m`), confirmar explicitamente com o usuario antes de inserir.
 - Quando o usuario ja informar impressora e filamento no pedido, aplicar direto sem nova pergunta e manter validacao de obrigatoriedade em 100% das mesas.
+- Para cadastro direto de mesas, o padrao operacional e usar filamento `PLA - 120` e impressora `BambuLab P1S`; so perguntar quando o usuario indicar algo diferente ou quando esses cadastros nao existirem.
 - Quando o pedido vier com UUID isolado na primeira linha (sem prefixo `Projeto:`), tratar o UUID como `ProjectId` valido para o fluxo de cadastro.
 
 ### 9.2 Compose completo
@@ -422,6 +423,17 @@ Base URL: /api
 - U-20260616-09 Producao Terceirizada: ProducerSupplierId tornada nullable (Guid?) no backend. null = Lojinha (a propria loja). Migration: MakeProducerSupplierNullable. ValidateSuppliersAsync pula validacao de produtor quando null. Map retorna "Lojinha" como ProducerSupplier quando ProducerSupplierId is null.
 - U-20260616-10 UI: Dropdown de Produtor no formulario de producao terceirizada inclui opcao fixa "Lojinha (propria loja)" com sentinel id='lojinha'. Frontend mapeia sentinel para null ao salvar e null para 'lojinha' ao carregar. Remocao do maxWidth: 900 do container do formulario.
 - U-20260616-11 Deploy Oracle: tag `20260616-lojinha-producer-v3` publicada (API e Web). HTTP 200 confirmado. Migracao aplicada automaticamente via DatabaseInitializer.
+
+## 13.5) Atualizacoes de 2026-08-31
+
+- U-20260831-01 Tipos de produto: novo enum `ProductType` (Impressao3D=1, Brinco=2, Botton=3) em `Product`, persistido como string. Produtos existentes recebem "Impressao3D" pela migration `AddProductTypesAndBottonSizes` (defaultValue explicito). Seletor "Tipo de produto" no topo de ProductFormPage controla quais blocos aparecem; Impressao3D mantem a tela atual (impressora, filamentos, tempo, altura, comprimento).
+- U-20260831-02 Brinco: sem impressora/filamento. Insumo = `PingenteSupplyId` (reaproveita catalogo de Insumos/Supply) + `PingenteCost` (custo variavel editavel no produto, NAO baixa estoque). Material do PricingService vem desse custo.
+- U-20260831-03 Botton: novo catalogo proprio `BottonSize` (Name unico, CostPerUnit, StockQuantity, MinimumStock, Notes) no padrao de FilamentProfile/PrinterProfile. Controller `BottonSizesController` (rota /api/bottonsizes), `BottonSizeService` em CatalogService.cs, DI em ServiceCollectionExtensions, cache key `catalog:botton-sizes` incluido em InvalidateCatalogAsync. Pagina `BottonSizesPage` (rota /tamanhos-botton), nav "Tam. de Botton" visivel para Admin/Supplier.
+- U-20260831-04 Botton: produto tem `BottonSizeId` + `BottonSizeQuantity` (qtd consumida por unidade, default 1). Material = BottonSize.CostPerUnit * BottonSizeQuantity.
+- U-20260831-05 Botton estoque: a cada ENTRADA/AJUSTE de estoque do produto botton, o estoque do BottonSize e reduzido em `quantidade_entrada * BottonSizeQuantity`, limitado a zero (nunca negativo). Implementado em `ProductService.ConsumeBottonSizeStockAsync` (estoque inicial no cadastro + aumento no update) e `InventoryService.AdjustBottonSizeStockAsync` (movimentacoes manuais; estorno e exclusao de Entry devolvem o insumo). Cada baixa/devolucao gera AuditLog `StockChanged` em BottonSize.
+- U-20260831-06 PricingService: `Calculate` ganhou parametro opcional `decimal? materialCostOverride`. Quando informado (Brinco/Botton), substitui o custo de material por peso de filamento / itens de receita. Energia/manutencao/falhas ficam 0 automaticamente (printer null). `ProductService.BuildPricingAsync` e `ApplyPricingAsync` propagam o override; `ResolveMaterialCostOverrideFromProduct` recalcula a partir do produto persistido (Recalculate e GetPriceSuggestion).
+- U-20260831-07 UI: campo "Marketplace" padronizado para opcao "Nenhum" (antes "Sem marketplace" / "— Nenhum —") e ja vinha pre-selecionado como vazio em ProductFormPage, PersonalizadosPage e OutsourcedProductionFormPage.
+- U-20260831-08 Validacao: `ProductRequestValidator` exige impressora-com-filamento apenas para Impressao3D; Brinco exige PingenteSupplyId; Botton exige BottonSizeId e BottonSizeQuantity > 0. `ProductRepository` inclui navs `PingenteSupply` e `BottonSize`.
 
 ### 12.6 Regras de personalizados
 

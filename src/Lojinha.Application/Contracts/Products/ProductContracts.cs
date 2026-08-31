@@ -28,7 +28,12 @@ public sealed record ProductRequest(
     decimal DesiredMarkup,
     decimal? CostPrice,
     decimal? SalePrice,
-    bool IsBudget = false);
+    bool IsBudget = false,
+    ProductType ProductType = ProductType.Impressao3D,
+    Guid? PingenteSupplyId = null,
+    decimal PingenteCost = 0m,
+    Guid? BottonSizeId = null,
+    decimal BottonSizeQuantity = 1m);
 
 public sealed record ProductDto(
     Guid Id,
@@ -65,7 +70,16 @@ public sealed record ProductDto(
     Guid? OutsourcedProductionId = null,
     Guid? ProducerSupplierId = null,
     string? ProducerSupplier = null,
-    decimal ProductionFeeAmount = 0m);
+    decimal ProductionFeeAmount = 0m,
+    ProductType ProductType = ProductType.Impressao3D,
+    Guid? PingenteSupplyId = null,
+    string? PingenteSupply = null,
+    decimal PingenteCost = 0m,
+    Guid? BottonSizeId = null,
+    string? BottonSize = null,
+    decimal BottonSizeQuantity = 1m,
+    decimal BottonSizeStockQuantity = 0m,
+    decimal BottonSizeCostPerUnit = 0m);
 
 public sealed record ProductPriceHistoryEntryDto(
     DateTime ChangedAtUtc,
@@ -85,7 +99,8 @@ public sealed record ProductMetadataDto(
     IReadOnlyList<CatalogItemDto> Printers,
     IReadOnlyList<CatalogItemDto> Filaments,
     IReadOnlyList<CatalogItemDto> Marketplaces,
-    IReadOnlyList<CatalogItemDto> Supplies);
+    IReadOnlyList<CatalogItemDto> Supplies,
+    IReadOnlyList<CatalogItemDto> BottonSizes);
 
 public sealed record PriceSuggestionDto(
     decimal CompositionCost,

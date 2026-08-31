@@ -23,15 +23,21 @@ import { CurrencyField } from '../components/CurrencyField';
 import { SearchSelectField } from '../components/SearchSelectField';
 import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
-import { operationalListsApi, productsApi, projectsApi } from '../services/api';
+import { bottonSizesApi, operationalListsApi, productsApi, projectsApi } from '../services/api';
+import type { ProductType } from '../services/types';
 import { durationPartsToMinutes, minutesToDurationParts } from '../services/product';
 
 const emptyForm = {
+  productType: 'Impressao3D' as ProductType,
   name: '',
   sku: '',
   description: '',
   categoryId: '',
   supplierId: '',
+  pingenteSupplyId: '',
+  pingenteCost: 0,
+  bottonSizeId: '',
+  bottonSizeQuantity: 1,
   generateProductionExpenseOnStockEntry: false,
   currentStock: 0,
   itemsPerPlate: 1,
@@ -107,6 +113,11 @@ export function ProductFormPage() {
     queryFn: () => productsApi.getPriceHistory(id!),
     enabled: isEditing
   });
+  const { data: bottonSizes = [] } = useQuery({ queryKey: ['botton-sizes'], queryFn: bottonSizesApi.getAll });
+  const selectedBottonSize = bottonSizes.find((size) => size.id === form.bottonSizeId);
+  const isEarring = form.productType === 'Brinco';
+  const isBotton = form.productType === 'Botton';
+  const isPrint3D = form.productType === 'Impressao3D';
 
   const defaultFilamentId = useMemo(() => {
     const pla120 = (metadata?.filaments ?? []).find((item) => item.name.trim().toLowerCase() === 'pla - 120');
@@ -119,11 +130,16 @@ export function ProductFormPage() {
     }
 
     setForm({
+      productType: product.productType ?? 'Impressao3D',
       name: product.name,
       sku: product.sku,
       description: product.description,
       categoryId: product.categoryId,
       supplierId: product.supplierId ?? '',
+      pingenteSupplyId: product.pingenteSupplyId ?? '',
+      pingenteCost: product.pingenteCost ?? 0,
+      bottonSizeId: product.bottonSizeId ?? '',
+      bottonSizeQuantity: product.bottonSizeQuantity ?? 1,
       generateProductionExpenseOnStockEntry: product.generateProductionExpenseOnStockEntry,
       currentStock: product.currentStock,
       itemsPerPlate: product.itemsPerPlate,
@@ -151,11 +167,16 @@ export function ProductFormPage() {
     }
 
     setForm({
+      productType: cloneSource.productType ?? 'Impressao3D',
       name: `${cloneSource.name} (cópia)`,
       sku: '',
       description: cloneSource.description,
       categoryId: cloneSource.categoryId,
       supplierId: cloneSource.supplierId ?? '',
+      pingenteSupplyId: cloneSource.pingenteSupplyId ?? '',
+      pingenteCost: cloneSource.pingenteCost ?? 0,
+      bottonSizeId: cloneSource.bottonSizeId ?? '',
+      bottonSizeQuantity: cloneSource.bottonSizeQuantity ?? 1,
       generateProductionExpenseOnStockEntry: cloneSource.generateProductionExpenseOnStockEntry,
       currentStock: 0,
       itemsPerPlate: cloneSource.itemsPerPlate,
@@ -186,11 +207,16 @@ export function ProductFormPage() {
     setProjectDraftFailureCost(projectDraft.failureAdditionalCost);
     setIncludeProjectFailures(false);
     setForm({
+      productType: 'Impressao3D',
       name: projectDraft.name,
       sku: projectDraft.sku,
       description: projectDraft.description,
       categoryId: projectDraft.categoryId ?? '',
       supplierId: projectDraft.supplierId ?? '',
+      pingenteSupplyId: '',
+      pingenteCost: 0,
+      bottonSizeId: '',
+      bottonSizeQuantity: 1,
       generateProductionExpenseOnStockEntry: projectDraft.generateProductionExpenseOnStockEntry,
       currentStock: projectDraft.currentStock,
       itemsPerPlate: projectDraft.itemsPerPlate,
@@ -267,13 +293,17 @@ export function ProductFormPage() {
     ...form,
     categoryId: form.categoryId || null,
     supplierId: (isSupplier ? session?.supplierId : form.supplierId) || null,
-    printerProfileId: form.printerProfileId || null,
-    filaments: form.filaments.filter((f) => f.filamentProfileId),
+    printerProfileId: isPrint3D ? (form.printerProfileId || null) : null,
+    filaments: isPrint3D ? form.filaments.filter((f) => f.filamentProfileId) : [],
     marketplaceFeeId: form.marketplaceFeeId || null,
+    pingenteSupplyId: isEarring ? (form.pingenteSupplyId || null) : null,
+    pingenteCost: isEarring ? Number(form.pingenteCost) : 0,
+    bottonSizeId: isBotton ? (form.bottonSizeId || null) : null,
+    bottonSizeQuantity: isBotton ? Number(form.bottonSizeQuantity) : 1,
     costPrice: null,
     commissionPercentage: Number(form.commissionPercentage),
     salePrice: form.salePrice === '' ? null : Number(form.salePrice)
-  }), [form, isSupplier, session?.supplierId]);
+  }), [form, isSupplier, session?.supplierId, isPrint3D, isEarring, isBotton]);
 
   const { data: pricing } = useQuery({
     queryKey: ['product-pricing-preview', pricingPayload],
@@ -287,9 +317,13 @@ export function ProductFormPage() {
         ...form,
         categoryId: form.categoryId,
         supplierId: (isSupplier ? session?.supplierId : form.supplierId) || null,
-        printerProfileId: form.printerProfileId || null,
-        filaments: form.filaments.filter((f) => f.filamentProfileId),
+        printerProfileId: isPrint3D ? (form.printerProfileId || null) : null,
+        filaments: isPrint3D ? form.filaments.filter((f) => f.filamentProfileId) : [],
         marketplaceFeeId: form.marketplaceFeeId || null,
+        pingenteSupplyId: isEarring ? (form.pingenteSupplyId || null) : null,
+        pingenteCost: isEarring ? Number(form.pingenteCost) : 0,
+        bottonSizeId: isBotton ? (form.bottonSizeId || null) : null,
+        bottonSizeQuantity: isBotton ? Number(form.bottonSizeQuantity) : 1,
         commissionPercentage: Number(form.commissionPercentage),
         desiredMarkup: Number(form.desiredMarkup),
         costPrice: null,
@@ -360,7 +394,9 @@ export function ProductFormPage() {
   const hasMarkupBelowMinimum = Number(form.desiredMarkup) < 2;
   const hasMissingCategory = form.categoryId === '';
   const hasManualPriceBelowMinimum = form.salePrice !== '' && Number(form.salePrice) < minimumAllowedSalePrice;
-  const hasMissingPrinterWithFilaments = form.filaments.filter(f => f.filamentProfileId).length > 0 && form.printerProfileId === '';
+  const hasMissingPrinterWithFilaments = isPrint3D && form.filaments.filter(f => f.filamentProfileId).length > 0 && form.printerProfileId === '';
+  const hasMissingPingente = isEarring && !form.pingenteSupplyId;
+  const hasMissingBottonSize = isBotton && !form.bottonSizeId;
 
   function updateForm(field: keyof typeof emptyForm, value: string | number | boolean) {
     setDirty(true);
@@ -427,6 +463,8 @@ export function ProductFormPage() {
       {hasMissingCategory ? <Alert severity="warning">Selecione uma categoria para calcular e salvar o produto.</Alert> : null}
       {hasMarkupBelowMinimum ? <Alert severity="warning">O markup desejado nao pode ser menor do que 2.</Alert> : null}
       {hasManualPriceBelowMinimum ? <Alert severity="warning">O preco final nao pode ser menor do que {formatCurrency(minimumAllowedSalePrice)}.</Alert> : null}
+      {hasMissingPingente ? <Alert severity="warning">Selecione o pingente utilizado no brinco.</Alert> : null}
+      {hasMissingBottonSize ? <Alert severity="warning">Selecione o tamanho de botton utilizado.</Alert> : null}
 
       {isProjectDraftMode && projectDraft ? (
         <PageSection title="Resumo do projeto" subtitle="Dados consolidados das mesas concluídas para preencher o produto final.">
@@ -469,6 +507,18 @@ export function ProductFormPage() {
                   <Typography fontWeight={700}>Identificação</Typography>
                   <Divider />
                 </Stack>
+                <TextField
+                  select
+                  label="Tipo de produto"
+                  value={form.productType}
+                  onChange={(event) => updateForm('productType', event.target.value)}
+                  helperText="Define quais campos de produção aparecem abaixo. Impressão 3D mantém impressora e filamentos."
+                  disabled={isFromOutsourcedProduction}
+                >
+                  <MenuItem value="Impressao3D">Impressão 3D</MenuItem>
+                  <MenuItem value="Brinco">Brinco</MenuItem>
+                  <MenuItem value="Botton">Botton</MenuItem>
+                </TextField>
                 <TextField label="Nome" value={form.name} onChange={(event) => updateForm('name', capitalizeFirstLetter(event.target.value))} disabled={isFromOutsourcedProduction} />
                 <TextField
                   label="SKU"
@@ -501,13 +551,89 @@ export function ProductFormPage() {
                     </TextField>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction}>
-                      <MenuItem value="">Sem marketplace</MenuItem>
+                    <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction} helperText="Nenhum vem pré-selecionado.">
+                      <MenuItem value="">Nenhum</MenuItem>
                       {(metadata?.marketplaces ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
                     </TextField>
                   </Grid>
                 </Grid>
 
+                {isEarring ? (
+                  <>
+                    <Stack spacing={0.75}>
+                      <Typography fontWeight={700}>Insumo do brinco</Typography>
+                      <Divider />
+                    </Stack>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={8}>
+                        <SearchSelectField
+                          label="Pingente"
+                          value={form.pingenteSupplyId}
+                          options={(metadata?.supplies ?? []).map((item) => ({ id: item.id, name: item.name }))}
+                          onChange={(value) => updateForm('pingenteSupplyId', value)}
+                          helperText="Buscado no cadastro de Insumos."
+                          placeholder="Digite o nome do pingente"
+                          minQueryLength={0}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <CurrencyField
+                          label="Custo do pingente"
+                          value={Number(form.pingenteCost)}
+                          onValueChange={(value) => updateForm('pingenteCost', value)}
+                          helperText="Valor pode variar por compra. Não baixa estoque."
+                          fullWidth
+                        />
+                      </Grid>
+                    </Grid>
+                  </>
+                ) : null}
+
+                {isBotton ? (
+                  <>
+                    <Stack spacing={0.75}>
+                      <Typography fontWeight={700}>Insumo do botton</Typography>
+                      <Divider />
+                    </Stack>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <SearchSelectField
+                          label="Tamanho de botton"
+                          value={form.bottonSizeId}
+                          options={(metadata?.bottonSizes ?? []).map((item) => ({ id: item.id, name: item.name }))}
+                          onChange={(value) => updateForm('bottonSizeId', value)}
+                          helperText="Cadastro próprio em Tam. de Botton."
+                          placeholder="Digite o nome do tamanho"
+                          minQueryLength={0}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Qtd. consumida por unidade"
+                          type="number"
+                          value={form.bottonSizeQuantity}
+                          onChange={(event) => updateForm('bottonSizeQuantity', Number(event.target.value))}
+                          helperText="Quantas peças do tamanho cada botton usa."
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <CurrencyField label="Custo do tamanho" value={selectedBottonSize?.costPerUnit ?? 0} onValueChange={() => undefined} helperText="Do cadastro de Tam. de Botton." fullWidth disabled />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField label="Estoque atual do tamanho" value={selectedBottonSize ? `${selectedBottonSize.stockQuantity}` : '—'} helperText="Somente leitura, para conferência." fullWidth disabled />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Alert severity="info">
+                          A cada entrada em estoque deste botton, o estoque do tamanho selecionado é baixado na mesma proporção (qtd. por unidade × entrada), limitado a zero — nunca fica negativo.
+                        </Alert>
+                      </Grid>
+                    </Grid>
+                  </>
+                ) : null}
+
+                {isPrint3D ? (
+                <>
                 <Stack spacing={0.75}>
                   <Typography fontWeight={700}>Equipamentos e produção</Typography>
                   <Divider />
@@ -580,6 +706,8 @@ export function ProductFormPage() {
                   <Grid item xs={12} md={3}><TextField label="Altura (cm)" type="number" value={form.heightCentimeters} onChange={(event) => updateForm('heightCentimeters', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
                   <Grid item xs={12} md={3}><TextField label="Comprimento (m)" type="number" value={form.lengthMetersUsed} onChange={(event) => updateForm('lengthMetersUsed', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
                 </Grid>
+                </>
+                ) : null}
 
                 <Stack spacing={0.75}>
                   <Typography fontWeight={700}>Precificação</Typography>
@@ -610,7 +738,7 @@ export function ProductFormPage() {
               </Stack>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments} title={hasMissingPrinterWithFilaments ? 'Selecione uma impressora quando há filamentos' : undefined}>
+                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments || hasMissingPingente || hasMissingBottonSize} title={hasMissingPrinterWithFilaments ? 'Selecione uma impressora quando há filamentos' : undefined}>
                   {saveMutation.isLoading ? 'Salvando...' : isProjectDraftMode ? 'Concluir projeto e salvar produto' : isEditing ? 'Atualizar produto' : 'Cadastrar produto'}
                 </Button>
                 <Button variant="outlined" onClick={() => navigate(backTarget, { state: { preserveState: true } })}>
@@ -626,7 +754,7 @@ export function ProductFormPage() {
             <PageSection title="Preview de precificação" subtitle={dirty ? 'Calculado com os dados atuais do formulário.' : 'Calculado com os dados salvos. Edite o formulário para recalcular.'}>
               {pricing ? (
                 <Stack spacing={1.2}>
-                  {form.printerProfileId === '' && form.filaments.length > 0 ? (
+                  {isPrint3D && form.printerProfileId === '' && form.filaments.length > 0 ? (
                     <Alert severity="warning">
                       <strong>Aviso:</strong> Nenhuma impressora selecionada. Custo calculado apenas com material (filamento). Quando uma impressora for selecionada, serão inclusos custos de energia, manutenção e falhas.
                     </Alert>
@@ -646,11 +774,20 @@ export function ProductFormPage() {
                     <Typography fontWeight={600}>Sugerido + comissão ({Number(form.commissionPercentage).toFixed(0)}%): {formatCurrency(pricing.suggestedPriceWithCommission)}</Typography>
                   ) : null}
                   <Divider />
-                  <Typography variant="body2" color="text.secondary">Material: {formatCurrency(pricing.materialCost)}</Typography>
-                  <Typography variant="body2" color="text.secondary">Energia: {formatCurrency(pricing.energyCost)}</Typography>
-                  <Typography variant="body2" color="text.secondary">Manutenção: {formatCurrency(pricing.maintenanceCost)}</Typography>
-                  <Typography variant="body2" color="text.secondary">Falhas: {formatCurrency(pricing.failureCost)}</Typography>
+                  <Typography variant="body2" color="text.secondary">Material{isEarring ? ' (pingente)' : isBotton ? ' (tamanho de botton)' : ''}: {formatCurrency(pricing.materialCost)}</Typography>
+                  {isPrint3D ? (
+                    <>
+                      <Typography variant="body2" color="text.secondary">Energia: {formatCurrency(pricing.energyCost)}</Typography>
+                      <Typography variant="body2" color="text.secondary">Manutenção: {formatCurrency(pricing.maintenanceCost)}</Typography>
+                      <Typography variant="body2" color="text.secondary">Falhas: {formatCurrency(pricing.failureCost)}</Typography>
+                    </>
+                  ) : null}
                   <Typography variant="body2" color="text.secondary">Acabamento: {formatCurrency(pricing.finishingCost)}</Typography>
+                  {!isPrint3D ? (
+                    <Typography variant="caption" color="text.secondary">
+                      {isEarring ? 'Brincos não têm custo de impressão (energia, manutenção e falhas).' : 'Bottons não têm custo de impressão. O estoque do tamanho é baixado a cada entrada.'}
+                    </Typography>
+                  ) : null}
                   {pricing.additionalCosts > 0 ? <Typography variant="body2" color="text.secondary">Custo adicional: {formatCurrency(pricing.additionalCosts)}</Typography> : null}
                   {pricing.laborCost > 0 ? <Typography variant="body2" color="text.secondary">Mão de obra: {formatCurrency(pricing.laborCost)}</Typography> : null}
                   {pricing.marketplaceAdjustedPrice > pricing.suggestedPrice ? (

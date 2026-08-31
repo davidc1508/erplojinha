@@ -23,6 +23,12 @@ import { formatUtcDate } from '../services/date';
 import { formatCurrency, paymentMethodLabel } from '../services/labels';
 import { useAuth } from '../hooks/useAuth';
 
+const productTypeLabel: Record<string, string> = {
+  Impressao3D: 'Impressão 3D',
+  Brinco: 'Brinco',
+  Botton: 'Botton'
+};
+
 export function ProductDetailsPage() {
   const { session } = useAuth();
   const isReseller = session?.role === 'Reseller';
@@ -141,7 +147,7 @@ export function ProductDetailsPage() {
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
         <div>
           <Typography variant="h4">{product.name}</Typography>
-          <Typography color="text.secondary">SKU {product.sku} • {product.category} • {product.supplier ?? 'Lojinha Sem Nome'}</Typography>
+          <Typography color="text.secondary">SKU {product.sku} • {productTypeLabel[product.productType] ?? product.productType} • {product.category} • {product.supplier ?? 'Lojinha Sem Nome'}</Typography>
         </div>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
           <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/produtos', { state: { preserveState: true } })}>
@@ -189,9 +195,19 @@ export function ProductDetailsPage() {
               <Typography color="text.secondary">Custo de composição: {formatCurrency(pricing?.compositionCost ?? 0)}</Typography>
               <Typography color="text.secondary">Custo total: {formatCurrency(pricing?.totalCost ?? 0)}</Typography>
               <Typography color="text.secondary">Material: {formatCurrency(pricing?.materialCost ?? 0)}</Typography>
-              <Typography color="text.secondary">Energia: {formatCurrency(pricing?.energyCost ?? 0)}</Typography>
-              <Typography color="text.secondary">Manutenção: {formatCurrency(pricing?.maintenanceCost ?? 0)}</Typography>
-              <Typography color="text.secondary">Falhas: {formatCurrency(pricing?.failureCost ?? 0)}</Typography>
+              {product.productType === 'Brinco' ? (
+                <Typography color="text.secondary">Pingente: {product.pingenteSupply ?? '—'} ({formatCurrency(product.pingenteCost)})</Typography>
+              ) : null}
+              {product.productType === 'Botton' ? (
+                <Typography color="text.secondary">Tamanho de botton: {product.bottonSize ?? '—'} • {product.bottonSizeQuantity} un/produto • estoque {product.bottonSizeStockQuantity}</Typography>
+              ) : null}
+              {product.productType === 'Impressao3D' ? (
+                <>
+                  <Typography color="text.secondary">Energia: {formatCurrency(pricing?.energyCost ?? 0)}</Typography>
+                  <Typography color="text.secondary">Manutenção: {formatCurrency(pricing?.maintenanceCost ?? 0)}</Typography>
+                  <Typography color="text.secondary">Falhas: {formatCurrency(pricing?.failureCost ?? 0)}</Typography>
+                </>
+              ) : null}
               <Typography color="text.secondary">Acabamento: {formatCurrency(pricing?.finishingCost ?? 0)}</Typography>
               <Typography color="text.secondary">Mão de obra: {formatCurrency(pricing?.laborCost ?? 0)}</Typography>
               <Typography color="text.secondary">Custos adicionais: {formatCurrency(pricing?.additionalCosts ?? 0)}</Typography>

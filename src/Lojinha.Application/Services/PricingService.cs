@@ -27,14 +27,14 @@ public sealed record PricingSnapshot(
 
 public interface IPricingService
 {
-    PricingSnapshot Calculate(Product product, ProductRecipe? recipe, PrinterProfile? printer, IReadOnlyList<(FilamentProfile filament, decimal weightGrams)> filaments, MarketplaceFee? marketplace);
+    PricingSnapshot Calculate(Product product, ProductRecipe? recipe, PrinterProfile? printer, IReadOnlyList<(FilamentProfile filament, decimal weightGrams)> filaments, MarketplaceFee? marketplace, decimal? materialCostOverride = null);
 }
 
 public sealed class PricingService : IPricingService
 {
     private const decimal DepreciationDivisor = 2058.333333m;
 
-    public PricingSnapshot Calculate(Product product, ProductRecipe? recipe, PrinterProfile? printer, IReadOnlyList<(FilamentProfile filament, decimal weightGrams)> filaments, MarketplaceFee? marketplace)
+    public PricingSnapshot Calculate(Product product, ProductRecipe? recipe, PrinterProfile? printer, IReadOnlyList<(FilamentProfile filament, decimal weightGrams)> filaments, MarketplaceFee? marketplace, decimal? materialCostOverride = null)
     {
         var recipeSupplyCost = recipe?.Items.Sum(item => item.Quantity * (item.Supply?.CostPerUnit ?? 0m)) ?? 0m;
 
@@ -43,7 +43,11 @@ public sealed class PricingService : IPricingService
                 ? (f.weightGrams / (f.filament.SpoolWeightKg * 1000m)) * f.filament.CostBRL
                 : 0m);
 
-        var materialCost = recipeSupplyCost > 0 ? recipeSupplyCost : byWeight;
+        // Brinco/Botton informam o custo do insumo diretamente (pingente ou tamanho de botton),
+        // sem depender de peso de filamento ou de itens de receita.
+        var materialCost = materialCostOverride.HasValue
+            ? Math.Max(0m, materialCostOverride.Value)
+            : (recipeSupplyCost > 0 ? recipeSupplyCost : byWeight);
         var printHours = product.EstimatedPrintTimeMinutes / 60m;
         var energyCost = printHours * (printer?.PowerKw ?? 0m) * product.TariffPerKwh;
         var wearLevel = GetWearLevel(printer?.UsageLevel);

@@ -85,6 +85,7 @@ public sealed class AppCacheInvalidationService(IAppCache cache) : IAppCacheInva
         => cache.RemoveManyAsync([
             AppCacheKeys.ProductCategories(),
             AppCacheKeys.PrinterProfiles(),
+            AppCacheKeys.BottonSizes(),
             AppCacheKeys.ProductMetadata()
         ], cancellationToken);
 

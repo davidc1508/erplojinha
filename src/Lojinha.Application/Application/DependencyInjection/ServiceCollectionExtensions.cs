@@ -29,6 +29,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IProductCategoryService, ProductCategoryService>();
         services.AddScoped<IPrinterProfileService, PrinterProfileService>();
+        services.AddScoped<IBottonSizeService, BottonSizeService>();
         services.AddScoped<ISupplierService, SupplierService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IOperationalListService, OperationalListService>();

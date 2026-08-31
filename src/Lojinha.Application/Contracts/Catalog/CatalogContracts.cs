@@ -26,3 +26,18 @@ public sealed record PrinterProfileDto(
     decimal PowerKw,
     string UsageLevel,
     decimal FailureRate);
+
+public sealed record BottonSizeRequest(
+    string Name,
+    decimal CostPerUnit,
+    decimal StockQuantity,
+    decimal MinimumStock,
+    string? Notes);
+
+public sealed record BottonSizeDto(
+    Guid Id,
+    string Name,
+    decimal CostPerUnit,
+    decimal StockQuantity,
+    decimal MinimumStock,
+    string Notes);

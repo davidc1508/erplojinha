@@ -34,6 +34,7 @@ public sealed class ProductService(
     IRepository<FilamentProfile> filamentRepository,
     IRepository<MarketplaceFee> marketplaceRepository,
     IRepository<Supply> supplyRepository,
+    IRepository<BottonSize> bottonSizeRepository,
     IRepository<AuditLog> auditRepository,
     IRepository<ProductFilament> productFilamentRepository,
     IPricingService pricingService,
@@ -70,7 +71,10 @@ public sealed class ProductService(
 
     public async Task<ProductDto> CreateAsync(ProductRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
-        EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
+        if (request.ProductType == ProductType.Impressao3D)
+        {
+            EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
+        }
 
         var supplierId = scopedSupplierId ?? request.SupplierId;
         var category = await categoryRepository.GetByIdAsync(request.CategoryId, cancellationToken)
@@ -92,10 +96,12 @@ public sealed class ProductService(
             FinishingPercentage = NormalizeFinishingPercentage(request.FinishingPercentage),
             CommissionPercentage = NormalizeCommissionPercentage(request.CommissionPercentage),
                         LifecycleStatus = request.IsBudget ? ProductLifecycleStatus.Orcamento : ProductLifecycleStatus.Disponivel,
-            PrinterProfileId = request.PrinterProfileId,
               EstimatedWeightGrams = request.Filaments.Count > 0 ? request.Filaments.Sum(f => f.WeightGrams) : 0m,
               DefaultMarketplaceFeeId = request.MarketplaceFeeId
         };
+
+        ApplyProductTypeFields(product, request);
+        var materialCostOverride = await ResolveMaterialCostOverrideAsync(request, cancellationToken);
 
         product.Sku = await ResolveSkuAsync(request.Sku, category.NumericIdentifier, product.NumericIdentifier, null, cancellationToken);
 
@@ -110,7 +116,7 @@ public sealed class ProductService(
             ResellerMarkup = request.DesiredMarkup
         };
 
-        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, cancellationToken);
+        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, materialCostOverride, cancellationToken);
 
         await productRepository.AddAsync(product, cancellationToken);
         await recipeRepository.AddAsync(recipe, cancellationToken);
@@ -138,6 +144,7 @@ public sealed class ProductService(
         if (product.CurrentStock > 0)
         {
             await operationalListService.ConsumeRestockTargetAsync(product.Id, product.CurrentStock, product.SupplierId, actor, cancellationToken);
+            await ConsumeBottonSizeStockAsync(product, product.CurrentStock, actor, cancellationToken);
         }
         await cacheInvalidationService.InvalidateProductReadModelsAsync(product.SupplierId.HasValue ? [product.SupplierId.Value] : [], cancellationToken);
 
@@ -161,7 +168,10 @@ public sealed class ProductService(
 
     public async Task<ProductDto?> UpdateAsync(Guid id, ProductRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
-        EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
+        if (request.ProductType == ProductType.Impressao3D)
+        {
+            EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
+        }
 
         var product = await productRepository.GetDetailedByIdAsync(id, cancellationToken);
         if (product is null || !IsProductVisible(product, scopedSupplierId))
@@ -204,9 +214,11 @@ public sealed class ProductService(
         {
             product.LifecycleStatus = ProductLifecycleStatus.Disponivel;
         }
-        product.PrinterProfileId = request.PrinterProfileId;
             product.EstimatedWeightGrams = request.Filaments.Count > 0 ? request.Filaments.Sum(f => f.WeightGrams) : 0m;
             product.DefaultMarketplaceFeeId = request.MarketplaceFeeId;
+
+        ApplyProductTypeFields(product, request);
+        var materialCostOverride = await ResolveMaterialCostOverrideAsync(request, cancellationToken);
 
         var recipe = product.Recipe ?? new ProductRecipe
         {
@@ -220,7 +232,7 @@ public sealed class ProductService(
         recipe.AdditionalCosts = request.AdditionalCost;
         recipe.ResellerMarkup = request.DesiredMarkup;
 
-        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, cancellationToken);
+        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, materialCostOverride, cancellationToken);
 
         productRepository.Update(product);
         if (recipe.Id == Guid.Empty)
@@ -238,6 +250,7 @@ public sealed class ProductService(
         if (stockIncrease > 0)
         {
             await operationalListService.ConsumeRestockTargetAsync(product.Id, stockIncrease, product.SupplierId, actor, cancellationToken);
+            await ConsumeBottonSizeStockAsync(product, stockIncrease, actor, cancellationToken);
         }
             await ReplaceProductFilamentsAsync(product.Id, request.Filaments, cancellationToken);
         await cacheInvalidationService.InvalidateProductReadModelsAsync(
@@ -325,7 +338,8 @@ public sealed class ProductService(
                     .Where(f => f.FilamentProfile is not null)
                     .Select(f => (f.FilamentProfile!, f.WeightGrams))
                     .ToList(),
-            product.DefaultMarketplaceFee));
+            product.DefaultMarketplaceFee,
+            ResolveMaterialCostOverrideFromProduct(product)));
     }
 
     public async Task<IReadOnlyList<ProductPriceHistoryEntryDto>> GetPriceHistoryAsync(Guid id, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
@@ -348,7 +362,10 @@ public sealed class ProductService(
 
     public async Task<PriceSuggestionDto> PreviewPriceSuggestionAsync(ProductRequest request, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
-        EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
+        if (request.ProductType == ProductType.Impressao3D)
+        {
+            EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
+        }
 
         var product = new Product
         {
@@ -366,10 +383,15 @@ public sealed class ProductService(
             TariffPerKwh = request.TariffPerKwh,
             FinishingPercentage = NormalizeFinishingPercentage(request.FinishingPercentage),
             CommissionPercentage = NormalizeCommissionPercentage(request.CommissionPercentage),
-            PrinterProfileId = request.PrinterProfileId,
+            PrinterProfileId = request.ProductType == ProductType.Impressao3D ? request.PrinterProfileId : null,
                 EstimatedWeightGrams = request.Filaments.Count > 0 ? request.Filaments.Sum(f => f.WeightGrams) : 0m,
-                DefaultMarketplaceFeeId = request.MarketplaceFeeId
+                DefaultMarketplaceFeeId = request.MarketplaceFeeId,
+                ProductType = request.ProductType,
+                PingenteCost = request.ProductType == ProductType.Brinco ? Math.Max(0m, request.PingenteCost) : 0m,
+                BottonSizeQuantity = request.BottonSizeQuantity > 0m ? request.BottonSizeQuantity : 1m
         };
+
+            var materialCostOverride = await ResolveMaterialCostOverrideAsync(request, cancellationToken);
 
             // Load FilamentProfile nav for each filament in preview request
             foreach (var item in request.Filaments)
@@ -396,7 +418,7 @@ public sealed class ProductService(
             ResellerMarkup = request.DesiredMarkup
         };
 
-        return Map(await BuildPricingAsync(product, recipe, request.Filaments, cancellationToken));
+        return Map(await BuildPricingAsync(product, recipe, request.Filaments, materialCostOverride, cancellationToken));
     }
 
     public async Task<ProductMetadataDto> GetMetadataAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
@@ -408,7 +430,8 @@ public sealed class ProductService(
                 printerRepository.Query().OrderBy(x => x.Name).Select(x => new CatalogItemDto(x.Id, x.Name)).ToList(),
                 filamentRepository.Query().OrderBy(x => x.Name).Select(x => new CatalogItemDto(x.Id, x.Name)).ToList(),
                 marketplaceRepository.Query().OrderBy(x => x.Name).Select(x => new CatalogItemDto(x.Id, x.Name)).ToList(),
-                supplyRepository.Query().OrderBy(x => x.Name).Select(x => new CatalogItemDto(x.Id, x.Name)).ToList())),
+                supplyRepository.Query().OrderBy(x => x.Name).Select(x => new CatalogItemDto(x.Id, x.Name)).ToList(),
+                bottonSizeRepository.Query().OrderBy(x => x.Name).Select(x => new CatalogItemDto(x.Id, x.Name)).ToList())),
             AppCacheDurations.ProductMetadata,
             cancellationToken);
 
@@ -429,7 +452,7 @@ public sealed class ProductService(
                 ResellerMarkup = 2.7m
             };
 
-            var pricing = await BuildPricingAsync(product, recipe, null, cancellationToken);
+            var pricing = await BuildPricingAsync(product, recipe, null, ResolveMaterialCostOverrideFromProduct(product), cancellationToken);
             product.CostPrice = pricing.TotalCost;
             product.SuggestedPrice = pricing.SuggestedPrice;
             product.ProfitMargin = product.SalePrice <= 0m
@@ -446,7 +469,7 @@ public sealed class ProductService(
         return products.Count;
     }
 
-    private async Task ApplyPricingAsync(Product product, ProductRecipe recipe, decimal? manualSale, IReadOnlyList<FilamentItemRequest>? requestFilaments, CancellationToken cancellationToken)
+    private async Task ApplyPricingAsync(Product product, ProductRecipe recipe, decimal? manualSale, IReadOnlyList<FilamentItemRequest>? requestFilaments, decimal? materialCostOverride, CancellationToken cancellationToken)
     {
         // Pricing in ProductForm must be based on the same inputs shown in preview.
         // Ignore recipe supply items here so material cost comes from selected filaments.
@@ -460,7 +483,7 @@ public sealed class ProductService(
             ResellerMarkup = recipe.ResellerMarkup
         };
 
-        var pricing = await BuildPricingAsync(product, pricingRecipe, requestFilaments, cancellationToken);
+        var pricing = await BuildPricingAsync(product, pricingRecipe, requestFilaments, materialCostOverride, cancellationToken);
         product.CostPrice = pricing.TotalCost;
         product.SuggestedPrice = pricing.SuggestedPrice;
         var minimumSalePrice = decimal.Round(product.CostPrice * 2m, 2);
@@ -476,7 +499,7 @@ public sealed class ProductService(
         recipe.TotalCost = pricing.CompositionCost;
     }
 
-    private async Task<PricingSnapshot> BuildPricingAsync(Product product, ProductRecipe recipe, IReadOnlyList<FilamentItemRequest>? requestFilaments, CancellationToken cancellationToken)
+    private async Task<PricingSnapshot> BuildPricingAsync(Product product, ProductRecipe recipe, IReadOnlyList<FilamentItemRequest>? requestFilaments, decimal? materialCostOverride, CancellationToken cancellationToken)
     {
         var printer = product.PrinterProfileId.HasValue
             ? await printerRepository.GetByIdAsync(product.PrinterProfileId.Value, cancellationToken)
@@ -485,8 +508,10 @@ public sealed class ProductService(
             ? await marketplaceRepository.GetByIdAsync(product.DefaultMarketplaceFeeId.Value, cancellationToken)
             : null;
 
-        var filaments = await ResolveFilamentsForPricingAsync(product, requestFilaments, cancellationToken);
-        return pricingService.Calculate(product, recipe, printer, filaments, marketplace);
+        var filaments = materialCostOverride.HasValue
+            ? Array.Empty<(FilamentProfile filament, decimal weightGrams)>()
+            : await ResolveFilamentsForPricingAsync(product, requestFilaments, cancellationToken);
+        return pricingService.Calculate(product, recipe, printer, filaments, marketplace, materialCostOverride);
     }
 
     private async Task<IReadOnlyList<(FilamentProfile filament, decimal weightGrams)>> ResolveFilamentsForPricingAsync(
@@ -552,6 +577,107 @@ public sealed class ProductService(
         }
     }
 
+    private static void ApplyProductTypeFields(Product product, ProductRequest request)
+    {
+        product.ProductType = request.ProductType;
+
+        switch (request.ProductType)
+        {
+            case ProductType.Brinco:
+                product.PingenteSupplyId = request.PingenteSupplyId;
+                product.PingenteCost = Math.Max(0m, request.PingenteCost);
+                product.BottonSizeId = null;
+                product.BottonSizeQuantity = 1m;
+                product.PrinterProfileId = null;
+                product.EstimatedPrintTimeMinutes = 0m;
+                product.EstimatedWeightGrams = 0m;
+                break;
+            case ProductType.Botton:
+                product.BottonSizeId = request.BottonSizeId;
+                product.BottonSizeQuantity = request.BottonSizeQuantity > 0m ? request.BottonSizeQuantity : 1m;
+                product.PingenteSupplyId = null;
+                product.PingenteCost = 0m;
+                product.PrinterProfileId = null;
+                product.EstimatedPrintTimeMinutes = 0m;
+                product.EstimatedWeightGrams = 0m;
+                break;
+            default:
+                product.PrinterProfileId = request.PrinterProfileId;
+                product.PingenteSupplyId = null;
+                product.PingenteCost = 0m;
+                product.BottonSizeId = null;
+                product.BottonSizeQuantity = 1m;
+                break;
+        }
+    }
+
+    private async Task<decimal?> ResolveMaterialCostOverrideAsync(ProductRequest request, CancellationToken cancellationToken)
+        => request.ProductType switch
+        {
+            ProductType.Brinco => Math.Max(0m, request.PingenteCost),
+            ProductType.Botton => await ResolveBottonMaterialCostAsync(request.BottonSizeId, request.BottonSizeQuantity, cancellationToken),
+            _ => null
+        };
+
+    private async Task<decimal> ResolveBottonMaterialCostAsync(Guid? bottonSizeId, decimal quantity, CancellationToken cancellationToken)
+    {
+        if (!bottonSizeId.HasValue)
+        {
+            return 0m;
+        }
+
+        var size = await bottonSizeRepository.GetByIdAsync(bottonSizeId.Value, cancellationToken);
+        return size is null ? 0m : Math.Max(0m, size.CostPerUnit * Math.Max(0m, quantity));
+    }
+
+    private static decimal? ResolveMaterialCostOverrideFromProduct(Product product)
+        => product.ProductType switch
+        {
+            ProductType.Brinco => Math.Max(0m, product.PingenteCost),
+            ProductType.Botton => Math.Max(0m, (product.BottonSize?.CostPerUnit ?? 0m) * Math.Max(0m, product.BottonSizeQuantity)),
+            _ => null
+        };
+
+    private async Task ConsumeBottonSizeStockAsync(Product product, decimal producedQuantity, string actor, CancellationToken cancellationToken)
+    {
+        if (product.ProductType != ProductType.Botton || !product.BottonSizeId.HasValue || producedQuantity <= 0m)
+        {
+            return;
+        }
+
+        var size = await bottonSizeRepository.GetByIdAsync(product.BottonSizeId.Value, cancellationToken);
+        if (size is null)
+        {
+            return;
+        }
+
+        var consumed = Math.Max(0m, producedQuantity) * (product.BottonSizeQuantity > 0m ? product.BottonSizeQuantity : 1m);
+        if (consumed <= 0m)
+        {
+            return;
+        }
+
+        size.DecreaseStock(consumed);
+        bottonSizeRepository.Update(size);
+        await auditRepository.AddAsync(new AuditLog
+        {
+            EntityName = nameof(BottonSize),
+            EntityId = size.Id.ToString(),
+            Action = AuditAction.StockChanged,
+            ChangedBy = actor,
+            PayloadJson = JsonSerializer.Serialize(new
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                Consumed = consumed,
+                RemainingStock = size.StockQuantity
+            })
+        }, cancellationToken);
+        await bottonSizeRepository.SaveChangesAsync(cancellationToken);
+        await cacheInvalidationService.InvalidateCatalogAsync(cancellationToken);
+        await cacheInvalidationService.InvalidateMetadataAsync(cancellationToken: cancellationToken);
+    }
+
     private static void EnsurePrinterWhenFilaments(IReadOnlyList<FilamentItemRequest> filaments, Guid? printerProfileId)
     {
         var hasFilaments = filaments.Any(item => item.FilamentProfileId != Guid.Empty && item.WeightGrams > 0m);
@@ -599,7 +725,16 @@ public sealed class ProductService(
             product.OutsourcedProductionId,
             product.ProducerSupplierId,
             product.ProducerSupplier?.Name,
-            product.ProductionFeeAmount);
+            product.ProductionFeeAmount,
+            product.ProductType,
+            product.PingenteSupplyId,
+            product.PingenteSupply?.Name,
+            product.PingenteCost,
+            product.BottonSizeId,
+            product.BottonSize?.Name,
+            product.BottonSizeQuantity,
+            product.BottonSize?.StockQuantity ?? 0m,
+            product.BottonSize?.CostPerUnit ?? 0m);
 
     private static PriceSuggestionDto Map(PricingSnapshot pricing)
         => new(

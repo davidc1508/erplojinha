@@ -24,6 +24,7 @@ import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded';
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
+import RadioButtonCheckedRoundedIcon from '@mui/icons-material/RadioButtonCheckedRounded';
 import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
@@ -51,6 +52,7 @@ const navigation = [
   { label: 'Orçamentos', path: '/orcamentos', icon: <RequestQuoteRoundedIcon /> },
   { label: 'Categorias', path: '/categorias', icon: <CategoryRoundedIcon /> },
   { label: 'Impressoras', path: '/impressoras', icon: <PrintRoundedIcon /> },
+  { label: 'Tam. de Botton', path: '/tamanhos-botton', icon: <RadioButtonCheckedRoundedIcon /> },
   { label: 'Insumos', path: '/insumos', icon: <WarehouseRoundedIcon /> },
   { label: 'Estoque', path: '/estoque', icon: <Inventory2RoundedIcon /> },
   { label: 'Vendas', path: '/vendas', icon: <ShoppingCartRoundedIcon /> },
@@ -87,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     if (session?.role === 'Supplier') {
-      return navigation.filter((item) => ['/', '/produtos', '/orcamentos', '/categorias', '/impressoras', '/insumos', '/estoque', '/vendas', '/feiras', '/financeiro', '/listas-operacionais', '/projetos', '/personalizados', '/producao-terceirizada'].includes(item.path));
+      return navigation.filter((item) => ['/', '/produtos', '/orcamentos', '/categorias', '/impressoras', '/tamanhos-botton', '/insumos', '/estoque', '/vendas', '/feiras', '/financeiro', '/listas-operacionais', '/projetos', '/personalizados', '/producao-terceirizada'].includes(item.path));
     }
 
     return navigation;

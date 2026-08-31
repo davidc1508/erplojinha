@@ -282,7 +282,7 @@ export function OutsourcedProductionFormPage() {
                 value={form.marketplaceFeeId}
                 onChange={(e) => setField('marketplaceFeeId', e.target.value)}
               >
-                <MenuItem value="">— Nenhum —</MenuItem>
+                <MenuItem value="">Nenhum</MenuItem>
                 {(metadata?.marketplaces ?? []).map((m) => (
                   <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
                 ))}

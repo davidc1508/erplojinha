@@ -6,6 +6,7 @@ export type InventoryItemType = 'Product' | 'Supply';
 export type InventoryMovementType = 'Entry' | 'Exit' | 'Sale' | 'Adjustment';
 export type FairStatus = 'Awaiting' | 'Open' | 'Finalized' | 'Cancelled';
 export type ProductLifecycleStatus = 'Disponivel' | 'EmProducao' | 'Orcamento';
+export type ProductType = 'Impressao3D' | 'Brinco' | 'Botton';
 export type OperationalItemPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type RestockTaskStatus = 'Open' | 'InProgress' | 'Completed' | 'Cancelled';
 
@@ -108,6 +109,15 @@ export interface Product {
   producerSupplierId?: string;
   producerSupplier?: string;
   productionFeeAmount?: number;
+  productType: ProductType;
+  pingenteSupplyId?: string;
+  pingenteSupply?: string;
+  pingenteCost: number;
+  bottonSizeId?: string;
+  bottonSize?: string;
+  bottonSizeQuantity: number;
+  bottonSizeStockQuantity: number;
+  bottonSizeCostPerUnit: number;
 }
 
 export interface OutsourcedProductionFilamentItem {
@@ -156,6 +166,16 @@ export interface ProductMetadata {
   filaments: CatalogItem[];
   marketplaces: CatalogItem[];
   supplies: CatalogItem[];
+  bottonSizes: CatalogItem[];
+}
+
+export interface BottonSize {
+  id: string;
+  name: string;
+  costPerUnit: number;
+  stockQuantity: number;
+  minimumStock: number;
+  notes: string;
 }
 
 export interface ProductPricing {

@@ -14,6 +14,7 @@ import { InventoryPage } from './pages/InventoryPage';
 import { LoginPage } from './pages/LoginPage';
 import { OperationalListsPage } from './pages/OperationalListsPage';
 import { PrintersPage } from './pages/PrintersPage';
+import { BottonSizesPage } from './pages/BottonSizesPage';
 import { ProductFormPage } from './pages/ProductFormPage';
 import { ProductDetailsPage } from './pages/ProductDetailsPage';
 import { ProductsPage } from './pages/ProductsPage';
@@ -52,6 +53,7 @@ function ProtectedApp() {
         {!isReseller ? <Route path="/orcamentos/:id/editar" element={<ProductFormPage />} /> : null}
         {!isReseller ? <Route path="/categorias" element={<CategoriesPage />} /> : null}
         {!isReseller ? <Route path="/impressoras" element={<PrintersPage />} /> : null}
+        {!isReseller ? <Route path="/tamanhos-botton" element={<BottonSizesPage />} /> : null}
         {!isReseller ? <Route path="/insumos" element={<SuppliesPage />} /> : null}
         {!isSupplier && !isReseller ? <Route path="/insumos/novo" element={<SupplyFormPage />} /> : null}
         {!isSupplier && !isReseller ? <Route path="/insumos/:id/editar" element={<SupplyFormPage />} /> : null}

@@ -33,6 +33,9 @@ public static class AppCacheKeys
     public static string PrinterProfiles()
         => "catalog:printers";
 
+    public static string BottonSizes()
+        => "catalog:botton-sizes";
+
     public static string Fairs(Guid? supplierId = null)
         => supplierId.HasValue ? $"fairs:supplier:{supplierId.Value:N}" : "fairs:all";
 
