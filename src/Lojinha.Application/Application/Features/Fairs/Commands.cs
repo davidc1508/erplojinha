@@ -14,6 +14,34 @@ internal static class FairFinanceCategories
     public const string StoreFairRegistrationCategory = "Inscricao de feira";
     public const string SupplierFairPayableCategory = "Contas a pagar de feiras";
     public const string FairOperationalExpenseCategory = "Despesa de feira";
+
+    public static readonly IReadOnlyList<string> ExpenseKinds =
+        ["Alimentacao", "Combustivel", "Hospedagem", "Transporte", "Outros"];
+
+    public static string ComposeExpenseCategory(string? kind)
+    {
+        var normalized = NormalizeExpenseKind(kind);
+        return normalized == "Outros"
+            ? FairOperationalExpenseCategory
+            : $"{FairOperationalExpenseCategory} - {normalized}";
+    }
+
+    public static string NormalizeExpenseKind(string? kind)
+    {
+        var trimmed = kind?.Trim();
+        return ExpenseKinds.FirstOrDefault(k => string.Equals(k, trimmed, StringComparison.OrdinalIgnoreCase)) ?? "Outros";
+    }
+
+    public static string ParseExpenseKind(string? category)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            return "Outros";
+        }
+
+        var separator = category.IndexOf(" - ", StringComparison.Ordinal);
+        return separator >= 0 ? NormalizeExpenseKind(category[(separator + 3)..]) : "Outros";
+    }
 }
 
 public sealed record CreateFairCommand(FairRequest Request, string Actor) : ICommand<FairDto>;
@@ -314,7 +342,7 @@ public sealed class CancelFairCommandHandler(
                 && entry.Type == FinancialEntryType.Expense
                 && (entry.Category == FairFinanceCategories.StoreFairRegistrationCategory
                     || entry.Category == FairFinanceCategories.SupplierFairPayableCategory
-                    || entry.Category == FairFinanceCategories.FairOperationalExpenseCategory))
+                    || entry.Category.StartsWith(FairFinanceCategories.FairOperationalExpenseCategory)))
             .ToList();
 
         foreach (var expense in relatedFairExpenses)
@@ -359,11 +387,12 @@ public sealed class AddFairExpenseCommandHandler(
             throw new InvalidOperationException("O valor da despesa da feira deve ser maior do que zero.");
         }
 
+        var kind = FairFinanceCategories.NormalizeExpenseKind(command.Request.Kind);
         var entry = new FinancialEntry
         {
             Type = FinancialEntryType.Expense,
             Classification = FinancialClassification.Variable,
-            Category = FairFinanceCategories.FairOperationalExpenseCategory,
+            Category = FairFinanceCategories.ComposeExpenseCategory(kind),
             Description = command.Request.Description.Trim(),
             Amount = amount,
             OccurredOnUtc = NormalizeUtcDate(command.Request.OccurredOnUtc ?? DateTime.UtcNow),
@@ -377,13 +406,13 @@ public sealed class AddFairExpenseCommandHandler(
             EntityId = fair.Id.ToString(),
             Action = AuditAction.Updated,
             ChangedBy = command.Actor,
-            PayloadJson = JsonSerializer.Serialize(new { Operation = "AddFairExpense", entry.Description, entry.Amount })
+            PayloadJson = JsonSerializer.Serialize(new { Operation = "AddFairExpense", entry.Description, entry.Amount, Kind = kind })
         }, cancellationToken);
         await financeRepository.SaveChangesAsync(cancellationToken);
         await cacheInvalidationService.InvalidateFairReadModelsAsync(fair.Id, fair.Suppliers.Select(link => link.SupplierId), cancellationToken);
         await cacheInvalidationService.InvalidateDashboardAsync(cancellationToken: cancellationToken);
 
-        return new FairExpenseDto(entry.Id, entry.Description, entry.Amount, entry.OccurredOnUtc);
+        return new FairExpenseDto(entry.Id, entry.Description, entry.Amount, entry.OccurredOnUtc, kind);
     }
 
     private static DateTime NormalizeUtcDate(DateTime value)
@@ -414,7 +443,7 @@ public sealed class DeleteFairExpenseCommandHandler(
         var entry = await financeRepository.GetByIdAsync(command.ExpenseId, cancellationToken);
         if (entry is null
             || entry.ReferenceId != command.FairId
-            || entry.Category != FairFinanceCategories.FairOperationalExpenseCategory)
+            || !entry.Category.StartsWith(FairFinanceCategories.FairOperationalExpenseCategory, StringComparison.Ordinal))
         {
             return false;
         }
@@ -470,7 +499,7 @@ public sealed class DeleteFairCommandHandler(
 
         var fairFinanceEntries = financeRepository.Query()
             .Where(entry => entry.ReferenceId == command.FairId
-                && entry.Category == FairFinanceCategories.FairOperationalExpenseCategory)
+                && entry.Category.StartsWith(FairFinanceCategories.FairOperationalExpenseCategory))
             .ToList();
         foreach (var entry in fairFinanceEntries)
         {

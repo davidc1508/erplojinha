@@ -23,7 +23,7 @@ public sealed class GetFairsQueryHandler(
                     .Where(entry => entry.Type == FinancialEntryType.Expense
                         && entry.SupplierId == null
                         && entry.ReferenceId != null
-                        && entry.Category == FairFinanceCategories.FairOperationalExpenseCategory)
+                        && entry.Category.StartsWith(FairFinanceCategories.FairOperationalExpenseCategory))
                     .GroupBy(entry => entry.ReferenceId!.Value)
                     .ToDictionary(group => group.Key, group => group.Sum(entry => entry.Amount));
 
@@ -53,7 +53,7 @@ public sealed class GetFairByIdQueryHandler(
             .Where(entry => entry.ReferenceId == fair.Id
                 && entry.SupplierId == null
                 && entry.Type == FinancialEntryType.Expense
-                && entry.Category == FairFinanceCategories.FairOperationalExpenseCategory)
+                && entry.Category.StartsWith(FairFinanceCategories.FairOperationalExpenseCategory))
             .Sum(entry => (decimal?)entry.Amount) ?? 0m;
 
         return fair.ToDto(null, totalExpenses);
@@ -133,9 +133,11 @@ public sealed class GetFairReportQueryHandler(
             .Where(entry => entry.ReferenceId == fair.Id
                 && entry.SupplierId == null
                 && entry.Type == FinancialEntryType.Expense
-                && entry.Category == FairFinanceCategories.FairOperationalExpenseCategory)
+                && entry.Category.StartsWith(FairFinanceCategories.FairOperationalExpenseCategory))
             .OrderByDescending(entry => entry.OccurredOnUtc)
-            .Select(entry => new FairExpenseDto(entry.Id, entry.Description, entry.Amount, entry.OccurredOnUtc))
+            .Select(entry => new { entry.Id, entry.Description, entry.Amount, entry.OccurredOnUtc, entry.Category })
+            .ToList()
+            .Select(entry => new FairExpenseDto(entry.Id, entry.Description, entry.Amount, entry.OccurredOnUtc, FairFinanceCategories.ParseExpenseKind(entry.Category)))
             .ToList();
 
         return fair.ToReportDto(supplierQuotaStatus, expenses);

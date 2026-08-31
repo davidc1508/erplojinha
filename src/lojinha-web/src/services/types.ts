@@ -361,6 +361,7 @@ export interface FairExpense {
   description: string;
   amount: number;
   occurredOnUtc: string;
+  kind: string;
 }
 
 export interface FairReportSeries {

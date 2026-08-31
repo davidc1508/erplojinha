@@ -185,10 +185,15 @@ public sealed class FairRequestValidator : AbstractValidator<FairRequest>
 
 public sealed class FairExpenseRequestValidator : AbstractValidator<FairExpenseRequest>
 {
+    private static readonly string[] AllowedKinds = ["Alimentacao", "Combustivel", "Hospedagem", "Transporte", "Outros"];
+
     public FairExpenseRequestValidator()
     {
         RuleFor(x => x.Description).NotEmpty().MaximumLength(250);
         RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Kind)
+            .Must(kind => string.IsNullOrWhiteSpace(kind) || AllowedKinds.Contains(kind, StringComparer.OrdinalIgnoreCase))
+            .WithMessage("Tipo de despesa invalido.");
     }
 }
 

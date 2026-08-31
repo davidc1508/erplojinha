@@ -8,9 +8,9 @@ public sealed record FairSupplierDto(Guid SupplierId, string SupplierName);
 
 public sealed record FairRegistrationInstallmentRequest(DateTime DueDateUtc, decimal Amount);
 
-public sealed record FairExpenseRequest(string Description, decimal Amount, DateTime? OccurredOnUtc);
+public sealed record FairExpenseRequest(string Description, decimal Amount, DateTime? OccurredOnUtc, string? Kind);
 
-public sealed record FairExpenseDto(Guid Id, string Description, decimal Amount, DateTime OccurredOnUtc);
+public sealed record FairExpenseDto(Guid Id, string Description, decimal Amount, DateTime OccurredOnUtc, string Kind);
 
 public sealed record FairRequest(
     string Name,
