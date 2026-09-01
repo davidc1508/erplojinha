@@ -53,7 +53,20 @@ export function financialClassificationLabel(value: FinancialClassification | st
   return value === 'Fixed' ? 'Fixa' : 'Variável';
 }
 
+const FAIR_EXPENSE_KIND_LABELS: Record<string, string> = {
+  Alimentacao: 'Alimentação',
+  Combustivel: 'Combustível',
+  Hospedagem: 'Hospedagem',
+  Transporte: 'Transporte',
+  Outros: 'Outros'
+};
+
 export function financialCategoryLabel(value: string) {
+  if (value.startsWith('Despesa de feira')) {
+    const kind = value.split(' - ')[1];
+    return kind ? `Feira: despesa · ${FAIR_EXPENSE_KIND_LABELS[kind] ?? kind}` : 'Feira: despesa operacional';
+  }
+
   return {
     'Inscricao de feira': 'Feira: inscrição paga pela lojinha',
     'Contas a pagar de feiras': 'Feira: obrigação do fornecedor (contas a pagar)',
