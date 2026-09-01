@@ -578,29 +578,7 @@ export function FairDetailsPage() {
     </Stack>
   );
 
-  const salesList = isMobile ? (
-    <Stack spacing={1.5}>
-      {pagedSales.map((sale) => {
-        const totalItems = sale.items.reduce((sum, item) => sum + item.quantity, 0);
-        return (
-          <Paper key={sale.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-            <Stack spacing={1}>
-              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                <Typography fontWeight={700} sx={{ lineHeight: 1.3 }}>{sale.items.map((item) => item.productName).join(', ')}</Typography>
-                {saleActions(sale)}
-              </Stack>
-              <Typography variant="body2" color="text.secondary">{formatUtcDate(sale.soldAtUtc)} • {totalItems} item(ns) • {paymentMethodLabel(sale.paymentMethod)}</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={4}><Typography variant="caption" color="text.secondary">Bruto</Typography><Typography fontWeight={700}>{formatCurrency(sale.totalAmount)}</Typography></Grid>
-                <Grid item xs={4}><Typography variant="caption" color="text.secondary">Lucro loja</Typography><Typography fontWeight={700}>{formatCurrency(sale.profitAmount)}</Typography></Grid>
-                <Grid item xs={4}><Typography variant="caption" color="text.secondary">Caixinha</Typography><Typography fontWeight={700}>{formatCurrency(Math.max(sale.profitAmount, 0) / 2)}</Typography></Grid>
-              </Grid>
-            </Stack>
-          </Paper>
-        );
-      })}
-    </Stack>
-  ) : (
+  const salesList = (
     <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
       <Table size="small" sx={{ minWidth: 980 }}>
         <TableHead>

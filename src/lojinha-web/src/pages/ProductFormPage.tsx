@@ -1,14 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
+  Box,
   Button,
   Checkbox,
+  Chip,
   Divider,
   Grid,
   FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
+  Slider,
   Stack,
   TextField,
   Typography
@@ -85,6 +88,7 @@ export function ProductFormPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ ...emptyForm, isBudget: isBudgetMode });
+  const [projectionQty, setProjectionQty] = useState(12);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [duration, setDuration] = useState(() => minutesToDurationParts(emptyForm.estimatedPrintTimeMinutes));
@@ -415,6 +419,30 @@ export function ProductFormPage() {
   const hasMissingPingente = isEarring && !form.pingenteSupplyId;
   const hasMissingBottonSize = isBotton && !form.bottonSizeId;
 
+  const projN = Math.max(1, Math.round(projectionQty));
+  const projItemsPerPlate = Math.max(1, Number(form.itemsPerPlate) || 1);
+  const projPlates = Math.max(1, Math.ceil(projN / projItemsPerPlate));
+  const projFilamentGrams = form.filaments.reduce((sum, item) => sum + (Number(item.weightGrams) || 0), 0) * projPlates;
+  const projPrintMinutes = (Number(form.estimatedPrintTimeMinutes) || 0) * projPlates;
+  const projBottonConsumed = Number(form.bottonSizeQuantity || 1) * projN;
+  const projection = pricing ? {
+    cost: pricing.totalCost * projN,
+    revenue: effectiveSalePrice * projN,
+    profit: (effectiveSalePrice - pricing.totalCost) * projN,
+    margin: effectiveSalePrice > 0 ? ((effectiveSalePrice - pricing.totalCost) / effectiveSalePrice) * 100 : 0,
+    material: pricing.materialCost * projN,
+    energy: pricing.energyCost * projN,
+    failure: pricing.failureCost * projN,
+    finishingLabor: (pricing.finishingCost + pricing.laborCost) * projN
+  } : null;
+
+  function formatMinutes(totalMinutes: number) {
+    const rounded = Math.round(totalMinutes);
+    const hours = Math.floor(rounded / 60);
+    const minutes = rounded % 60;
+    return hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+  }
+
   function updateForm(field: keyof typeof emptyForm, value: string | number | boolean) {
     setDirty(true);
     if (field === 'additionalCost' && isProjectDraftMode) {
@@ -517,13 +545,9 @@ export function ProductFormPage() {
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={8}>
-          <PageSection title="Dados do produto" subtitle="Informações gerais, produção e configuração de preço.">
+          <Stack spacing={3}>
+          <PageSection title="1 · Identificação" subtitle="O que é o produto e onde ele é vendido.">
             <Stack spacing={2}>
-              <Stack spacing={2.5}>
-                <Stack spacing={0.75}>
-                  <Typography fontWeight={700}>Identificação</Typography>
-                  <Divider />
-                </Stack>
                 <TextField
                   select
                   label="Tipo de produto"
@@ -574,7 +598,11 @@ export function ProductFormPage() {
                     </TextField>
                   </Grid>
                 </Grid>
+            </Stack>
+          </PageSection>
 
+          <PageSection title="2 · Produção e insumo" subtitle="Como o produto é feito — muda conforme o tipo escolhido.">
+            <Stack spacing={2}>
                 {isEarring ? (
                   <>
                     <Stack spacing={0.75}>
@@ -725,12 +753,11 @@ export function ProductFormPage() {
                 </Grid>
                 </>
                 ) : null}
+            </Stack>
+          </PageSection>
 
-                <Stack spacing={0.75}>
-                  <Typography fontWeight={700}>Precificação</Typography>
-                  <Divider />
-                </Stack>
-
+          <PageSection title="3 · Precificação" subtitle="Margens e preço final de venda.">
+            <Stack spacing={2}>
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
                     <FormControlLabel
@@ -753,7 +780,6 @@ export function ProductFormPage() {
                   <Grid item xs={12} md={4}><CurrencyField label="Preço para venda comissionada" value={effectiveCommissionedSalePrice} onValueChange={() => undefined} helperText="Calculado automaticamente a partir do preço final e comissão." fullWidth disabled /></Grid>
                   <Grid item xs={12} md={4}><CurrencyField label="Lucro estimado" value={estimatedProfit} onValueChange={() => undefined} helperText="Preco final informado menos custo calculado." fullWidth disabled /></Grid>
                 </Grid>
-              </Stack>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments || hasMissingPingente || hasMissingBottonSize} title={hasMissingPrinterWithFilaments ? 'Selecione uma impressora quando há filamentos' : undefined}>
@@ -765,11 +791,12 @@ export function ProductFormPage() {
               </Stack>
             </Stack>
           </PageSection>
+          </Stack>
         </Grid>
 
         <Grid item xs={12} lg={4}>
-          <Stack spacing={3}>
-            <PageSection title="Preview de precificação" subtitle={dirty ? 'Calculado com os dados atuais do formulário.' : 'Calculado com os dados salvos. Edite o formulário para recalcular.'}>
+          <Stack spacing={3} sx={{ position: { lg: 'sticky' }, top: { lg: 16 } }}>
+            <PageSection title="Resumo de custo" subtitle={dirty ? 'Calculado com os dados atuais do formulário.' : 'Calculado com os dados salvos. Edite o formulário para recalcular.'}>
               {pricing ? (
                 <Stack spacing={1.2}>
                   {isPrint3D && form.printerProfileId === '' && form.filaments.length > 0 ? (
@@ -814,6 +841,79 @@ export function ProductFormPage() {
                 </Stack>
               ) : (
                 <Typography color="text.secondary">Selecione uma categoria para visualizar o preview.</Typography>
+              )}
+            </PageSection>
+
+            <PageSection title="Projeção de produção" subtitle="Arraste para simular um lote inteiro do produto.">
+              {projection ? (
+                <Stack spacing={2}>
+                  <div>
+                    <Stack direction="row" alignItems="baseline" spacing={1}>
+                      <Typography variant="h4" color="primary.dark">{projN}</Typography>
+                      <Typography color="text.secondary" fontWeight={700}>unidades</Typography>
+                    </Stack>
+                    <Slider
+                      value={projN}
+                      onChange={(_event, value) => setProjectionQty(Array.isArray(value) ? value[0] : value)}
+                      min={1}
+                      max={60}
+                      step={1}
+                      valueLabelDisplay="auto"
+                      marks={[{ value: 6 }, { value: 12 }, { value: 24 }, { value: 48 }]}
+                    />
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                      {[6, 12, 24].map((qty) => (
+                        <Chip key={qty} label={`${qty}x`} size="small" onClick={() => setProjectionQty(qty)} color={projN === qty ? 'primary' : 'default'} />
+                      ))}
+                      {isPrint3D ? <Chip label={`1 placa (${projItemsPerPlate})`} size="small" onClick={() => setProjectionQty(projItemsPerPlate)} /> : null}
+                    </Stack>
+                  </div>
+
+                  <Divider />
+
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" fontWeight={700}>Custo de produção</Typography><Typography fontWeight={700}>{formatCurrency(projection.cost)}</Typography></Grid>
+                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" fontWeight={700}>Receita ({formatCurrency(effectiveSalePrice)}/un)</Typography><Typography fontWeight={700}>{formatCurrency(projection.revenue)}</Typography></Grid>
+                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" fontWeight={700}>Lucro</Typography><Typography fontWeight={700} color={projection.profit >= 0 ? 'success.main' : 'error.main'}>{formatCurrency(projection.profit)}</Typography></Grid>
+                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" fontWeight={700}>Margem</Typography><Typography fontWeight={700}>{projection.margin.toFixed(1)}%</Typography></Grid>
+                  </Grid>
+
+                  {projection.revenue > 0 ? (
+                    <Box sx={{ display: 'flex', height: 22, borderRadius: 1.5, overflow: 'hidden', fontSize: 11, fontWeight: 800, color: '#fff' }}>
+                      <Box sx={{ width: `${Math.min(100, Math.max(0, (projection.cost / projection.revenue) * 100))}%`, bgcolor: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>custo</Box>
+                      <Box sx={{ flex: 1, bgcolor: 'success.main', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>lucro</Box>
+                    </Box>
+                  ) : null}
+
+                  <Divider />
+
+                  <Stack spacing={0.75}>
+                    {isPrint3D ? (
+                      <>
+                        <Typography variant="body2" color="text.secondary">Placas necessárias: {projPlates} ({projItemsPerPlate} por placa)</Typography>
+                        <Typography variant="body2" color="text.secondary">Tempo de impressão: {formatMinutes(projPrintMinutes)}</Typography>
+                        <Typography variant="body2" color="text.secondary">Filamento: {projFilamentGrams.toFixed(0)} g — {formatCurrency(projection.material)}</Typography>
+                        <Typography variant="body2" color="text.secondary">Energia: {formatCurrency(projection.energy)} · Falhas: {formatCurrency(projection.failure)}</Typography>
+                      </>
+                    ) : null}
+                    {isEarring ? (
+                      <Typography variant="body2" color="text.secondary">Pingentes: {projN} un — {formatCurrency(projection.material)}</Typography>
+                    ) : null}
+                    {isBotton ? (
+                      <>
+                        <Typography variant="body2" color="text.secondary">Consome {projBottonConsumed.toFixed(0)} peça(s) do tamanho — {formatCurrency(projection.material)}</Typography>
+                        {selectedBottonSize ? (
+                          <Typography variant="body2" color={selectedBottonSize.stockQuantity >= projBottonConsumed ? 'success.main' : 'error.main'} fontWeight={700}>
+                            Estoque do tamanho: {selectedBottonSize.stockQuantity} — {selectedBottonSize.stockQuantity >= projBottonConsumed ? 'suficiente para o lote' : `faltam ${(projBottonConsumed - selectedBottonSize.stockQuantity).toFixed(0)}`}
+                          </Typography>
+                        ) : null}
+                      </>
+                    ) : null}
+                    <Typography variant="body2" color="text.secondary">Mão de obra + acabamento: {formatCurrency(projection.finishingLabor)}</Typography>
+                  </Stack>
+                </Stack>
+              ) : (
+                <Typography color="text.secondary">Selecione uma categoria e informe o preço para ver a projeção.</Typography>
               )}
             </PageSection>
 
