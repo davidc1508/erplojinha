@@ -6,7 +6,6 @@ import {
   Checkbox,
   Chip,
   Divider,
-  Grid,
   FormControlLabel,
   IconButton,
   MenuItem,
@@ -543,8 +542,8 @@ export function ProductFormPage() {
         </PageSection>
       ) : null}
 
-      <Box sx={{ display: 'grid', gap: { xs: 2, md: 3 }, gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 380px' }, alignItems: 'start' }}>
-          <Stack spacing={{ xs: 2, md: 3 }}>
+      <Box sx={{ display: 'grid', gap: { xs: 2, md: 3 }, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) 380px' }, alignItems: 'start' }}>
+          <Stack spacing={{ xs: 2, md: 3 }} sx={{ minWidth: 0 }}>
           <PageSection title="1 · Identificação" subtitle="O que é o produto e onde ele é vendido.">
             <Stack spacing={2}>
                 <TextField
@@ -573,32 +572,26 @@ export function ProductFormPage() {
                 />
                 <TextField fullWidth label="Descrição" multiline minRows={3} value={form.description} onChange={(event) => updateForm('description', event.target.value)} disabled={isFromOutsourcedProduction} />
 
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={6}>
-                    <SearchSelectField
-                      label="Categoria"
-                      value={form.categoryId}
-                      options={(metadata?.categories ?? []).map((item) => ({ id: item.id, name: item.name }))}
-                      onChange={(value) => updateForm('categoryId', value)}
-                      helperText="Busque e selecione a categoria. Nenhuma vem preenchida por padrão."
-                      placeholder="Digite o nome da categoria"
-                      minQueryLength={0}
-                      disabled={isFromOutsourcedProduction}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={6}>
-                    <TextField select label="Fornecedor" value={isSupplier ? (session?.supplierId ?? '') : form.supplierId} onChange={(event) => updateForm('supplierId', event.target.value)} fullWidth disabled={isSupplier || isFromOutsourcedProduction} helperText={isSupplier ? 'Vinculado automaticamente ao fornecedor logado.' : undefined}>
-                      {!isSupplier ? <MenuItem value="">Lojinha Sem Nome</MenuItem> : null}
-                      {(metadata?.suppliers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={6}>
-                    <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction} helperText="Vem pré-selecionado como Nenhum.">
-                      {form.marketplaceFeeId === '' ? <MenuItem value="">— Sem marketplace —</MenuItem> : null}
-                      {(metadata?.marketplaces ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
-                    </TextField>
-                  </Grid>
-                </Grid>
+                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+                  <SearchSelectField
+                    label="Categoria"
+                    value={form.categoryId}
+                    options={(metadata?.categories ?? []).map((item) => ({ id: item.id, name: item.name }))}
+                    onChange={(value) => updateForm('categoryId', value)}
+                    helperText="Busque e selecione a categoria. Nenhuma vem preenchida por padrão."
+                    placeholder="Digite o nome da categoria"
+                    minQueryLength={0}
+                    disabled={isFromOutsourcedProduction}
+                  />
+                  <TextField select label="Fornecedor" value={isSupplier ? (session?.supplierId ?? '') : form.supplierId} onChange={(event) => updateForm('supplierId', event.target.value)} fullWidth disabled={isSupplier || isFromOutsourcedProduction} helperText={isSupplier ? 'Vinculado automaticamente ao fornecedor logado.' : undefined}>
+                    {!isSupplier ? <MenuItem value="">Lojinha Sem Nome</MenuItem> : null}
+                    {(metadata?.suppliers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction} helperText="Vem pré-selecionado como Nenhum.">
+                    {form.marketplaceFeeId === '' ? <MenuItem value="">— Sem marketplace —</MenuItem> : null}
+                    {(metadata?.marketplaces ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
+                  </TextField>
+                </Box>
             </Stack>
           </PageSection>
 
@@ -610,28 +603,24 @@ export function ProductFormPage() {
                       <Typography fontWeight={700}>Insumo do brinco</Typography>
                       <Divider />
                     </Stack>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={7} md={8}>
-                        <SearchSelectField
-                          label="Pingente"
-                          value={form.pingenteSupplyId}
-                          options={(metadata?.supplies ?? []).map((item) => ({ id: item.id, name: item.name }))}
-                          onChange={(value) => updateForm('pingenteSupplyId', value)}
-                          helperText="Buscado no cadastro de Insumos."
-                          placeholder="Digite o nome do pingente"
-                          minQueryLength={0}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={5} md={4}>
-                        <CurrencyField
-                          label="Custo do pingente"
-                          value={Number(form.pingenteCost)}
-                          onValueChange={(value) => updateForm('pingenteCost', value)}
-                          helperText="Valor pode variar por compra. Não baixa estoque."
-                          fullWidth
-                        />
-                      </Grid>
-                    </Grid>
+                    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: '2fr 1fr' } }}>
+                      <SearchSelectField
+                        label="Pingente"
+                        value={form.pingenteSupplyId}
+                        options={(metadata?.supplies ?? []).map((item) => ({ id: item.id, name: item.name }))}
+                        onChange={(value) => updateForm('pingenteSupplyId', value)}
+                        helperText="Buscado no cadastro de Insumos."
+                        placeholder="Digite o nome do pingente"
+                        minQueryLength={0}
+                      />
+                      <CurrencyField
+                        label="Custo do pingente"
+                        value={Number(form.pingenteCost)}
+                        onValueChange={(value) => updateForm('pingenteCost', value)}
+                        helperText="Pode variar por compra. Não baixa estoque."
+                        fullWidth
+                      />
+                    </Box>
                   </>
                 ) : null}
 
@@ -641,8 +630,8 @@ export function ProductFormPage() {
                       <Typography fontWeight={700}>Insumo do botton</Typography>
                       <Divider />
                     </Stack>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6} md={6}>
+                    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+                      <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
                         <SearchSelectField
                           label="Tamanho de botton"
                           value={form.bottonSizeId}
@@ -652,29 +641,23 @@ export function ProductFormPage() {
                           placeholder="Digite o nome do tamanho"
                           minQueryLength={0}
                         />
-                      </Grid>
-                      <Grid item xs={12} sm={6} md={6}>
+                      </Box>
+                      <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
                         <TextField
                           label="Qtd. consumida por unidade"
                           type="number"
                           value={form.bottonSizeQuantity}
                           onChange={(event) => updateForm('bottonSizeQuantity', Number(event.target.value))}
-                          helperText="Quantas peças do tamanho cada botton usa."
+                          helperText="Quantas peças cada botton usa."
                           fullWidth
                         />
-                      </Grid>
-                      <Grid item xs={6} sm={6} md={6}>
-                        <CurrencyField label="Custo do tamanho" value={selectedBottonSize?.costPerUnit ?? 0} onValueChange={() => undefined} helperText="Do cadastro de Tam. de Botton." fullWidth disabled />
-                      </Grid>
-                      <Grid item xs={6} sm={6} md={6}>
-                        <TextField label="Estoque atual do tamanho" value={selectedBottonSize ? `${selectedBottonSize.stockQuantity}` : '—'} helperText="Somente leitura, para conferência." fullWidth disabled />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Alert severity="info">
-                          A cada entrada em estoque deste botton, o estoque do tamanho selecionado é baixado na mesma proporção (qtd. por unidade × entrada), limitado a zero — nunca fica negativo.
-                        </Alert>
-                      </Grid>
-                    </Grid>
+                      </Box>
+                      <CurrencyField label="Custo do tamanho" value={selectedBottonSize?.costPerUnit ?? 0} onValueChange={() => undefined} helperText="Do cadastro de Tam. de Botton." fullWidth disabled />
+                      <TextField label="Estoque atual do tamanho" value={selectedBottonSize ? `${selectedBottonSize.stockQuantity}` : '—'} helperText="Somente leitura." fullWidth disabled />
+                      <Alert severity="info" sx={{ gridColumn: '1 / -1' }}>
+                        A cada entrada em estoque deste botton, o estoque do tamanho selecionado é baixado na mesma proporção (qtd. por unidade × entrada), limitado a zero — nunca fica negativo.
+                      </Alert>
+                    </Box>
                   </>
                 ) : null}
 
@@ -685,74 +668,75 @@ export function ProductFormPage() {
                   <Divider />
                 </Stack>
 
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' } }}>
+                  <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
                     <TextField select label="Impressora" value={form.printerProfileId} onChange={(event) => updateForm('printerProfileId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction}>
                       <MenuItem value="">Sem impressora</MenuItem>
                       {(metadata?.printers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
                     </TextField>
-                  </Grid>
-                  <Grid item xs={6} sm={3} md={4}><TextField label="Itens por placa" type="number" value={form.itemsPerPlate} onChange={(event) => updateForm('itemsPerPlate', Number(event.target.value))} helperText="Use 1 quando o custo ja for unitario." fullWidth disabled={isFromOutsourcedProduction} /></Grid>
-                  <Grid item xs={6} sm={3} md={4}><CurrencyField label="Tarifa kWh" value={form.tariffPerKwh} onValueChange={(value) => updateForm('tariffPerKwh', value)} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
-                  <Grid item xs={12}>
-                    <Stack spacing={1.25}>
-                      <Typography variant="body2" fontWeight={600}>Filamentos</Typography>
-                      {form.filaments.map((item, index) => (
-                        <Grid key={index} container spacing={1} alignItems="flex-start">
-                          <Grid item xs={12} sm={8}>
-                            <SearchSelectField
-                              label="Filamento"
-                              value={item.filamentProfileId}
-                              options={(metadata?.filaments ?? []).map((f) => ({ id: f.id, name: f.name }))}
-                              onChange={(value) => updateFilament(index, 'filamentProfileId', value)}
-                              placeholder="Digite o nome do filamento"
-                              minQueryLength={0}
-                              helperText={undefined}
-                              disabled={isFromOutsourcedProduction}
-                            />
-                          </Grid>
-                          <Grid item xs={9} sm={3}>
-                            <TextField
-                              label="Peso (g)"
-                              type="number"
-                              value={item.weightGrams}
-                              onChange={(event) => updateFilament(index, 'weightGrams', Number(event.target.value))}
-                              fullWidth
-                              disabled={isFromOutsourcedProduction}
-                            />
-                          </Grid>
-                          <Grid item xs={3} sm={1} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 56 }}>
-                            {index > 0 && !isFromOutsourcedProduction && (
-                              <IconButton onClick={() => removeFilament(index)} color="error" aria-label="Remover filamento">
-                                <DeleteOutlineRoundedIcon />
-                              </IconButton>
-                            )}
-                          </Grid>
-                        </Grid>
-                      ))}
-                      {!isFromOutsourcedProduction && (
-                        <Button size="small" startIcon={<AddRoundedIcon />} onClick={addFilament} sx={{ alignSelf: 'flex-start' }}>
-                          Adicionar filamento
-                        </Button>
-                      )}
-                      {form.filaments.length > 0 ? (
-                        <Typography variant="caption" color="text.secondary">
-                          Peso total: {form.filaments.reduce((sum, f) => sum + (Number(f.weightGrams) || 0), 0).toFixed(0)} g
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={6}>
-                    <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>Tempo de impressão</Typography>
-                    <Grid container spacing={1}>
-                      <Grid item xs={4}><TextField label="Horas" type="number" value={duration.hours} onChange={(event) => updateDurationPart('hours', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
-                      <Grid item xs={4}><TextField label="Min" type="number" value={duration.minutes} onChange={(event) => updateDurationPart('minutes', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
-                      <Grid item xs={4}><TextField label="Seg" type="number" value={duration.seconds} onChange={(event) => updateDurationPart('seconds', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
-                    </Grid>
-                  </Grid>
-                  <Grid item xs={6} sm={3} md={3}><TextField label="Altura (cm)" type="number" value={form.heightCentimeters} onChange={(event) => updateForm('heightCentimeters', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
-                  <Grid item xs={6} sm={3} md={3}><TextField label="Comprimento (m)" type="number" value={form.lengthMetersUsed} onChange={(event) => updateForm('lengthMetersUsed', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
-                </Grid>
+                  </Box>
+                  <TextField label="Itens por placa" type="number" value={form.itemsPerPlate} onChange={(event) => updateForm('itemsPerPlate', Number(event.target.value))} helperText="1 quando o custo já for unitário." fullWidth disabled={isFromOutsourcedProduction} />
+                  <CurrencyField label="Tarifa kWh" value={form.tariffPerKwh} onValueChange={(value) => updateForm('tariffPerKwh', value)} fullWidth disabled={isFromOutsourcedProduction} />
+                </Box>
+
+                <Stack spacing={1.25}>
+                  <Typography variant="body2" fontWeight={600}>Filamentos</Typography>
+                  {form.filaments.map((item, index) => (
+                    <Box key={index} sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr 96px', sm: 'minmax(0, 1fr) 110px 44px' }, alignItems: 'start' }}>
+                      <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+                        <SearchSelectField
+                          label="Filamento"
+                          value={item.filamentProfileId}
+                          options={(metadata?.filaments ?? []).map((f) => ({ id: f.id, name: f.name }))}
+                          onChange={(value) => updateFilament(index, 'filamentProfileId', value)}
+                          placeholder="Digite o nome do filamento"
+                          minQueryLength={0}
+                          helperText={undefined}
+                          disabled={isFromOutsourcedProduction}
+                        />
+                      </Box>
+                      <TextField
+                        label="Peso (g)"
+                        type="number"
+                        value={item.weightGrams}
+                        onChange={(event) => updateFilament(index, 'weightGrams', Number(event.target.value))}
+                        fullWidth
+                        disabled={isFromOutsourcedProduction}
+                      />
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 56 }}>
+                        {index > 0 && !isFromOutsourcedProduction ? (
+                          <IconButton onClick={() => removeFilament(index)} color="error" aria-label="Remover filamento">
+                            <DeleteOutlineRoundedIcon />
+                          </IconButton>
+                        ) : null}
+                      </Box>
+                    </Box>
+                  ))}
+                  {!isFromOutsourcedProduction ? (
+                    <Button size="small" startIcon={<AddRoundedIcon />} onClick={addFilament} sx={{ alignSelf: 'flex-start' }}>
+                      Adicionar filamento
+                    </Button>
+                  ) : null}
+                  {form.filaments.length > 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Peso total: {form.filaments.reduce((sum, f) => sum + (Number(f.weightGrams) || 0), 0).toFixed(0)} g
+                    </Typography>
+                  ) : null}
+                </Stack>
+
+                <div>
+                  <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>Tempo de impressão</Typography>
+                  <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                    <TextField label="Horas" type="number" value={duration.hours} onChange={(event) => updateDurationPart('hours', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+                    <TextField label="Min" type="number" value={duration.minutes} onChange={(event) => updateDurationPart('minutes', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+                    <TextField label="Seg" type="number" value={duration.seconds} onChange={(event) => updateDurationPart('seconds', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+                  </Box>
+                </div>
+
+                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                  <TextField label="Altura (cm)" type="number" value={form.heightCentimeters} onChange={(event) => updateForm('heightCentimeters', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+                  <TextField label="Comprimento (m)" type="number" value={form.lengthMetersUsed} onChange={(event) => updateForm('lengthMetersUsed', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+                </Box>
                 </>
                 ) : null}
             </Stack>
@@ -760,28 +744,26 @@ export function ProductFormPage() {
 
           <PageSection title="3 · Precificação" subtitle="Margens e preço final de venda.">
             <Stack spacing={2}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <FormControlLabel
-                      control={<Checkbox checked={form.generateProductionExpenseOnStockEntry} onChange={(event) => updateForm('generateProductionExpenseOnStockEntry', event.target.checked)} disabled={isFromOutsourcedProduction} />}
-                      label="Gerar despesa de produção quando o produto entrar em estoque"
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControlLabel
-                      control={<Checkbox checked={isBudgetMode ? true : form.isBudget} onChange={(event) => updateForm('isBudget', event.target.checked)} disabled={isBudgetMode || isProjectDraftMode} />}
-                      label={isProjectDraftMode ? 'Produto final sempre salvo como produto disponível ao concluir o projeto' : isBudgetMode ? 'Cadastro fixo como orçamento nesta tela' : 'Salvar como orçamento'}
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={4} md={4}><TextField label="Acabamento (%)" type="number" value={form.finishingPercentage} onChange={(event) => updateForm('finishingPercentage', Number(event.target.value))} fullWidth /></Grid>
-                  <Grid item xs={6} sm={4} md={4}><TextField label="Comissão (%)" type="number" value={form.commissionPercentage} onChange={(event) => updateForm('commissionPercentage', Number(event.target.value))} fullWidth /></Grid>
-                  <Grid item xs={12} sm={4} md={4}><CurrencyField label="Custo adicional" value={form.additionalCost} onValueChange={(value) => updateForm('additionalCost', value)} fullWidth disabled={isFromOutsourcedProduction} /></Grid>
-                  <Grid item xs={6} sm={4} md={4}><CurrencyField label="Mão de obra" value={form.laborCost} onValueChange={(value) => updateForm('laborCost', value)} helperText="Somado ao custo do produto." fullWidth disabled={isFromOutsourcedProduction} /></Grid>
-                  <Grid item xs={6} sm={4} md={4}><TextField label="Markup desejado" type="number" value={form.desiredMarkup} onChange={(event) => updateForm('desiredMarkup', Number(event.target.value))} helperText="Minimo de 2 (200%)." fullWidth /></Grid>
-                  <Grid item xs={12} sm={4} md={4}><CurrencyField label="Preço final de venda" value={form.salePrice === '' ? 0 : Number(form.salePrice)} onValueChange={(value) => updateForm('salePrice', String(value))} helperText={`Minimo: ${formatCurrency(minimumAllowedSalePrice)}`} fullWidth /></Grid>
-                  <Grid item xs={12} sm={6} md={4}><CurrencyField label="Preço p/ venda comissionada" value={effectiveCommissionedSalePrice} onValueChange={() => undefined} helperText="Calculado a partir do preço final e comissão." fullWidth disabled /></Grid>
-                  <Grid item xs={12} sm={6} md={4}><CurrencyField label="Lucro estimado" value={estimatedProfit} onValueChange={() => undefined} helperText="Preço final menos custo calculado." fullWidth disabled /></Grid>
-                </Grid>
+                <Stack spacing={0.5}>
+                  <FormControlLabel
+                    control={<Checkbox checked={form.generateProductionExpenseOnStockEntry} onChange={(event) => updateForm('generateProductionExpenseOnStockEntry', event.target.checked)} disabled={isFromOutsourcedProduction} />}
+                    label="Gerar despesa de produção quando o produto entrar em estoque"
+                  />
+                  <FormControlLabel
+                    control={<Checkbox checked={isBudgetMode ? true : form.isBudget} onChange={(event) => updateForm('isBudget', event.target.checked)} disabled={isBudgetMode || isProjectDraftMode} />}
+                    label={isProjectDraftMode ? 'Produto final sempre salvo como produto disponível ao concluir o projeto' : isBudgetMode ? 'Cadastro fixo como orçamento nesta tela' : 'Salvar como orçamento'}
+                  />
+                </Stack>
+                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' } }}>
+                  <TextField label="Acabamento (%)" type="number" value={form.finishingPercentage} onChange={(event) => updateForm('finishingPercentage', Number(event.target.value))} fullWidth />
+                  <TextField label="Comissão (%)" type="number" value={form.commissionPercentage} onChange={(event) => updateForm('commissionPercentage', Number(event.target.value))} fullWidth />
+                  <CurrencyField label="Custo adicional" value={form.additionalCost} onValueChange={(value) => updateForm('additionalCost', value)} fullWidth disabled={isFromOutsourcedProduction} />
+                  <CurrencyField label="Mão de obra" value={form.laborCost} onValueChange={(value) => updateForm('laborCost', value)} helperText="Somado ao custo." fullWidth disabled={isFromOutsourcedProduction} />
+                  <TextField label="Markup desejado" type="number" value={form.desiredMarkup} onChange={(event) => updateForm('desiredMarkup', Number(event.target.value))} helperText="Mínimo 2 (200%)." fullWidth />
+                  <CurrencyField label="Preço final de venda" value={form.salePrice === '' ? 0 : Number(form.salePrice)} onValueChange={(value) => updateForm('salePrice', String(value))} helperText={`Mín: ${formatCurrency(minimumAllowedSalePrice)}`} fullWidth />
+                  <CurrencyField label="Preço p/ venda comissionada" value={effectiveCommissionedSalePrice} onValueChange={() => undefined} helperText="A partir do preço final + comissão." fullWidth disabled />
+                  <CurrencyField label="Lucro estimado" value={estimatedProfit} onValueChange={() => undefined} helperText="Preço final menos custo." fullWidth disabled />
+                </Box>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments || hasMissingPingente || hasMissingBottonSize} title={hasMissingPrinterWithFilaments ? 'Selecione uma impressora quando há filamentos' : undefined}>
@@ -871,12 +853,12 @@ export function ProductFormPage() {
 
                   <Divider />
 
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" fontWeight={700}>Custo de produção</Typography><Typography fontWeight={700}>{formatCurrency(projection.cost)}</Typography></Grid>
-                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" fontWeight={700}>Receita ({formatCurrency(effectiveSalePrice)}/un)</Typography><Typography fontWeight={700}>{formatCurrency(projection.revenue)}</Typography></Grid>
-                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" fontWeight={700}>Lucro</Typography><Typography fontWeight={700} color={projection.profit >= 0 ? 'success.main' : 'error.main'}>{formatCurrency(projection.profit)}</Typography></Grid>
-                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" fontWeight={700}>Margem</Typography><Typography fontWeight={700}>{projection.margin.toFixed(1)}%</Typography></Grid>
-                  </Grid>
+                  <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                    <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Custo de produção</Typography><Typography fontWeight={700}>{formatCurrency(projection.cost)}</Typography></div>
+                    <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Receita ({formatCurrency(effectiveSalePrice)}/un)</Typography><Typography fontWeight={700}>{formatCurrency(projection.revenue)}</Typography></div>
+                    <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Lucro</Typography><Typography fontWeight={700} color={projection.profit >= 0 ? 'success.main' : 'error.main'}>{formatCurrency(projection.profit)}</Typography></div>
+                    <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Margem</Typography><Typography fontWeight={700}>{projection.margin.toFixed(1)}%</Typography></div>
+                  </Box>
 
                   {projection.revenue > 0 ? (
                     <div>
