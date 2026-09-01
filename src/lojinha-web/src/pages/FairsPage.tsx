@@ -3,11 +3,11 @@ import {
   Box,
   Button,
   Chip,
-  Grid,
   IconButton,
   MenuItem,
   Paper,
   Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
@@ -15,6 +15,7 @@ import {
   TablePagination,
   TableRow,
   TableSortLabel,
+  Tabs,
   TextField,
   Typography,
   useMediaQuery,
@@ -79,8 +80,19 @@ export function FairsPage() {
   const [listState, setListState] = usePreservedListState('fairs-page', defaultListState);
   const { search, statusFilter, calendarMonth, page, rowsPerPage, sortField, sortDirection } = listState;
   const [fairToDelete, setFairToDelete] = useState<Fair | null>(null);
+  const [tab, setTab] = useState(0);
 
   const { data: fairs = [], isLoading: isLoadingFairs } = useQuery({ queryKey: ['fairs'], queryFn: fairsApi.getAll });
+
+  const fairKpis = useMemo(() => {
+    const relevant = fairs.filter((fair) => fair.status !== 'Cancelled');
+    return {
+      total: fairs.length,
+      open: fairs.filter((fair) => fair.status === 'Open').length,
+      result: relevant.reduce((sum, fair) => sum + fair.netRevenue, 0),
+      piggyBank: relevant.reduce((sum, fair) => sum + fair.piggyBankAmount, 0)
+    };
+  }, [fairs]);
 
   const deleteMutation = useMutation({
     mutationFn: async (fairId: string) => fairsApi.remove(fairId),
@@ -211,11 +223,25 @@ export function FairsPage() {
     <Stack spacing={3}>
       <Stack spacing={0.5}>
         <Typography variant="h3">Feiras</Typography>
-        <Typography color="text.secondary">Listagem com filtro. Cada feira abre em uma tela própria para relatório, ações e vendas.</Typography>
+        <Typography color="text.secondary">Calendário e comparativo em abas; a lista de feiras fica sempre à mão.</Typography>
       </Stack>
 
-      <PageSection title="Feiras cadastradas" subtitle="Abra uma feira para ver o relatório completo, finalizar o evento ou registrar vendas.">
-        <Stack spacing={2} sx={{ mb: 3 }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Feiras cadastradas</Typography><Typography variant="h5">{fairKpis.total}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Em aberto</Typography><Typography variant="h5">{fairKpis.open}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultado acumulado</Typography><Typography variant="h5">{formatCurrency(fairKpis.result)}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Caixinha acumulada</Typography><Typography variant="h5">{formatCurrency(fairKpis.piggyBank)}</Typography></Paper>
+      </Box>
+
+      <PageSection title="Feiras" subtitle="Abra uma feira para ver o relatório completo, finalizar o evento ou registrar vendas.">
+        <Tabs value={tab} onChange={(_event, value) => setTab(value)} sx={{ mb: 2.5, borderBottom: '1px solid rgba(217,107,135,0.18)' }}>
+          <Tab label={`Lista (${filteredFairs.length})`} />
+          <Tab label="Calendário" />
+          <Tab label="Comparativo" />
+        </Tabs>
+
+        {tab === 1 ? (
+        <Stack spacing={2}>
           <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
             <div>
               <Typography variant="h6">Calendário de feiras</Typography>
@@ -250,14 +276,15 @@ export function FairsPage() {
             ))}
           </Box>
         </Stack>
+        ) : null}
 
-        <Stack spacing={2} sx={{ mb: 3 }}>
-          <Typography variant="h6">Comparativo entre feiras</Typography>
+        {tab === 2 ? (
+        <Stack spacing={2}>
           <Typography color="text.secondary">Últimas 5 feiras em aberto ou finalizadas para comparar resultado e margem no mesmo contexto.</Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor resultado líquido</Typography><Typography variant="h6">{bestResultFair ? `${capitalizeFirstLetter(bestResultFair.name)} • ${formatCurrency(bestResultFair.netRevenue)} • ${formatUtcDate(bestResultFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper></Grid>
-            <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor margem</Typography><Typography variant="h6">{bestMarginFair ? `${capitalizeFirstLetter(bestMarginFair.name)} • ${bestMarginFair.margin.toFixed(1)}% • ${formatUtcDate(bestMarginFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper></Grid>
-          </Grid>
+          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' } }}>
+            <Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor resultado líquido</Typography><Typography variant="h6">{bestResultFair ? `${capitalizeFirstLetter(bestResultFair.name)} • ${formatCurrency(bestResultFair.netRevenue)} • ${formatUtcDate(bestResultFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper>
+            <Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor margem</Typography><Typography variant="h6">{bestMarginFair ? `${capitalizeFirstLetter(bestMarginFair.name)} • ${bestMarginFair.margin.toFixed(1)}% • ${formatUtcDate(bestMarginFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper>
+          </Box>
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small" sx={{ minWidth: 760 }}>
               <TableHead>
@@ -288,7 +315,10 @@ export function FairsPage() {
             </Table>
           </Paper>
         </Stack>
+        ) : null}
 
+        {tab === 0 ? (
+        <>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" sx={{ mb: 2.5 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ flex: 1 }}>
             <TextField
@@ -442,6 +472,8 @@ export function FairsPage() {
           rowsPerPageOptions={[5, 10, 20, 50]}
           labelRowsPerPage="Itens por página"
         />
+        </>
+        ) : null}
       </PageSection>
 
       <ConfirmDialog

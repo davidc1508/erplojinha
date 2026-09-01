@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Grid,
   LinearProgress,
   Paper,
   Stack,
@@ -616,69 +615,61 @@ export function ProjectDetailPage() {
 
             <LinearProgress variant="determinate" value={project.progressPercentage} sx={{ height: 10, borderRadius: 999 }} />
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={3}>
-                <Paper variant="outlined" sx={{ p: 1.5 }}>
-                  <Typography variant="caption" color="text.secondary">Tempo concluído</Typography>
-                  <Typography variant="body1" fontWeight={600}>{formatMinutes(project.timeCompletedMinutes)} / {formatMinutes(project.timeEstimatedMinutes)}</Typography>
-                  <Typography variant="caption" color="text.secondary">Restante: {formatMinutes(remainingTimeMinutes)}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Paper variant="outlined" sx={{ p: 1.5 }}>
-                  <Typography variant="caption" color="text.secondary">Peso produzido</Typography>
-                  <Typography variant="body1" fontWeight={600}>{project.weightCompletedGrams.toFixed(0)} g / {project.weightEstimatedGrams.toFixed(0)} g</Typography>
-                  <Typography variant="caption" color="text.secondary">Restante: {remainingWeightGrams.toFixed(0)} g</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Paper variant="outlined" sx={{ p: 1.5 }}>
-                  <Typography variant="caption" color="text.secondary">Mesas</Typography>
-                  <Typography variant="body1" fontWeight={600}>{pendingSteps.length} pendentes • {concludedSteps.length} concluídas</Typography>
-                  <Typography variant="caption" color="text.secondary">Ordem automática de mesas com reajuste ao editar posição</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Paper variant="outlined" sx={{ p: 1.5, borderColor: (project.timeLostToFailuresMinutes > 0 || project.weightLostToFailuresGrams > 0) ? 'error.light' : 'divider', bgcolor: (project.timeLostToFailuresMinutes > 0 || project.weightLostToFailuresGrams > 0) ? 'error.50' : 'background.paper' }}>
-                  <Typography variant="caption" color="text.secondary">Perdas por falha</Typography>
-                  <Typography variant="body1" fontWeight={600}>{formatMinutes(project.timeLostToFailuresMinutes)} • {project.weightLostToFailuresGrams.toFixed(0)} g</Typography>
-                  <Typography variant="caption" color="text.secondary">Acumulado no projeto</Typography>
-                </Paper>
-              </Grid>
-            </Grid>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}>
+              <Paper variant="outlined" sx={{ p: 1.5 }}>
+                <Typography variant="caption" color="text.secondary">Tempo concluído</Typography>
+                <Typography variant="body1" fontWeight={600}>{formatMinutes(project.timeCompletedMinutes)} / {formatMinutes(project.timeEstimatedMinutes)}</Typography>
+                <Typography variant="caption" color="text.secondary">Restante: {formatMinutes(remainingTimeMinutes)}</Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.5 }}>
+                <Typography variant="caption" color="text.secondary">Peso produzido</Typography>
+                <Typography variant="body1" fontWeight={600}>{project.weightCompletedGrams.toFixed(0)} g / {project.weightEstimatedGrams.toFixed(0)} g</Typography>
+                <Typography variant="caption" color="text.secondary">Restante: {remainingWeightGrams.toFixed(0)} g</Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.5 }}>
+                <Typography variant="caption" color="text.secondary">Mesas</Typography>
+                <Typography variant="body1" fontWeight={600}>{pendingSteps.length} pendentes • {concludedSteps.length} concluídas</Typography>
+                <Typography variant="caption" color="text.secondary">Ordem automática de mesas com reajuste ao editar posição</Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.5, borderColor: (project.timeLostToFailuresMinutes > 0 || project.weightLostToFailuresGrams > 0) ? 'error.light' : 'divider', bgcolor: (project.timeLostToFailuresMinutes > 0 || project.weightLostToFailuresGrams > 0) ? 'error.50' : 'background.paper' }}>
+                <Typography variant="caption" color="text.secondary">Perdas por falha</Typography>
+                <Typography variant="body1" fontWeight={600}>{formatMinutes(project.timeLostToFailuresMinutes)} • {project.weightLostToFailuresGrams.toFixed(0)} g</Typography>
+                <Typography variant="caption" color="text.secondary">Acumulado no projeto</Typography>
+              </Paper>
+            </Box>
 
             <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
               <Typography variant="subtitle2" gutterBottom>Estimativa financeira do projeto</Typography>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
                 Baseado nos filamentos e impressoras planejados nas mesas (tarifa padrão R$ 1,00/kWh). {!selectedProduct && 'Vincule um produto para estimar receita e margem.'}
               </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
+              <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}>
+                <Box>
                   <Typography variant="caption" color="text.secondary">Custo de material estimado</Typography>
                   <Typography variant="body1" fontWeight={600}>{formatMoney(project.estimatedMaterialCostBRL)}</Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
+                </Box>
+                <Box>
                   <Typography variant="caption" color="text.secondary">Custo total estimado</Typography>
                   <Typography variant="caption" color="text.secondary" display="block">(material + energia + manutenção + falhas)</Typography>
                   <Typography variant="body1" fontWeight={600}>{formatMoney(project.estimatedTotalCostBRL)}</Typography>
-                </Grid>
+                </Box>
                 {selectedProduct && (
                   <>
-                    <Grid item xs={12} md={4}>
+                    <Box>
                       <Typography variant="caption" color="text.secondary">Margem estimada (via produto)</Typography>
                       <Typography variant="body1" fontWeight={600}>{estimatedMargin === null ? '-' : `${(estimatedMargin * 100).toFixed(1)}%`}</Typography>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
+                    </Box>
+                    <Box>
                       <Typography variant="caption" color="text.secondary">Receita potencial (via produto)</Typography>
                       <Typography variant="body2">{formatMoney(estimatedRevenue)}</Typography>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
+                    </Box>
+                    <Box>
                       <Typography variant="caption" color="text.secondary">Preço unitário (produto)</Typography>
                       <Typography variant="body2">{formatMoney(selectedProduct.salePrice)} por unidade estimada</Typography>
-                    </Grid>
+                    </Box>
                   </>
                 )}
-              </Grid>
+              </Box>
             </Paper>
 
             {project.description && (
@@ -694,54 +685,50 @@ export function ProjectDetailPage() {
         </CardContent>
       </Card>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card variant="outlined" sx={{ height: '100%' }}>
-            <CardContent>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography variant="h6">Mesas pendentes</Typography>
-                <Chip color="warning" label={pendingSteps.length} size="small" />
+      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, alignItems: 'start' }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="h6">Mesas pendentes</Typography>
+              <Chip color="warning" label={pendingSteps.length} size="small" />
+            </Stack>
+            {pendingSteps.length === 0 ? (
+              <Typography color="text.secondary">Nenhuma mesa pendente.</Typography>
+            ) : (
+              <Stack spacing={2}>
+                {pendingSteps.map(renderStepCard)}
               </Stack>
-              {pendingSteps.length === 0 ? (
-                <Typography color="text.secondary">Nenhuma mesa pendente.</Typography>
-              ) : (
-                <Stack spacing={2}>
-                  {pendingSteps.map(renderStepCard)}
-                </Stack>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
+            )}
+          </CardContent>
+        </Card>
 
-        <Grid item xs={12} md={6}>
-          <Card variant="outlined" sx={{ height: '100%' }}>
-            <CardContent>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography variant="h6">Mesas concluídas</Typography>
-                <Chip color="success" label={concludedSteps.length} size="small" />
+        <Card variant="outlined">
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="h6">Mesas concluídas</Typography>
+              <Chip color="success" label={concludedSteps.length} size="small" />
+            </Stack>
+            {concludedSteps.length === 0 ? (
+              <Typography color="text.secondary">Nenhuma mesa concluída ainda.</Typography>
+            ) : (
+              <Stack spacing={2}>
+                {concludedSteps.map(renderStepCard)}
               </Stack>
-              {concludedSteps.length === 0 ? (
-                <Typography color="text.secondary">Nenhuma mesa concluída ainda.</Typography>
-              ) : (
-                <Stack spacing={2}>
-                  {concludedSteps.map(renderStepCard)}
-                </Stack>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+            )}
+          </CardContent>
+        </Card>
+      </Box>
 
       <Dialog open={openAddStepDialog} onClose={() => setOpenAddStepDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Nova mesa</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Nome da mesa" value={stepForm.name} onChange={(event) => setStepForm((current) => ({ ...current, name: event.target.value }))} fullWidth />
-            <Grid container spacing={2}>
-              <Grid item xs={4}><TextField label="Duração (h)" type="number" value={stepDuration.hours} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'hours', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
-              <Grid item xs={4}><TextField label="Min" type="number" value={stepDuration.minutes} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'minutes', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
-              <Grid item xs={4}><TextField label="Seg" type="number" value={stepDuration.seconds} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'seconds', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
-            </Grid>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+              <TextField label="Duração (h)" type="number" value={stepDuration.hours} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'hours', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth />
+              <TextField label="Min" type="number" value={stepDuration.minutes} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'minutes', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth />
+              <TextField label="Seg" type="number" value={stepDuration.seconds} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'seconds', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth />
+            </Box>
             <SearchSelectField label="Impressora planejada" value={stepForm.printerPlanned} options={printerOptions} onChange={(value) => setStepForm((current) => ({ ...current, printerPlanned: value }))} helperText="Usa a mesma base de impressoras do produto." placeholder="Digite o nome da impressora" minQueryLength={0} />
             <Stack spacing={1}>
               <Typography variant="body2" fontWeight={600}>Filamentos planejados</Typography>
@@ -806,11 +793,11 @@ export function ProjectDetailPage() {
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Nome da mesa" value={stepForm.name} onChange={(event) => setStepForm((current) => ({ ...current, name: event.target.value }))} fullWidth />
             <TextField label="Ordem" type="number" value={stepForm.order} onChange={(event) => setStepForm((current) => ({ ...current, order: event.target.value }))} fullWidth />
-            <Grid container spacing={2}>
-              <Grid item xs={4}><TextField label="Duração (h)" type="number" value={stepDuration.hours} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'hours', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
-              <Grid item xs={4}><TextField label="Min" type="number" value={stepDuration.minutes} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'minutes', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
-              <Grid item xs={4}><TextField label="Seg" type="number" value={stepDuration.seconds} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'seconds', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
-            </Grid>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+              <TextField label="Duração (h)" type="number" value={stepDuration.hours} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'hours', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth />
+              <TextField label="Min" type="number" value={stepDuration.minutes} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'minutes', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth />
+              <TextField label="Seg" type="number" value={stepDuration.seconds} onChange={(event) => updateDurationPart(stepDuration, setStepDuration, 'seconds', (value) => setStepForm((current) => ({ ...current, timeEstimatedMinutes: value })), Number(event.target.value))} fullWidth />
+            </Box>
             <SearchSelectField label="Impressora planejada" value={stepForm.printerPlanned} options={printerOptions} onChange={(value) => setStepForm((current) => ({ ...current, printerPlanned: value }))} helperText="Usa a mesma base de impressoras do produto." placeholder="Digite o nome da impressora" minQueryLength={0} />
             <Stack spacing={1}>
               <Typography variant="body2" fontWeight={600}>Filamentos planejados</Typography>
@@ -841,11 +828,11 @@ export function ProjectDetailPage() {
         <DialogContent sx={{ pt: 2 }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">Tempo perdido durante a falha:</Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={4}><TextField label="Horas" type="number" value={failDuration.hours} onChange={(event) => updateDurationPart(failDuration, setFailDuration, 'hours', (value) => setFailStepForm((current) => ({ ...current, timeLostMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
-              <Grid item xs={4}><TextField label="Min" type="number" value={failDuration.minutes} onChange={(event) => updateDurationPart(failDuration, setFailDuration, 'minutes', (value) => setFailStepForm((current) => ({ ...current, timeLostMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
-              <Grid item xs={4}><TextField label="Seg" type="number" value={failDuration.seconds} onChange={(event) => updateDurationPart(failDuration, setFailDuration, 'seconds', (value) => setFailStepForm((current) => ({ ...current, timeLostMinutes: value })), Number(event.target.value))} fullWidth /></Grid>
-            </Grid>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+              <TextField label="Horas" type="number" value={failDuration.hours} onChange={(event) => updateDurationPart(failDuration, setFailDuration, 'hours', (value) => setFailStepForm((current) => ({ ...current, timeLostMinutes: value })), Number(event.target.value))} fullWidth />
+              <TextField label="Min" type="number" value={failDuration.minutes} onChange={(event) => updateDurationPart(failDuration, setFailDuration, 'minutes', (value) => setFailStepForm((current) => ({ ...current, timeLostMinutes: value })), Number(event.target.value))} fullWidth />
+              <TextField label="Seg" type="number" value={failDuration.seconds} onChange={(event) => updateDurationPart(failDuration, setFailDuration, 'seconds', (value) => setFailStepForm((current) => ({ ...current, timeLostMinutes: value })), Number(event.target.value))} fullWidth />
+            </Box>
             <TextField label="Peso perdido (g)" type="number" value={failStepForm.weightLostGrams} onChange={(event) => setFailStepForm((current) => ({ ...current, weightLostGrams: event.target.value }))} fullWidth />
             <TextField label="Motivo da falha (opcional)" value={failStepForm.failureReason} onChange={(event) => setFailStepForm((current) => ({ ...current, failureReason: event.target.value }))} multiline minRows={2} fullWidth />
           </Stack>

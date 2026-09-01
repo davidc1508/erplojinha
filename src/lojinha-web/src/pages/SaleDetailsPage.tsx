@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Button, Grid, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Tab, Typography } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { PageSection } from '../components/PageSection';
 import { useAuth } from '../hooks/useAuth';
 import { salesApi } from '../services/api';
 import { formatUtcDate } from '../services/date';
@@ -13,11 +12,28 @@ function formatPercentage(value: number): string {
   return `${value.toFixed(2)}%`;
 }
 
+function FinancialBandCell({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 1.75,
+        borderColor: emphasize ? 'rgba(121,169,95,0.4)' : 'rgba(217,107,135,0.14)',
+        backgroundColor: emphasize ? 'rgba(184,226,150,0.22)' : 'rgba(255,255,255,0.6)'
+      }}
+    >
+      <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.4, display: 'block', fontSize: 10 }}>{label}</Typography>
+      <Typography sx={{ fontFamily: '"Baloo 2", "Nunito", sans-serif', fontWeight: 700, fontSize: emphasize ? '1.15rem' : '1.02rem', color: emphasize ? '#4e7a34' : 'inherit' }}>{value}</Typography>
+    </Paper>
+  );
+}
+
 export function SaleDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { session } = useAuth();
   const isReseller = session?.role === 'Reseller';
+  const [tab, setTab] = useState(0);
 
   const { data: sale, isLoading, isError } = useQuery({
     queryKey: ['sale', id],
@@ -83,10 +99,12 @@ export function SaleDetailsPage() {
     <Stack spacing={3}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
         <div>
-          <Typography variant="h4">Detalhes da venda</Typography>
-          <Typography color="text.secondary">Visualize itens, valores e comissionamento.</Typography>
+          <Typography variant="h3">Detalhes da venda</Typography>
+          <Typography color="text.secondary">
+            {sale ? `${formatUtcDate(sale.soldAtUtc)} · ${paymentMethodLabel(sale.paymentMethod)} · ${sale.items.length} produto(s)` : 'Itens, valores e comissionamento.'}
+          </Typography>
         </div>
-        <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/vendas', { state: { preserveState: true } })}>
+        <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/vendas', { state: { preserveState: true } })} sx={{ alignSelf: { xs: 'stretch', md: 'flex-start' } }}>
           Voltar para vendas
         </Button>
       </Stack>
@@ -95,103 +113,108 @@ export function SaleDetailsPage() {
       {isError ? <Alert severity="error">Nao foi possivel carregar os detalhes desta venda.</Alert> : null}
       {!isLoading && !isError && !sale ? <Alert severity="warning">Venda nao encontrada.</Alert> : null}
 
-      {sale ? (
+      {sale && summary ? (
         <>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Data</Typography><Typography variant="h6">{formatUtcDate(sale.soldAtUtc)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Pagamento</Typography><Typography variant="h6">{paymentMethodLabel(sale.paymentMethod)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Receita bruta</Typography><Typography variant="h6">{formatCurrency(sale.totalAmount)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Lucro liquido</Typography><Typography variant="h6">{formatCurrency(sale.profitAmount)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Receita liquida (apos taxas)</Typography><Typography variant="h6">{formatCurrency(sale.netReceivedAmount)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Taxas da venda</Typography><Typography variant="h6">{formatCurrency(sale.feeAmount)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Custo total</Typography><Typography variant="h6">{formatCurrency(sale.costAmount)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Margem bruta</Typography><Typography variant="h6">{formatCurrency(summary?.grossMarginAmount ?? 0)}</Typography><Typography color="text.secondary">{formatPercentage(summary?.grossMarginPercentage ?? 0)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Liquido apos custo</Typography><Typography variant="h6">{formatCurrency(summary?.netAfterCostAmount ?? 0)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Margem liquida lojinha</Typography><Typography variant="h6">{formatPercentage(summary?.profitMarginPercentage ?? 0)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Caixinha sugerida</Typography><Typography variant="h6">{formatCurrency(summary?.piggyBankAmount ?? 0)}</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Comissao paga</Typography><Typography variant="h6">{formatCurrency(summary?.totalCommissionAmount ?? 0)}</Typography><Typography color="text.secondary">{summary?.commissionedLines ?? 0} item(ns)</Typography></Paper></Grid>
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Ganho da lojinha</Typography><Typography variant="h6">{formatCurrency(summary?.totalDisplayedLojinhaGainAmount ?? 0)}</Typography></Paper></Grid>
-            {!isReseller ? <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Repasse fornecedores</Typography><Typography variant="h6">{formatCurrency(summary?.supplierTransferAmount ?? 0)}</Typography></Paper></Grid> : null}
-            <Grid item xs={12} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Itens vendidos</Typography><Typography variant="h6">{summary?.totalItems ?? 0}</Typography><Typography color="text.secondary">{summary?.distinctProducts ?? 0} produto(s)</Typography></Paper></Grid>
-          </Grid>
+          <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', md: 'repeat(6, minmax(0, 1fr))' } }}>
+            <FinancialBandCell label="Bruto" value={formatCurrency(sale.totalAmount)} />
+            <FinancialBandCell label="− Taxas" value={formatCurrency(sale.feeAmount)} />
+            <FinancialBandCell label="− Custo" value={formatCurrency(sale.costAmount)} />
+            <FinancialBandCell label="− Comissão" value={formatCurrency(summary.totalCommissionAmount)} />
+            <FinancialBandCell label="= Lucro líquido" value={formatCurrency(sale.profitAmount)} emphasize />
+            <FinancialBandCell label="Caixinha sugerida" value={formatCurrency(summary.piggyBankAmount)} />
+          </Box>
 
-          <PageSection title="Resumo financeiro detalhado" subtitle="Abertura dos valores da venda para conferencia de resultado.">
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Receita de itens de fornecedor</Typography><Typography variant="h6">{formatCurrency(summary?.supplierGrossRevenue ?? 0)}</Typography></Paper></Grid>
-              <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Custo dos itens de fornecedor</Typography><Typography variant="h6">{formatCurrency(summary?.supplierCostAmount ?? 0)}</Typography></Paper></Grid>
-              <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Taxa sobre a venda</Typography><Typography variant="h6">{formatPercentage(summary?.feePercentage ?? 0)}</Typography></Paper></Grid>
-              <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Custo total recalculado pelos itens</Typography><Typography variant="h6">{formatCurrency(summary?.totalCostFromItems ?? 0)}</Typography></Paper></Grid>
-              <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Status</Typography><Typography variant="h6">{sale.status}</Typography></Paper></Grid>
-            </Grid>
-          </PageSection>
+          <Paper sx={{ p: { xs: 2, md: 3 }, overflow: 'hidden' }}>
+            <Tabs value={tab} onChange={(_event, value) => setTab(value)} sx={{ mb: 2.5, borderBottom: '1px solid rgba(217,107,135,0.18)' }}>
+              <Tab label="Itens da venda" />
+              <Tab label="Financeiro detalhado" />
+              {sale.notes ? <Tab label="Observações" /> : null}
+            </Tabs>
 
-          <PageSection title="Itens da venda" subtitle="Cada item com seus dados de comissão quando aplicável.">
-            <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-              <Table size="small" sx={{ minWidth: 1360 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Produto</TableCell>
-                    <TableCell>Qtd</TableCell>
-                    <TableCell>Custo unit.</TableCell>
-                    <TableCell>Custo total</TableCell>
-                    <TableCell>Preço unit.</TableCell>
-                    <TableCell>Receita item</TableCell>
-                    <TableCell>Margem bruta item</TableCell>
-                    <TableCell>Fornecedor</TableCell>
-                    <TableCell>Comissionada</TableCell>
-                    <TableCell>Vendedor</TableCell>
-                    <TableCell>Comissão</TableCell>
-                    <TableCell>Ganho da lojinha</TableCell>
-                    <TableCell>Repasse fornecedor</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sale.items.map((item, index) => (
-                    <TableRow key={`${item.productName}-${index}`}>
-                      {(() => {
-                        const costTotal = item.costPrice * item.quantity;
-                        const grossMargin = item.totalPrice - costTotal;
-                        const isResellerSettlementItem = !item.isCommissionedSale && item.commissionAmount > 0;
-                        const displayedCommissionAmount = isResellerSettlementItem
-                          ? Math.max(item.totalPrice - item.commissionAmount, 0)
-                          : item.commissionAmount;
-                        const displayedLojinhaGainAmount = isResellerSettlementItem
-                          ? Math.min(item.commissionAmount, item.totalPrice)
-                          : item.lojinhaGainAmount;
-                        const supplierTransfer = item.supplierId && !isResellerSettlementItem
-                          ? item.totalPrice - costTotal - displayedLojinhaGainAmount
-                          : 0;
-
-                        return (
-                          <>
-                            <TableCell>{item.productName}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>{formatCurrency(item.costPrice)}</TableCell>
-                            <TableCell>{formatCurrency(costTotal)}</TableCell>
-                            <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                            <TableCell>{formatCurrency(item.totalPrice)}</TableCell>
-                            <TableCell>{formatCurrency(grossMargin)}</TableCell>
-                            <TableCell>{item.supplierName ?? 'Lojinha Sem Nome'}</TableCell>
-                            <TableCell>{item.isCommissionedSale ? 'Sim' : 'Nao'}</TableCell>
-                            <TableCell>{item.commissionSellerSupplierName ?? '-'}</TableCell>
-                            <TableCell>{formatCurrency(displayedCommissionAmount)}</TableCell>
-                            <TableCell>{formatCurrency(displayedLojinhaGainAmount)}</TableCell>
-                            <TableCell>{formatCurrency(supplierTransfer)}</TableCell>
-                          </>
-                        );
-                      })()}
+            {tab === 0 ? (
+              <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                <Table size="small" sx={{ minWidth: 1200 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Produto</TableCell>
+                      <TableCell align="right">Qtd</TableCell>
+                      <TableCell align="right">Custo unit.</TableCell>
+                      <TableCell align="right">Custo total</TableCell>
+                      <TableCell align="right">Preço unit.</TableCell>
+                      <TableCell align="right">Receita</TableCell>
+                      <TableCell align="right">Margem bruta</TableCell>
+                      <TableCell>Fornecedor</TableCell>
+                      <TableCell>Comissionada</TableCell>
+                      <TableCell>Vendedor</TableCell>
+                      <TableCell align="right">Comissão</TableCell>
+                      <TableCell align="right">Ganho da lojinha</TableCell>
+                      {!isReseller ? <TableCell align="right">Repasse fornecedor</TableCell> : null}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Paper>
-          </PageSection>
+                  </TableHead>
+                  <TableBody>
+                    {sale.items.map((item, index) => {
+                      const costTotal = item.costPrice * item.quantity;
+                      const grossMargin = item.totalPrice - costTotal;
+                      const isResellerSettlementItem = !item.isCommissionedSale && item.commissionAmount > 0;
+                      const displayedCommissionAmount = isResellerSettlementItem
+                        ? Math.max(item.totalPrice - item.commissionAmount, 0)
+                        : item.commissionAmount;
+                      const displayedLojinhaGainAmount = isResellerSettlementItem
+                        ? Math.min(item.commissionAmount, item.totalPrice)
+                        : item.lojinhaGainAmount;
+                      const supplierTransfer = item.supplierId && !isResellerSettlementItem
+                        ? item.totalPrice - costTotal - displayedLojinhaGainAmount
+                        : 0;
 
-          {sale.notes ? (
-            <PageSection title="Observações" subtitle="Notas registradas no momento da venda.">
+                      return (
+                        <TableRow key={`${item.productName}-${index}`} hover>
+                          <TableCell>{item.productName}</TableCell>
+                          <TableCell align="right">{item.quantity}</TableCell>
+                          <TableCell align="right">{formatCurrency(item.costPrice)}</TableCell>
+                          <TableCell align="right">{formatCurrency(costTotal)}</TableCell>
+                          <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
+                          <TableCell align="right">{formatCurrency(item.totalPrice)}</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCurrency(grossMargin)}</TableCell>
+                          <TableCell>{item.supplierName ?? 'Lojinha Sem Nome'}</TableCell>
+                          <TableCell>{item.isCommissionedSale ? 'Sim' : 'Não'}</TableCell>
+                          <TableCell>{item.commissionSellerSupplierName ?? '-'}</TableCell>
+                          <TableCell align="right">{formatCurrency(displayedCommissionAmount)}</TableCell>
+                          <TableCell align="right">{formatCurrency(displayedLojinhaGainAmount)}</TableCell>
+                          {!isReseller ? <TableCell align="right">{formatCurrency(supplierTransfer)}</TableCell> : null}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </Paper>
+            ) : null}
+
+            {tab === 1 ? (
+              <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' } }}>
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Receita líquida (após taxas)</Typography><Typography variant="h6">{formatCurrency(sale.netReceivedAmount)}</Typography></Paper>
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Margem bruta</Typography><Typography variant="h6">{formatCurrency(summary.grossMarginAmount)}</Typography><Typography color="text.secondary">{formatPercentage(summary.grossMarginPercentage)}</Typography></Paper>
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Líquido após custo</Typography><Typography variant="h6">{formatCurrency(summary.netAfterCostAmount)}</Typography></Paper>
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Margem líquida lojinha</Typography><Typography variant="h6">{formatPercentage(summary.profitMarginPercentage)}</Typography></Paper>
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Taxa sobre a venda</Typography><Typography variant="h6">{formatPercentage(summary.feePercentage)}</Typography></Paper>
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Ganho da lojinha</Typography><Typography variant="h6">{formatCurrency(summary.totalDisplayedLojinhaGainAmount)}</Typography></Paper>
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Comissão paga</Typography><Typography variant="h6">{formatCurrency(summary.totalCommissionAmount)}</Typography><Typography color="text.secondary">{summary.commissionedLines} item(ns)</Typography></Paper>
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Itens vendidos</Typography><Typography variant="h6">{summary.totalItems}</Typography><Typography color="text.secondary">{summary.distinctProducts} produto(s)</Typography></Paper>
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Custo total recalculado pelos itens</Typography><Typography variant="h6">{formatCurrency(summary.totalCostFromItems)}</Typography></Paper>
+                {!isReseller ? (
+                  <>
+                    <Paper sx={{ p: 2 }}><Typography color="text.secondary">Receita de itens de fornecedor</Typography><Typography variant="h6">{formatCurrency(summary.supplierGrossRevenue)}</Typography></Paper>
+                    <Paper sx={{ p: 2 }}><Typography color="text.secondary">Custo dos itens de fornecedor</Typography><Typography variant="h6">{formatCurrency(summary.supplierCostAmount)}</Typography></Paper>
+                    <Paper sx={{ p: 2 }}><Typography color="text.secondary">Repasse a fornecedores</Typography><Typography variant="h6">{formatCurrency(summary.supplierTransferAmount)}</Typography></Paper>
+                  </>
+                ) : null}
+                <Paper sx={{ p: 2 }}><Typography color="text.secondary">Status</Typography><Typography variant="h6">{sale.status}</Typography></Paper>
+              </Box>
+            ) : null}
+
+            {tab === 2 && sale.notes ? (
               <Typography>{sale.notes}</Typography>
-            </PageSection>
-          ) : null}
+            ) : null}
+          </Paper>
         </>
       ) : null}
     </Stack>

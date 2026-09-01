@@ -121,8 +121,21 @@ export function OutsourcedProductionListPage() {
 
   const paged = useMemo(() => sorted.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [sorted, page, rowsPerPage]);
 
+  const kpis = useMemo(() => ({
+    active: productions.filter((p) => p.status !== 'Cancelado').length,
+    pending: productions.filter((p) => p.status === 'Pendente').length,
+    supplierCost: productions.filter((p) => p.status !== 'Cancelado').reduce((sum, p) => sum + p.supplierCost, 0),
+    avgFee: productions.length > 0 ? productions.reduce((sum, p) => sum + p.productionFeePercentage, 0) / productions.length : 0
+  }), [productions]);
+
   return (
     <Stack spacing={3}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Produções ativas</Typography><Typography variant="h5">{kpis.active}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Pendentes</Typography><Typography variant="h5">{kpis.pending}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Custo fornecedor acumulado</Typography><Typography variant="h5">{formatCurrency(kpis.supplierCost)}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Taxa média</Typography><Typography variant="h5">{kpis.avgFee.toFixed(0)}%</Typography></Paper>
+      </Box>
       <PageSection title="Produção Terceirizada" subtitle="Produções com custo compartilhado entre fornecedores.">
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" sx={{ mb: 2.5 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ flex: 1 }}>

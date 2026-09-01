@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
+  Box,
   Button,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
   IconButton,
   LinearProgress,
   MenuItem,
@@ -193,44 +193,38 @@ export function ProjectsPage() {
         <Typography color="text.secondary">Planeje o produto final por mesas, acompanhe tentativas e controle o progresso pelo tempo estimado.</Typography>
       </Stack>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Total de projetos</Typography><Typography variant="h5">{totalProjects}</Typography></Paper></Grid>
-        <Grid item xs={12} sm={6} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Projetos em andamento</Typography><Typography variant="h5">{inProgressProjects}</Typography></Paper></Grid>
-        <Grid item xs={12} sm={6} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Projetos planejados</Typography><Typography variant="h5">{plannedProjects}</Typography></Paper></Grid>
-        <Grid item xs={12} sm={6} md={3}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Projetos concluídos</Typography><Typography variant="h5">{concludedProjects}</Typography></Paper></Grid>
-      </Grid>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Total de projetos</Typography><Typography variant="h5">{totalProjects}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Em andamento</Typography><Typography variant="h5">{inProgressProjects}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Planejados</Typography><Typography variant="h5">{plannedProjects}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Concluídos</Typography><Typography variant="h5">{concludedProjects}</Typography></Paper>
+      </Box>
 
-      <PageSection title="Projetos" subtitle="Cada projeto reúne mesas planejadas, tentativas reais e perdas por falha.">
+      <PageSection
+        title="Projetos"
+        subtitle="Cada projeto reúne mesas planejadas, tentativas reais e perdas por falha."
+        action={<Button variant="contained" onClick={() => setOpenDialog(true)}>Novo projeto</Button>}
+      >
         <Stack spacing={2}>
-          <Stack direction="row" justifyContent="flex-end">
-            <Button variant="contained" onClick={() => setOpenDialog(true)}>Novo projeto</Button>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
+            <TextField
+              sx={{ flex: 1, minWidth: { xs: '100%', md: 240 } }}
+              label="Buscar projetos"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Nome, observação ou produto vinculado"
+            />
+            <TextField select label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'Todos' | ProjectStatus)} sx={{ minWidth: { xs: '100%', md: 200 } }}>
+              <MenuItem value="Todos">Todos</MenuItem>
+              <MenuItem value="Planejado">Planejado</MenuItem>
+              <MenuItem value="EmAndamento">Em andamento</MenuItem>
+              <MenuItem value="Concluido">Concluído</MenuItem>
+              <MenuItem value="Cancelado">Cancelado</MenuItem>
+            </TextField>
+            <Button variant="outlined" startIcon={<FilterAltRoundedIcon />} onClick={() => { setSearch(''); setStatusFilter('Todos'); }}>
+              Limpar
+            </Button>
           </Stack>
-
-          <Grid container spacing={1.5} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Buscar projetos"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Nome, observação ou produto vinculado"
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth select label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'Todos' | ProjectStatus)}>
-                <MenuItem value="Todos">Todos</MenuItem>
-                <MenuItem value="Planejado">Planejado</MenuItem>
-                <MenuItem value="EmAndamento">Em andamento</MenuItem>
-                <MenuItem value="Concluido">Concluído</MenuItem>
-                <MenuItem value="Cancelado">Cancelado</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Button fullWidth variant="outlined" startIcon={<FilterAltRoundedIcon />} onClick={() => { setSearch(''); setStatusFilter('Todos'); }}>
-                Limpar
-              </Button>
-            </Grid>
-          </Grid>
 
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small">
@@ -265,40 +259,45 @@ export function ProjectsPage() {
                     <TableCell>{project.timeCompletedMinutes.toFixed(0)} / {project.timeEstimatedMinutes.toFixed(0)} min</TableCell>
                     <TableCell>{project.weightCompletedGrams.toFixed(0)} / {project.weightEstimatedGrams.toFixed(0)} g</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                      <Tooltip title="Abrir">
-                        <IconButton size="small" onClick={() => navigate(`/projetos/${project.id}`)}>
-                          <EditRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {project.status === 'Concluido' ? (
-                        <Tooltip title="Iniciar novamente">
-                          <IconButton
+                      <Stack direction="row" spacing={0.75} justifyContent="flex-end" alignItems="center">
+                        {project.status === 'Planejado' ? (
+                          <Button
                             size="small"
-                            color="warning"
-                            onClick={() => duplicateMutation.mutate(project.id)}
-                            disabled={duplicateMutation.isLoading}
-                          >
-                            <ReplayRoundedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      ) : null}
-                      {project.status === 'Planejado' ? (
-                        <Tooltip title="Iniciar">
-                          <IconButton
-                            size="small"
-                            color="primary"
+                            variant="outlined"
+                            startIcon={<PlayArrowRoundedIcon fontSize="small" />}
                             onClick={() => startMutation.mutate(project.id)}
                             disabled={startMutation.isLoading}
                           >
-                            <PlayArrowRoundedIcon fontSize="small" />
+                            Iniciar
+                          </Button>
+                        ) : null}
+                        {project.status === 'Concluido' ? (
+                          <Tooltip title="Duplica o projeto e inicia um novo lote com as mesmas mesas planejadas">
+                            <span>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="warning"
+                                startIcon={<ReplayRoundedIcon fontSize="small" />}
+                                onClick={() => duplicateMutation.mutate(project.id)}
+                                disabled={duplicateMutation.isLoading}
+                              >
+                                Reabrir
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        ) : null}
+                        <Tooltip title="Abrir">
+                          <IconButton size="small" onClick={() => navigate(`/projetos/${project.id}`)} sx={{ border: '1px solid rgba(121, 99, 88, 0.25)', borderRadius: 1.5 }}>
+                            <EditRoundedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      ) : null}
-                      <Tooltip title="Excluir">
-                        <IconButton size="small" color="error" onClick={() => handleDeleteProject(project.id)}>
-                          <DeleteOutlineRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                        <Tooltip title="Excluir">
+                          <IconButton size="small" color="error" onClick={() => handleDeleteProject(project.id)} sx={{ border: '1px solid rgba(211, 47, 47, 0.3)', borderRadius: 1.5 }}>
+                            <DeleteOutlineRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -46,26 +46,52 @@ import { useAuth } from '../hooks/useAuth';
 const drawerWidth = 280;
 const collapsedDrawerWidth = 88;
 
-const navigation = [
-  { label: 'Dashboard', path: '/', icon: <DashboardRoundedIcon /> },
-  { label: 'Produtos', path: '/produtos', icon: <CategoryRoundedIcon /> },
-  { label: 'Orçamentos', path: '/orcamentos', icon: <RequestQuoteRoundedIcon /> },
-  { label: 'Categorias', path: '/categorias', icon: <CategoryRoundedIcon /> },
-  { label: 'Impressoras', path: '/impressoras', icon: <PrintRoundedIcon /> },
-  { label: 'Tam. de Botton', path: '/tamanhos-botton', icon: <RadioButtonCheckedRoundedIcon /> },
-  { label: 'Insumos', path: '/insumos', icon: <WarehouseRoundedIcon /> },
-  { label: 'Estoque', path: '/estoque', icon: <Inventory2RoundedIcon /> },
-  { label: 'Vendas', path: '/vendas', icon: <ShoppingCartRoundedIcon /> },
-  { label: 'Feiras', path: '/feiras', icon: <StorefrontRoundedIcon /> },
-  { label: 'Financeiro', path: '/financeiro', icon: <AccountBalanceWalletRoundedIcon /> },
-  { label: 'Listas', path: '/listas-operacionais', icon: <ChecklistRoundedIcon /> },
-  { label: 'Projetos', path: '/projetos', icon: <TaskAltRoundedIcon /> },
-  { label: 'Personalizados', path: '/personalizados', icon: <AutoFixHighRoundedIcon /> },
-  { label: 'Prod. Terceirizada', path: '/producao-terceirizada', icon: <PrecisionManufacturingRoundedIcon /> },
-  { label: 'Taxas', path: '/configuracoes/taxas', icon: <SettingsSuggestRoundedIcon /> },
-  { label: 'Fornecedores', path: '/fornecedores', icon: <HandshakeRoundedIcon /> },
-  { label: 'Usuários', path: '/usuarios', icon: <PeopleAltRoundedIcon /> }
+const navigationGroups = [
+  {
+    label: 'Visão geral',
+    items: [
+      { label: 'Dashboard', path: '/', icon: <DashboardRoundedIcon /> }
+    ]
+  },
+  {
+    label: 'Comercial',
+    items: [
+      { label: 'Vendas', path: '/vendas', icon: <ShoppingCartRoundedIcon /> },
+      { label: 'Feiras', path: '/feiras', icon: <StorefrontRoundedIcon /> }
+    ]
+  },
+  {
+    label: 'Operação',
+    items: [
+      { label: 'Estoque', path: '/estoque', icon: <Inventory2RoundedIcon /> },
+      { label: 'Listas', path: '/listas-operacionais', icon: <ChecklistRoundedIcon /> },
+      { label: 'Projetos', path: '/projetos', icon: <TaskAltRoundedIcon /> },
+      { label: 'Personalizados', path: '/personalizados', icon: <AutoFixHighRoundedIcon /> },
+      { label: 'Prod. Terceirizada', path: '/producao-terceirizada', icon: <PrecisionManufacturingRoundedIcon /> }
+    ]
+  },
+  {
+    label: 'Catálogo',
+    items: [
+      { label: 'Produtos', path: '/produtos', icon: <CategoryRoundedIcon /> },
+      { label: 'Orçamentos', path: '/orcamentos', icon: <RequestQuoteRoundedIcon /> },
+      { label: 'Categorias', path: '/categorias', icon: <CategoryRoundedIcon /> },
+      { label: 'Impressoras', path: '/impressoras', icon: <PrintRoundedIcon /> },
+      { label: 'Tam. de Botton', path: '/tamanhos-botton', icon: <RadioButtonCheckedRoundedIcon /> },
+      { label: 'Insumos', path: '/insumos', icon: <WarehouseRoundedIcon /> }
+    ]
+  },
+  {
+    label: 'Financeiro & config.',
+    items: [
+      { label: 'Financeiro', path: '/financeiro', icon: <AccountBalanceWalletRoundedIcon /> },
+      { label: 'Taxas', path: '/configuracoes/taxas', icon: <SettingsSuggestRoundedIcon /> },
+      { label: 'Fornecedores', path: '/fornecedores', icon: <HandshakeRoundedIcon /> },
+      { label: 'Usuários', path: '/usuarios', icon: <PeopleAltRoundedIcon /> }
+    ]
+  }
 ];
+const navigation = navigationGroups.flatMap((group) => group.items);
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -83,16 +109,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [isMobile, location.pathname]);
 
   const currentDrawerWidth = useMemo(() => (isMobile ? drawerWidth : collapsed ? collapsedDrawerWidth : drawerWidth), [collapsed, isMobile]);
-  const visibleNavigation = useMemo(() => {
-    if (session?.role === 'Reseller') {
-      return navigation.filter((item) => ['/', '/produtos', '/vendas', '/financeiro'].includes(item.path));
-    }
+  const visibleNavigationGroups = useMemo(() => {
+    const allowedPaths = session?.role === 'Reseller'
+      ? ['/', '/produtos', '/vendas', '/financeiro']
+      : session?.role === 'Supplier'
+        ? ['/', '/produtos', '/orcamentos', '/categorias', '/impressoras', '/tamanhos-botton', '/insumos', '/estoque', '/vendas', '/feiras', '/financeiro', '/listas-operacionais', '/projetos', '/personalizados', '/producao-terceirizada']
+        : null;
 
-    if (session?.role === 'Supplier') {
-      return navigation.filter((item) => ['/', '/produtos', '/orcamentos', '/categorias', '/impressoras', '/tamanhos-botton', '/insumos', '/estoque', '/vendas', '/feiras', '/financeiro', '/listas-operacionais', '/projetos', '/personalizados', '/producao-terceirizada'].includes(item.path));
-    }
-
-    return navigation;
+    return navigationGroups
+      .map((group) => ({
+        ...group,
+        items: allowedPaths ? group.items.filter((item) => allowedPaths.includes(item.path)) : group.items
+      }))
+      .filter((group) => group.items.length > 0);
   }, [session?.role]);
 
   const drawerContent = (
@@ -115,28 +144,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Toolbar>
       <Box sx={{ px: collapsed && !isMobile ? 1 : 2 }}>
         {(!collapsed || isMobile) ? <Chip label="Loja física + produção 3D" color="secondary" sx={{ fontWeight: 700, mb: 2 }} /> : null}
-        <List>
-          {visibleNavigation.map((item) => (
-            <ListItemButton
-              key={item.path}
-              component={RouterLink}
-              to={item.path}
-              onClick={() => isMobile && setMobileOpen(false)}
-              selected={item.path === '/' ? location.pathname === item.path : location.pathname.startsWith(item.path)}
-              sx={{
-                mb: 1,
-                borderRadius: 99,
-                justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
-                px: collapsed && !isMobile ? 1.5 : 2,
-                '&.Mui-selected': {
-                  backgroundColor: 'rgba(217,107,135,0.12)',
-                  color: 'primary.main'
-                }
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: collapsed && !isMobile ? 'auto' : 40, color: 'inherit' }}>{item.icon}</ListItemIcon>
-              {(!collapsed || isMobile) ? <ListItemText primary={item.label} /> : null}
-            </ListItemButton>
+        <List sx={{ py: 0 }}>
+          {visibleNavigationGroups.map((group, groupIndex) => (
+            <Box key={group.label} sx={{ mb: groupIndex === visibleNavigationGroups.length - 1 ? 0 : 1.5 }}>
+              {(!collapsed || isMobile) ? (
+                <Typography
+                  sx={{ px: 2, pt: groupIndex === 0 ? 0 : 1, pb: 0.5, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'text.secondary' }}
+                >
+                  {group.label}
+                </Typography>
+              ) : null}
+              {group.items.map((item) => (
+                <ListItemButton
+                  key={item.path}
+                  component={RouterLink}
+                  to={item.path}
+                  onClick={() => isMobile && setMobileOpen(false)}
+                  selected={item.path === '/' ? location.pathname === item.path : location.pathname.startsWith(item.path)}
+                  sx={{
+                    mb: 0.5,
+                    borderRadius: 99,
+                    justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
+                    px: collapsed && !isMobile ? 1.5 : 2,
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(217,107,135,0.12)',
+                      color: 'primary.main'
+                    }
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: collapsed && !isMobile ? 'auto' : 40, color: 'inherit' }}>{item.icon}</ListItemIcon>
+                  {(!collapsed || isMobile) ? <ListItemText primary={item.label} /> : null}
+                </ListItemButton>
+              ))}
+            </Box>
           ))}
         </List>
       </Box>
