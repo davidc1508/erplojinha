@@ -570,3 +570,6 @@ Fonte: testes de servico presentes no repositorio.
 - Observacao operacional:
   - Novas sessoes passam a herdar a politica imediatamente.
   - Sessoes ja abertas em outras janelas podem exigir reload da janela para refletir configuracoes recarregadas do usuario.
+
+- U-20260831-26 Cadastro de produto - mobile: split de 2 colunas migrado de `<Grid container spacing>` para `<Box>` CSS grid (`gridTemplateColumns: {xs: "1fr", lg: "minmax(0,1fr) 380px"}`, `gap`) — remove o scroll horizontal do negative-margin do Grid. Campos ganharam breakpoint `sm` (2 col em tablet); numericos curtos ficam 2 por linha no celular (`xs={6}`). Filamento: delete com area de toque. Barra custo x lucro da projecao reescrita (percentuais abaixo, sem texto dentro da barra).
+- U-20260831-27 Deploy Oracle: tag `20260831-product-form-mobile-v1` (API e Web). Sem migration. HTTP 200 nos dois endpoints. Limpeza concluida.
