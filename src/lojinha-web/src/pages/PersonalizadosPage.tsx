@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
+  Box,
   Button,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
   MenuItem,
   Paper,
   Stack,
@@ -38,6 +38,27 @@ const defaultRanges: Omit<PersonalizedPricingTier, 'id'>[] = [
 
 function stepDone(project: PersonalizedProject, name: string) {
   return project.project.steps.some((step) => step.name === name && step.status === 'Concluida');
+}
+
+const PERSONALIZADOS_STAGES = [
+  { key: 'orcamento', label: 'Orçamento' },
+  { key: 'modelagem', label: 'Modelagem 3D' },
+  { key: 'aprovacao', label: 'Aprovação' },
+  { key: 'producao', label: 'Impressão' },
+  { key: 'acabamento', label: 'Acabamento' },
+  { key: 'pronto', label: 'Pronto p/ venda' },
+  { key: 'vendido', label: 'Vendido' }
+] as const;
+
+function getPersonalizadoStage(item: PersonalizedProject): string {
+  if (item.project.status === 'Cancelado') return 'cancelado';
+  if (item.saleId) return 'vendido';
+  if (stepDone(item, 'Acabamento')) return 'pronto';
+  if (stepDone(item, 'Impressão')) return 'acabamento';
+  if (stepDone(item, 'Aprovação do projeto')) return 'producao';
+  if (stepDone(item, 'Elaboração modelo 3D')) return 'aprovacao';
+  if (stepDone(item, 'Orçamento')) return 'modelagem';
+  return 'orcamento';
 }
 
 export function PersonalizadosPage() {
@@ -347,81 +368,86 @@ export function PersonalizadosPage() {
       </PageSection>
 
       <PageSection title="Novo pedido personalizado" subtitle="Cria um pedido de personalizado com faixa de tamanho inicial e orçamento automático.">
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={4}><TextField fullWidth label="Nome" value={createForm.name} onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))} /></Grid>
-          <Grid item xs={12} md={2}><TextField fullWidth label="De (cm)" type="number" value={createForm.sizeMinCm} onChange={(event) => setCreateForm((current) => ({ ...current, sizeMinCm: Number(event.target.value) }))} /></Grid>
-          <Grid item xs={12} md={2}><TextField fullWidth label="Até (cm)" type="number" value={createForm.sizeMaxCm} onChange={(event) => setCreateForm((current) => ({ ...current, sizeMaxCm: Number(event.target.value) }))} /></Grid>
-          <Grid item xs={12} md={2}><TextField fullWidth select label="Pintura" value={createForm.isPainted ? 'yes' : 'no'} onChange={(event) => setCreateForm((current) => ({ ...current, isPainted: event.target.value === 'yes' }))}><MenuItem value="yes">Com pintura</MenuItem><MenuItem value="no">Sem pintura</MenuItem></TextField></Grid>
-          <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={() => createMutation.mutate()} disabled={createMutation.isLoading || !createForm.name.trim()}>Criar</Button></Grid>
-          <Grid item xs={12}><TextField fullWidth label="Descrição" value={createForm.description} onChange={(event) => setCreateForm((current) => ({ ...current, description: event.target.value }))} /></Grid>
-        </Grid>
+        <Stack spacing={2}>
+          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', md: '2fr 1fr 1fr 1.2fr 1fr' }, alignItems: 'center' }}>
+            <TextField fullWidth label="Nome" value={createForm.name} onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))} />
+            <TextField fullWidth label="De (cm)" type="number" value={createForm.sizeMinCm} onChange={(event) => setCreateForm((current) => ({ ...current, sizeMinCm: Number(event.target.value) }))} />
+            <TextField fullWidth label="Até (cm)" type="number" value={createForm.sizeMaxCm} onChange={(event) => setCreateForm((current) => ({ ...current, sizeMaxCm: Number(event.target.value) }))} />
+            <TextField fullWidth select label="Pintura" value={createForm.isPainted ? 'yes' : 'no'} onChange={(event) => setCreateForm((current) => ({ ...current, isPainted: event.target.value === 'yes' }))}><MenuItem value="yes">Com pintura</MenuItem><MenuItem value="no">Sem pintura</MenuItem></TextField>
+            <Button fullWidth variant="contained" onClick={() => createMutation.mutate()} disabled={createMutation.isLoading || !createForm.name.trim()}>Criar</Button>
+          </Box>
+          <TextField fullWidth label="Descrição" value={createForm.description} onChange={(event) => setCreateForm((current) => ({ ...current, description: event.target.value }))} />
+        </Stack>
       </PageSection>
 
-      <PageSection title="Pedidos personalizados" subtitle="Separado dos projetos de produção. A etapa de impressão define o tamanho real e gera os efeitos operacionais.">
-        <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Projeto</TableCell>
-                <TableCell>Orçamento</TableCell>
-                <TableCell>Produto</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {projects.map((item) => (
-                <TableRow key={item.project.id}>
-                  <TableCell>
-                    <Stack spacing={0.2}>
-                      <Typography fontWeight={700}>{item.project.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {item.project.personalizedSizeCm
-                          ? `${item.project.personalizedSizeCm.toFixed(1)} cm (real)`
-                          : `${(item.project.personalizedSizeMinCm ?? 0).toFixed(1)} a ${(item.project.personalizedSizeMaxCm ?? 0).toFixed(1)} cm (faixa)`}
-                        {' • '}
-                        {item.project.personalizedIsPainted ? 'Com pintura' : 'Sem pintura'}
-                      </Typography>
-                    </Stack>
-                  </TableCell>
-                  <TableCell>{formatCurrency(item.project.personalizedQuotedPriceBRL ?? 0)}</TableCell>
-                  <TableCell>{item.product ? `${item.product.name} (${item.product.lifecycleStatus})` : '-'}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1}>
-                      <Chip size="small" label={item.project.status} />
-                      {item.saleId ? <Chip size="small" color="success" label="Vendido" /> : null}
-                    </Stack>
-                  </TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                    {(() => {
-                      const isCanceled = item.project.status === 'Cancelado';
-                      return (
-                    <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
-                      <Button size="small" onClick={() => setBudgetDialog({
-                        open: true,
-                        projectId: item.project.id,
-                        sizeMinCm: item.project.personalizedSizeMinCm ?? 10,
-                        sizeMaxCm: item.project.personalizedSizeMaxCm ?? 15,
-                        isPainted: item.project.personalizedIsPainted ?? true
-                      })} disabled={isCanceled}>Orçamento</Button>
-                      {!isCanceled && !stepDone(item, 'Orçamento') ? <Button size="small" onClick={() => simpleActionMutation.mutate({ action: 'advanceBudget', projectId: item.project.id })}>Avançar orçamento</Button> : null}
-                      {!isCanceled && !stepDone(item, 'Orçamento') ? <Button size="small" color="error" onClick={() => setRejectDialog({ open: true, projectId: item.project.id, reason: '' })}>Rejeitar orçamento</Button> : null}
-                      {!isCanceled && stepDone(item, 'Orçamento') && !stepDone(item, 'Elaboração modelo 3D') ? <Button size="small" onClick={() => simpleActionMutation.mutate({ action: 'advanceModeling', projectId: item.project.id })}>Avançar modelagem</Button> : null}
-                      {!isCanceled && stepDone(item, 'Elaboração modelo 3D') && !stepDone(item, 'Aprovação do projeto') ? <Button size="small" onClick={() => simpleActionMutation.mutate({ action: 'approve', projectId: item.project.id })}>Aprovar</Button> : null}
-                      {!isCanceled && stepDone(item, 'Aprovação do projeto') ? <Button size="small" onClick={() => setPrintProductDialog((current) => ({ ...current, open: true, projectId: item.project.id, realSizeCm: item.project.personalizedSizeCm ?? item.project.personalizedSizeMaxCm ?? 10, name: item.product?.name ?? item.project.name, salePrice: String(item.project.personalizedQuotedPriceBRL ?? 0), marketplaceFeeId: current.marketplaceFeeId || noneMarketplaceId }))}>Produto impressão</Button> : null}
-                      {!isCanceled && item.product && !stepDone(item, 'Impressão') ? <Button size="small" onClick={() => setPrintFinishDialog({ open: true, projectId: item.project.id, timeRealMinutes: 0, producedQuantity: 1 })}>Finalizar impressão</Button> : null}
-                      {!isCanceled && stepDone(item, 'Impressão') && !stepDone(item, 'Acabamento') ? <Button size="small" onClick={() => setFinishingDialog({ open: true, projectId: item.project.id, timeRealMinutes: 0 })}>Finalizar acabamento</Button> : null}
-                      {!isCanceled && stepDone(item, 'Acabamento') && !item.saleId ? <Button size="small" color="success" onClick={() => setFinalizeDialog({ open: true, projectId: item.project.id, paymentMethod: 'Pix', quantity: 1, notes: '' })}>Finalizar e vender</Button> : null}
-                    </Stack>
-                      );
-                    })()}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {projects.length === 0 ? <TableRow><TableCell colSpan={5}><Typography color="text.secondary">Nenhum pedido personalizado criado.</Typography></TableCell></TableRow> : null}
-            </TableBody>
-          </Table>
-        </Paper>
+      <PageSection title="Esteira de pedidos" subtitle="Do pedido à venda: orçamento, modelagem, aprovação, impressão, acabamento e venda final.">
+        {projects.length === 0 ? (
+          <Typography color="text.secondary">Nenhum pedido personalizado criado.</Typography>
+        ) : (
+          <>
+            <Box sx={{ overflowX: { md: 'auto' } }}>
+              <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(7, minmax(230px, 1fr))' } }}>
+                {PERSONALIZADOS_STAGES.map((stage) => {
+                  const stageItems = projects.filter((item) => getPersonalizadoStage(item) === stage.key);
+                  return (
+                    <Box key={stage.key} sx={{ backgroundColor: 'rgba(255,244,240,0.7)', borderRadius: 3, p: 1.25 }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 0.5, pb: 1 }}>
+                        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800 }}>{stage.label}</Typography>
+                        <Chip size="small" label={stageItems.length} sx={{ backgroundColor: 'rgba(217,107,135,0.14)', color: 'primary.main', fontWeight: 800 }} />
+                      </Stack>
+                      <Stack spacing={1}>
+                        {stageItems.map((item) => (
+                          <Paper key={item.project.id} variant="outlined" sx={{ p: 1.5, borderColor: 'rgba(217,107,135,0.16)' }}>
+                            <Typography fontWeight={700} fontSize={13.5}>{item.project.name}</Typography>
+                            <Typography color="text.secondary" fontSize={11.5}>
+                              {item.project.personalizedSizeCm
+                                ? `${item.project.personalizedSizeCm.toFixed(1)} cm`
+                                : `${(item.project.personalizedSizeMinCm ?? 0).toFixed(1)}–${(item.project.personalizedSizeMaxCm ?? 0).toFixed(1)} cm`}
+                              {' · '}
+                              {item.project.personalizedIsPainted ? 'com pintura' : 'sem pintura'}
+                            </Typography>
+                            <Typography sx={{ fontFamily: '"Baloo 2", "Nunito", sans-serif', fontWeight: 700, fontSize: 13, color: 'primary.main', mt: 0.25 }}>
+                              {formatCurrency(item.project.personalizedQuotedPriceBRL ?? 0)}
+                            </Typography>
+                            {item.product ? <Typography color="text.secondary" fontSize={11}>{item.product.name}</Typography> : null}
+                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                              <Button size="small" variant="outlined" onClick={() => setBudgetDialog({
+                                open: true,
+                                projectId: item.project.id,
+                                sizeMinCm: item.project.personalizedSizeMinCm ?? 10,
+                                sizeMaxCm: item.project.personalizedSizeMaxCm ?? 15,
+                                isPainted: item.project.personalizedIsPainted ?? true
+                              })}>Orçamento</Button>
+                              {!stepDone(item, 'Orçamento') ? <Button size="small" variant="contained" onClick={() => simpleActionMutation.mutate({ action: 'advanceBudget', projectId: item.project.id })}>Avançar orçamento</Button> : null}
+                              {!stepDone(item, 'Orçamento') ? <Button size="small" color="error" onClick={() => setRejectDialog({ open: true, projectId: item.project.id, reason: '' })}>Rejeitar</Button> : null}
+                              {stepDone(item, 'Orçamento') && !stepDone(item, 'Elaboração modelo 3D') ? <Button size="small" variant="contained" onClick={() => simpleActionMutation.mutate({ action: 'advanceModeling', projectId: item.project.id })}>Avançar modelagem</Button> : null}
+                              {stepDone(item, 'Elaboração modelo 3D') && !stepDone(item, 'Aprovação do projeto') ? <Button size="small" variant="contained" onClick={() => simpleActionMutation.mutate({ action: 'approve', projectId: item.project.id })}>Aprovar</Button> : null}
+                              {stepDone(item, 'Aprovação do projeto') && !stepDone(item, 'Impressão') ? <Button size="small" variant={item.product ? 'outlined' : 'contained'} onClick={() => setPrintProductDialog((current) => ({ ...current, open: true, projectId: item.project.id, realSizeCm: item.project.personalizedSizeCm ?? item.project.personalizedSizeMaxCm ?? 10, name: item.product?.name ?? item.project.name, salePrice: String(item.project.personalizedQuotedPriceBRL ?? 0), marketplaceFeeId: current.marketplaceFeeId || noneMarketplaceId }))}>Produto impressão</Button> : null}
+                              {item.product && !stepDone(item, 'Impressão') ? <Button size="small" variant="contained" onClick={() => setPrintFinishDialog({ open: true, projectId: item.project.id, timeRealMinutes: 0, producedQuantity: 1 })}>Finalizar impressão</Button> : null}
+                              {stepDone(item, 'Impressão') && !stepDone(item, 'Acabamento') ? <Button size="small" variant="contained" onClick={() => setFinishingDialog({ open: true, projectId: item.project.id, timeRealMinutes: 0 })}>Finalizar acabamento</Button> : null}
+                              {stepDone(item, 'Acabamento') && !item.saleId ? <Button size="small" variant="contained" color="success" onClick={() => setFinalizeDialog({ open: true, projectId: item.project.id, paymentMethod: 'Pix', quantity: 1, notes: '' })}>Finalizar e vender</Button> : null}
+                            </Stack>
+                          </Paper>
+                        ))}
+                        {stageItems.length === 0 ? <Typography color="text.secondary" fontSize={11.5} sx={{ px: 0.5, py: 0.5 }}>—</Typography> : null}
+                      </Stack>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+            {projects.some((item) => getPersonalizadoStage(item) === 'cancelado') ? (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800 }}>Cancelados</Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                  {projects.filter((item) => getPersonalizadoStage(item) === 'cancelado').map((item) => (
+                    <Chip key={item.project.id} label={`${item.project.name} · ${formatCurrency(item.project.personalizedQuotedPriceBRL ?? 0)}`} variant="outlined" />
+                  ))}
+                </Stack>
+              </Box>
+            ) : null}
+          </>
+        )}
       </PageSection>
 
       <Dialog open={budgetDialog.open} onClose={() => setBudgetDialog({ open: false, projectId: '', sizeMinCm: 10, sizeMaxCm: 15, isPainted: true })}>
@@ -465,26 +491,26 @@ export function PersonalizadosPage() {
       <Dialog open={printProductDialog.open} onClose={() => setPrintProductDialog((current) => ({ ...current, open: false }))} maxWidth="md" fullWidth>
         <DialogTitle>Configurar produto da impressão</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={4}><TextField fullWidth label="Tamanho real (cm)" type="number" value={printProductDialog.realSizeCm} onChange={(event) => setPrintProductDialog((current) => ({ ...current, realSizeCm: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={6}><TextField fullWidth label="Nome" value={printProductDialog.name} onChange={(event) => setPrintProductDialog((current) => ({ ...current, name: event.target.value }))} /></Grid>
-            <Grid item xs={12} md={3}><TextField fullWidth label="SKU" value={printProductDialog.sku} onChange={(event) => setPrintProductDialog((current) => ({ ...current, sku: event.target.value }))} /></Grid>
-            <Grid item xs={12} md={3}><TextField fullWidth select label="Fornecedor" value={printProductDialog.supplierId} onChange={(event) => setPrintProductDialog((current) => ({ ...current, supplierId: event.target.value }))}><MenuItem value="">Lojinha</MenuItem>{(metadata?.suppliers ?? []).map((supplier) => <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12}><TextField fullWidth label="Descrição" value={printProductDialog.description} onChange={(event) => setPrintProductDialog((current) => ({ ...current, description: event.target.value }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Preço de custo" value={printProductDialog.costPrice} onChange={(event) => setPrintProductDialog((current) => ({ ...current, costPrice: event.target.value }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Preço de venda" value={printProductDialog.salePrice} onChange={(event) => setPrintProductDialog((current) => ({ ...current, salePrice: event.target.value }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Markup desejado" value={printProductDialog.desiredMarkup} onChange={(event) => setPrintProductDialog((current) => ({ ...current, desiredMarkup: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Tempo estimado (min)" value={printProductDialog.estimatedPrintTimeMinutes} onChange={(event) => setPrintProductDialog((current) => ({ ...current, estimatedPrintTimeMinutes: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Altura (cm)" value={printProductDialog.heightCentimeters} onChange={(event) => setPrintProductDialog((current) => ({ ...current, heightCentimeters: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Metros usados" value={printProductDialog.lengthMetersUsed} onChange={(event) => setPrintProductDialog((current) => ({ ...current, lengthMetersUsed: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Tarifa kWh" value={printProductDialog.tariffPerKwh} onChange={(event) => setPrintProductDialog((current) => ({ ...current, tariffPerKwh: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Acabamento (%)" value={printProductDialog.finishingPercentage} onChange={(event) => setPrintProductDialog((current) => ({ ...current, finishingPercentage: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Comissão (%)" value={printProductDialog.commissionPercentage} onChange={(event) => setPrintProductDialog((current) => ({ ...current, commissionPercentage: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Itens por placa" value={printProductDialog.itemsPerPlate} onChange={(event) => setPrintProductDialog((current) => ({ ...current, itemsPerPlate: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={4}><TextField fullWidth type="number" label="Custo adicional" value={printProductDialog.additionalCost} onChange={(event) => setPrintProductDialog((current) => ({ ...current, additionalCost: Number(event.target.value) }))} /></Grid>
-            <Grid item xs={12} md={6}><TextField fullWidth select label="Impressora" value={printProductDialog.printerProfileId} onChange={(event) => setPrintProductDialog((current) => ({ ...current, printerProfileId: event.target.value }))}><MenuItem value="">Sem impressora</MenuItem>{(metadata?.printers ?? []).map((printer) => <MenuItem key={printer.id} value={printer.id}>{printer.name}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={6}><TextField fullWidth select label="Marketplace" value={printProductDialog.marketplaceFeeId} onChange={(event) => setPrintProductDialog((current) => ({ ...current, marketplaceFeeId: event.target.value }))}>{printProductDialog.marketplaceFeeId === '' ? <MenuItem value="">— Sem marketplace —</MenuItem> : null}{(metadata?.marketplaces ?? []).map((marketplace) => <MenuItem key={marketplace.id} value={marketplace.id}>{marketplace.name}</MenuItem>)}</TextField></Grid>
-          </Grid>
+          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' }, mt: 1 }}>
+            <TextField fullWidth label="Tamanho real (cm)" type="number" value={printProductDialog.realSizeCm} onChange={(event) => setPrintProductDialog((current) => ({ ...current, realSizeCm: Number(event.target.value) }))} />
+            <TextField sx={{ gridColumn: { sm: '1 / -1', md: 'span 2' } }} fullWidth label="Nome" value={printProductDialog.name} onChange={(event) => setPrintProductDialog((current) => ({ ...current, name: event.target.value }))} />
+            <TextField fullWidth label="SKU" value={printProductDialog.sku} onChange={(event) => setPrintProductDialog((current) => ({ ...current, sku: event.target.value }))} />
+            <TextField fullWidth select label="Fornecedor" value={printProductDialog.supplierId} onChange={(event) => setPrintProductDialog((current) => ({ ...current, supplierId: event.target.value }))}><MenuItem value="">Lojinha</MenuItem>{(metadata?.suppliers ?? []).map((supplier) => <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>)}</TextField>
+            <TextField sx={{ gridColumn: '1 / -1' }} fullWidth label="Descrição" value={printProductDialog.description} onChange={(event) => setPrintProductDialog((current) => ({ ...current, description: event.target.value }))} />
+            <TextField fullWidth type="number" label="Preço de custo" value={printProductDialog.costPrice} onChange={(event) => setPrintProductDialog((current) => ({ ...current, costPrice: event.target.value }))} />
+            <TextField fullWidth type="number" label="Preço de venda" value={printProductDialog.salePrice} onChange={(event) => setPrintProductDialog((current) => ({ ...current, salePrice: event.target.value }))} />
+            <TextField fullWidth type="number" label="Markup desejado" value={printProductDialog.desiredMarkup} onChange={(event) => setPrintProductDialog((current) => ({ ...current, desiredMarkup: Number(event.target.value) }))} />
+            <TextField fullWidth type="number" label="Tempo estimado (min)" value={printProductDialog.estimatedPrintTimeMinutes} onChange={(event) => setPrintProductDialog((current) => ({ ...current, estimatedPrintTimeMinutes: Number(event.target.value) }))} />
+            <TextField fullWidth type="number" label="Altura (cm)" value={printProductDialog.heightCentimeters} onChange={(event) => setPrintProductDialog((current) => ({ ...current, heightCentimeters: Number(event.target.value) }))} />
+            <TextField fullWidth type="number" label="Metros usados" value={printProductDialog.lengthMetersUsed} onChange={(event) => setPrintProductDialog((current) => ({ ...current, lengthMetersUsed: Number(event.target.value) }))} />
+            <TextField fullWidth type="number" label="Tarifa kWh" value={printProductDialog.tariffPerKwh} onChange={(event) => setPrintProductDialog((current) => ({ ...current, tariffPerKwh: Number(event.target.value) }))} />
+            <TextField fullWidth type="number" label="Acabamento (%)" value={printProductDialog.finishingPercentage} onChange={(event) => setPrintProductDialog((current) => ({ ...current, finishingPercentage: Number(event.target.value) }))} />
+            <TextField fullWidth type="number" label="Comissão (%)" value={printProductDialog.commissionPercentage} onChange={(event) => setPrintProductDialog((current) => ({ ...current, commissionPercentage: Number(event.target.value) }))} />
+            <TextField fullWidth type="number" label="Itens por placa" value={printProductDialog.itemsPerPlate} onChange={(event) => setPrintProductDialog((current) => ({ ...current, itemsPerPlate: Number(event.target.value) }))} />
+            <TextField fullWidth type="number" label="Custo adicional" value={printProductDialog.additionalCost} onChange={(event) => setPrintProductDialog((current) => ({ ...current, additionalCost: Number(event.target.value) }))} />
+            <TextField sx={{ gridColumn: { sm: '1 / -1', md: 'auto' } }} fullWidth select label="Impressora" value={printProductDialog.printerProfileId} onChange={(event) => setPrintProductDialog((current) => ({ ...current, printerProfileId: event.target.value }))}><MenuItem value="">Sem impressora</MenuItem>{(metadata?.printers ?? []).map((printer) => <MenuItem key={printer.id} value={printer.id}>{printer.name}</MenuItem>)}</TextField>
+            <TextField sx={{ gridColumn: { sm: '1 / -1', md: 'span 2' } }} fullWidth select label="Marketplace" value={printProductDialog.marketplaceFeeId} onChange={(event) => setPrintProductDialog((current) => ({ ...current, marketplaceFeeId: event.target.value }))}>{printProductDialog.marketplaceFeeId === '' ? <MenuItem value="">— Sem marketplace —</MenuItem> : null}{(metadata?.marketplaces ?? []).map((marketplace) => <MenuItem key={marketplace.id} value={marketplace.id}>{marketplace.name}</MenuItem>)}</TextField>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPrintProductDialog((current) => ({ ...current, open: false }))}>Cancelar</Button>

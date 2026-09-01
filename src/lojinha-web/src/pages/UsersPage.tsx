@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Grid, IconButton, Pagination, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, IconButton, Pagination, Paper, Stack, TextField, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -48,24 +48,23 @@ export function UsersPage() {
   });
 
   return (
-    <Grid container spacing={3}>
-      <Grid item xs={12}>
-        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
-          <div>
-            <Typography variant="h3">Usuários</Typography>
-            <Typography color="text.secondary">Listagem separada do formulário para manter o padrão das outras telas de cadastro.</Typography>
-          </div>
-          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/usuarios/novo')}>
-            Novo usuário
-          </Button>
-        </Stack>
-      </Grid>
-      <Grid item xs={12}>
-        <Grid container spacing={2} sx={{ mb: 0.5 }}>
-          <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Usuários cadastrados</Typography><Typography variant="h5">{users.length}</Typography></Paper></Grid>
-          <Grid item xs={12} md={6}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Perfis de fornecedor</Typography><Typography variant="h5">{users.filter((user) => user.role === 'Supplier').length}</Typography></Paper></Grid>
-        </Grid>
-        <PageSection title="Usuários cadastrados" subtitle="Controle administrativo de acesso à aplicação.">
+    <Stack spacing={3}>
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
+        <div>
+          <Typography variant="h3">Usuários</Typography>
+          <Typography color="text.secondary">Listagem separada do formulário para manter o padrão das outras telas de cadastro.</Typography>
+        </div>
+        <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/usuarios/novo')} sx={{ alignSelf: { xs: 'stretch', md: 'flex-start' } }}>
+          Novo usuário
+        </Button>
+      </Stack>
+
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))' } }}>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Usuários cadastrados</Typography><Typography variant="h5">{users.length}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Perfis de fornecedor</Typography><Typography variant="h5">{users.filter((user) => user.role === 'Supplier').length}</Typography></Paper>
+      </Box>
+
+      <PageSection title="Usuários cadastrados" subtitle="Controle administrativo de acesso à aplicação.">
           <Stack spacing={1.5}>
             {feedback ? <Alert severity={feedback.severity}>{feedback.message}</Alert> : null}
             <TextField label="Buscar usuário" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Nome, e-mail, perfil ou fornecedor" />
@@ -114,7 +113,6 @@ export function UsersPage() {
             </Stack>
           </Stack>
         </PageSection>
-      </Grid>
       <ConfirmDialog
         open={Boolean(userToDelete)}
         title="Excluir usuário"
@@ -133,6 +131,6 @@ export function UsersPage() {
           });
         }}
       />
-    </Grid>
+    </Stack>
   );
 }
