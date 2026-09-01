@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, Pagination, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Pagination, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery, useTheme } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -92,11 +92,11 @@ export function BottonSizesPage() {
 
   return (
     <Stack spacing={3}>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Tamanhos cadastrados</Typography><Typography variant="h5">{bottonSizes.length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultados filtrados</Typography><Typography variant="h5">{filteredSizes.length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Abaixo do mínimo</Typography><Typography variant="h5">{bottonSizes.filter((size) => size.minimumStock > 0 && size.stockQuantity <= size.minimumStock).length}</Typography></Paper></Grid>
-      </Grid>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' } }}>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Tamanhos cadastrados</Typography><Typography variant="h5">{bottonSizes.length}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultados filtrados</Typography><Typography variant="h5">{filteredSizes.length}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Abaixo do mínimo</Typography><Typography variant="h5">{bottonSizes.filter((size) => size.minimumStock > 0 && size.stockQuantity <= size.minimumStock).length}</Typography></Paper>
+      </Box>
 
       <PageSection
         title="Tamanhos de botton"
@@ -186,11 +186,11 @@ export function BottonSizesPage() {
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField label="Nome" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} helperText="Ex.: Botton 45 mm" />
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}><CurrencyField label="Custo unitário" value={form.costPerUnit} onValueChange={(value) => setForm({ ...form, costPerUnit: value })} fullWidth /></Grid>
-              <Grid item xs={12} sm={4}><TextField label="Estoque atual" type="number" value={form.stockQuantity} onChange={(event) => setForm({ ...form, stockQuantity: Number(event.target.value) })} fullWidth /></Grid>
-              <Grid item xs={12} sm={4}><TextField label="Estoque mínimo" type="number" value={form.minimumStock} onChange={(event) => setForm({ ...form, minimumStock: Number(event.target.value) })} fullWidth /></Grid>
-            </Grid>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(3, minmax(0, 1fr))' } }}>
+              <CurrencyField label="Custo unitário" value={form.costPerUnit} onValueChange={(value) => setForm({ ...form, costPerUnit: value })} fullWidth />
+              <TextField label="Estoque atual" type="number" value={form.stockQuantity} onChange={(event) => setForm({ ...form, stockQuantity: Number(event.target.value) })} fullWidth />
+              <TextField label="Estoque mínimo" type="number" value={form.minimumStock} onChange={(event) => setForm({ ...form, minimumStock: Number(event.target.value) })} fullWidth />
+            </Box>
             <TextField label="Observações" multiline minRows={3} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
           </Stack>
         </DialogContent>

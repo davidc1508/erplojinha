@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, Pagination, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Pagination, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery, useTheme } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -84,11 +84,11 @@ export function CategoriesPage() {
 
   return (
     <Stack spacing={3}>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Categorias cadastradas</Typography><Typography variant="h5">{categories.length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultados filtrados</Typography><Typography variant="h5">{filteredCategories.length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Modo atual</Typography><Typography variant="h5">{isEditing && isDialogOpen ? 'Edição' : 'Listagem'}</Typography></Paper></Grid>
-      </Grid>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' } }}>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Categorias cadastradas</Typography><Typography variant="h5">{categories.length}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultados filtrados</Typography><Typography variant="h5">{filteredCategories.length}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Sem descrição</Typography><Typography variant="h5">{categories.filter((category) => !category.description).length}</Typography></Paper>
+      </Box>
 
       <PageSection
         title="Categorias"

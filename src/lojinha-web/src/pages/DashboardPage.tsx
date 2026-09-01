@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { dashboardApi } from '../services/api';
+import { dashboardApi, fairsApi, operationalListsApi, productsApi } from '../services/api';
 import { PageSection } from '../components/PageSection';
 import { StatCard } from '../components/StatCard';
-import { formatUtcDate } from '../services/date';
+import { formatUtcDate, isUtcDateTodayOrPast } from '../services/date';
 import { fairStatusLabel, formatCurrency, paymentMethodLabel } from '../services/labels';
 
 const GRADIENTS = {
@@ -57,9 +58,42 @@ function RankingList({
 
 export function DashboardPage() {
   const { session } = useAuth();
+  const navigate = useNavigate();
   const isSupplier = session?.role === 'Supplier';
   const isReseller = session?.role === 'Reseller';
+  const isStoreAdmin = !isSupplier && !isReseller;
   const { data } = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.getSummary });
+  const { data: fairs = [] } = useQuery({ queryKey: ['fairs'], queryFn: fairsApi.getAll, enabled: isStoreAdmin });
+  const { data: catalogProducts = [] } = useQuery({ queryKey: ['products', 'all', 'product'], queryFn: () => productsApi.getAll({ isBudget: false }), enabled: isStoreAdmin });
+  const { data: restockItems = [] } = useQuery({ queryKey: ['operational-restock'], queryFn: operationalListsApi.getRestockItems, enabled: isStoreAdmin });
+
+  const actionItems = useMemo(() => {
+    if (!isStoreAdmin) {
+      return [] as { label: string; detail: string; to: string; tone: 'urgent' | 'warn' | 'info' }[];
+    }
+
+    const items: { label: string; detail: string; to: string; tone: 'urgent' | 'warn' | 'info' }[] = [];
+
+    const fairsToStart = fairs.filter((fair) => fair.status === 'Awaiting' && isUtcDateTodayOrPast(fair.eventDateUtc));
+    fairsToStart.forEach((fair) => items.push({ label: `Iniciar feira: ${fair.name}`, detail: `Evento em ${formatUtcDate(fair.eventDateUtc)} ainda aguardando início`, to: `/feiras/${fair.id}`, tone: 'urgent' }));
+
+    const openFairs = fairs.filter((fair) => fair.status === 'Open');
+    if (openFairs.length > 0) {
+      items.push({ label: `${openFairs.length} feira(s) em aberto`, detail: 'Lançar despesas, conferir cotas e finalizar quando terminar', to: '/feiras', tone: 'warn' });
+    }
+
+    const outOfStock = catalogProducts.filter((product) => product.currentStock === 0);
+    if (outOfStock.length > 0) {
+      items.push({ label: `${outOfStock.length} produto(s) sem estoque`, detail: outOfStock.slice(0, 3).map((product) => product.name).join(', ') + (outOfStock.length > 3 ? '…' : ''), to: '/estoque', tone: 'urgent' });
+    }
+
+    const openRestock = restockItems.filter((item) => item.status === 'Open' || item.status === 'InProgress');
+    if (openRestock.length > 0) {
+      items.push({ label: `${openRestock.length} item(ns) de reposição em aberto`, detail: 'Planeje a produção na fila de reposição', to: '/listas-operacionais', tone: 'info' });
+    }
+
+    return items;
+  }, [catalogProducts, fairs, isStoreAdmin, restockItems]);
 
   const periodItemsTotal = useMemo(
     () => (data?.periodMetrics ?? []).reduce((sum, item) => sum + item.itemsSold, 0),
@@ -112,6 +146,30 @@ export function DashboardPage() {
               : 'Faturamento, margem, caixinha e performance comercial em uma leitura rápida.'}
         </Typography>
       </Stack>
+
+      {actionItems.length > 0 ? (
+        <Paper sx={{ p: { xs: 2, md: 3 }, overflow: 'hidden', border: '1px solid rgba(217,107,135,0.4)' }}>
+          <Typography variant="h5" sx={{ fontSize: { xs: '1.2rem', md: '1.5rem' }, lineHeight: 1.2, mb: 0.5 }}>Precisa de você</Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>O que está em aberto agora, antes dos números.</Typography>
+          <Stack spacing={1}>
+            {actionItems.map((item) => (
+              <Paper
+                key={item.label}
+                variant="outlined"
+                sx={{ p: 1.5, borderColor: item.tone === 'urgent' ? 'rgba(217,107,135,0.35)' : 'rgba(217,107,135,0.16)' }}
+              >
+                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography fontWeight={700} sx={{ color: item.tone === 'urgent' ? '#c0566e' : 'inherit' }}>{item.label}</Typography>
+                    <Typography color="text.secondary" fontSize={12.5}>{item.detail}</Typography>
+                  </Box>
+                  <Button size="small" variant="outlined" onClick={() => navigate(item.to)} sx={{ flexShrink: 0 }}>Abrir</Button>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        </Paper>
+      ) : null}
 
       <Box
         sx={{

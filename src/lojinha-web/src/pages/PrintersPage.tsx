@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, MenuItem, Pagination, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Pagination, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery, useTheme } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -91,11 +91,10 @@ export function PrintersPage() {
 
   return (
     <Stack spacing={3}>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Perfis cadastrados</Typography><Typography variant="h5">{printers.length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultados filtrados</Typography><Typography variant="h5">{filteredPrinters.length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={4}><Paper sx={{ p: 2 }}><Typography color="text.secondary">Modo atual</Typography><Typography variant="h5">{isEditing && isDialogOpen ? 'Edição' : 'Listagem'}</Typography></Paper></Grid>
-      </Grid>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))' } }}>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Perfis cadastrados</Typography><Typography variant="h5">{printers.length}</Typography></Paper>
+        <Paper sx={{ p: 2 }}><Typography color="text.secondary">Resultados filtrados</Typography><Typography variant="h5">{filteredPrinters.length}</Typography></Paper>
+      </Box>
 
       <PageSection
         title="Impressoras"
@@ -192,20 +191,18 @@ export function PrintersPage() {
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField label="Nome" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
             <TextField label="Marca" value={form.brand} onChange={(event) => setForm({ ...form, brand: event.target.value })} />
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}><TextField label="Meses de retorno" type="number" value={form.returnMonths} onChange={(event) => setForm({ ...form, returnMonths: Number(event.target.value) })} fullWidth /></Grid>
-              <Grid item xs={12} sm={6}><CurrencyField label="Custo da máquina" value={form.machineCost} onValueChange={(value) => setForm({ ...form, machineCost: value })} fullWidth /></Grid>
-              <Grid item xs={12} sm={6}><TextField label="Horas/dia" type="number" value={form.workHoursPerDay} onChange={(event) => setForm({ ...form, workHoursPerDay: Number(event.target.value) })} fullWidth /></Grid>
-              <Grid item xs={12} sm={6}><TextField label="Dias/mês" type="number" value={form.workingDaysPerMonth} onChange={(event) => setForm({ ...form, workingDaysPerMonth: Number(event.target.value) })} fullWidth /></Grid>
-              <Grid item xs={12} sm={6}><TextField label="Potência (kW)" type="number" value={form.powerKw} onChange={(event) => setForm({ ...form, powerKw: Number(event.target.value) })} fullWidth /></Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField select label="Nível de uso" value={form.usageLevel} onChange={(event) => setForm({ ...form, usageLevel: event.target.value })} fullWidth>
-                  <MenuItem value="basico">Básico</MenuItem>
-                  <MenuItem value="medio">Médio</MenuItem>
-                  <MenuItem value="profissional">Profissional</MenuItem>
-                </TextField>
-              </Grid>
-            </Grid>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+              <TextField label="Meses de retorno" type="number" value={form.returnMonths} onChange={(event) => setForm({ ...form, returnMonths: Number(event.target.value) })} fullWidth />
+              <CurrencyField label="Custo da máquina" value={form.machineCost} onValueChange={(value) => setForm({ ...form, machineCost: value })} fullWidth />
+              <TextField label="Horas/dia" type="number" value={form.workHoursPerDay} onChange={(event) => setForm({ ...form, workHoursPerDay: Number(event.target.value) })} fullWidth />
+              <TextField label="Dias/mês" type="number" value={form.workingDaysPerMonth} onChange={(event) => setForm({ ...form, workingDaysPerMonth: Number(event.target.value) })} fullWidth />
+              <TextField label="Potência (kW)" type="number" value={form.powerKw} onChange={(event) => setForm({ ...form, powerKw: Number(event.target.value) })} fullWidth />
+              <TextField select label="Nível de uso" value={form.usageLevel} onChange={(event) => setForm({ ...form, usageLevel: event.target.value })} fullWidth>
+                <MenuItem value="basico">Básico</MenuItem>
+                <MenuItem value="medio">Médio</MenuItem>
+                <MenuItem value="profissional">Profissional</MenuItem>
+              </TextField>
+            </Box>
             <TextField label="Taxa de falha" type="number" value={form.failureRate} onChange={(event) => setForm({ ...form, failureRate: Number(event.target.value) })} />
           </Stack>
         </DialogContent>

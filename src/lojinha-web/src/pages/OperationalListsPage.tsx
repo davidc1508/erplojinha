@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
+  Box,
   Button,
   Chip,
-  Grid,
   IconButton,
   Paper,
   Stack,
@@ -27,7 +27,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductLookupField } from '../components/ProductLookupField';
 import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
-import { operationalListsApi, productsApi } from '../services/api';
+import { inventoryApi, operationalListsApi, productsApi } from '../services/api';
 import type {
   OperationalRestockItem,
   OperationalTodoItem,
@@ -139,8 +139,52 @@ export function OperationalListsPage() {
   });
   const { data: restockItems = [] } = useQuery({ queryKey: ['operational-restock'], queryFn: operationalListsApi.getRestockItems });
   const { data: todoItems = [] } = useQuery({ queryKey: ['operational-todo'], queryFn: operationalListsApi.getTodoItems });
+  const { data: movements = [] } = useQuery({ queryKey: ['inventory'], queryFn: inventoryApi.getMovements, enabled: !isSupplier });
 
   const sortedProducts = useMemo(() => [...products].sort((left, right) => left.name.localeCompare(right.name, 'pt-BR')), [products]);
+
+  const restockedProductIds = useMemo(
+    () => new Set(restockItems.filter((item) => item.status === 'Open' || item.status === 'InProgress').map((item) => item.productId)),
+    [restockItems]
+  );
+
+  const suggestions = useMemo(() => {
+    if (isSupplier) {
+      return [];
+    }
+
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const soldLast30 = new Map<string, number>();
+    movements.forEach((movement) => {
+      if (movement.itemType === 'Product' && movement.type === 'Sale' && new Date(movement.occurredAtUtc).getTime() >= thirtyDaysAgo) {
+        soldLast30.set(movement.itemId, (soldLast30.get(movement.itemId) ?? 0) + movement.quantity);
+      }
+    });
+
+    return products
+      .filter((product) => !restockedProductIds.has(product.id))
+      .map((product) => {
+        const sold30 = soldLast30.get(product.id) ?? 0;
+        const dailyOutflow = sold30 / 30;
+        const coverageDays = dailyOutflow > 0 ? product.currentStock / dailyOutflow : null;
+        return { product, sold30, dailyOutflow, coverageDays };
+      })
+      .filter((row) => row.product.currentStock === 0 ? row.sold30 > 0 : (row.coverageDays !== null && row.coverageDays <= 15))
+      .map((row) => {
+        const projectedDemand = Math.ceil(row.dailyOutflow * 30);
+        const suggestedQuantity = Math.max(1, projectedDemand - row.product.currentStock);
+        return {
+          ...row,
+          suggestedQuantity,
+          reason: row.product.currentStock === 0
+            ? `Sem estoque · vendeu ${row.sold30} em 30d`
+            : `Saldo ${row.product.currentStock} · cobertura ~${Math.floor(row.coverageDays ?? 0)} dias`
+        };
+      })
+      .sort((left, right) => (left.coverageDays ?? -1) - (right.coverageDays ?? -1))
+      .slice(0, 8);
+  }, [isSupplier, movements, products, restockedProductIds]);
 
   const saveRestockMutation = useMutation({
     mutationFn: async () => {
@@ -162,6 +206,16 @@ export function OperationalListsPage() {
       await queryClient.invalidateQueries({ queryKey: ['operational-restock'] });
     },
     onError: (error) => setFeedback({ severity: 'error', message: getErrorMessage(error, 'Não foi possível salvar o item de reposição.') })
+  });
+
+  const approveSuggestionMutation = useMutation({
+    mutationFn: async (payload: { productId: string; targetQuantity: number }) =>
+      operationalListsApi.createRestockItem({ productId: payload.productId, targetQuantity: payload.targetQuantity, notes: 'Sugestão automática (cobertura de estoque)' }),
+    onSuccess: async () => {
+      setFeedback({ severity: 'success', message: 'Sugestão adicionada à reposição.' });
+      await queryClient.invalidateQueries({ queryKey: ['operational-restock'] });
+    },
+    onError: (error) => setFeedback({ severity: 'error', message: getErrorMessage(error, 'Não foi possível adicionar a sugestão.') })
   });
 
   const deleteRestockMutation = useMutation({
@@ -229,44 +283,74 @@ export function OperationalListsPage() {
 
       {feedback ? <Alert severity={feedback.severity}>{feedback.message}</Alert> : null}
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}><Paper sx={{ p: 2.2, borderRadius: 3, background: 'linear-gradient(135deg, rgba(123,207,192,0.22), rgba(255,255,255,0.72))' }}><Typography color="text.secondary">Reposição</Typography><Typography variant="h5">{restockItems.length}</Typography></Paper></Grid>
-        <Grid item xs={12} md={6}><Paper sx={{ p: 2.2, borderRadius: 3, background: 'linear-gradient(135deg, rgba(245,178,197,0.24), rgba(255,255,255,0.72))' }}><Typography color="text.secondary">Itens a fazer</Typography><Typography variant="h5">{todoItems.length}</Typography></Paper></Grid>
-      </Grid>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))' } }}>
+        <Paper sx={{ p: 2.2, borderRadius: 3, background: 'linear-gradient(135deg, rgba(123,207,192,0.22), rgba(255,255,255,0.72))' }}><Typography color="text.secondary">Reposição</Typography><Typography variant="h5">{restockItems.length}</Typography></Paper>
+        <Paper sx={{ p: 2.2, borderRadius: 3, background: 'linear-gradient(135deg, rgba(248,229,140,0.3), rgba(255,255,255,0.72))' }}><Typography color="text.secondary">Sugestões</Typography><Typography variant="h5">{suggestions.length}</Typography></Paper>
+        <Paper sx={{ p: 2.2, borderRadius: 3, background: 'linear-gradient(135deg, rgba(245,178,197,0.24), rgba(255,255,255,0.72))' }}><Typography color="text.secondary">Itens a fazer</Typography><Typography variant="h5">{todoItems.length}</Typography></Paper>
+      </Box>
+
+      {!isSupplier && suggestions.length > 0 ? (
+        <Paper sx={{ p: { xs: 2, md: 3 }, overflow: 'hidden', border: '1px solid rgba(217,107,135,0.4)' }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1} mb={2}>
+            <Box>
+              <Typography variant="h5" sx={{ fontSize: { xs: '1.2rem', md: '1.5rem' }, lineHeight: 1.2 }}>Reposição sugerida</Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.5 }}>Calculada pela cobertura de estoque (demanda dos últimos 30 dias vs. saldo). Aprove ou ajuste depois na lista.</Typography>
+            </Box>
+          </Stack>
+          <Stack spacing={1}>
+            {suggestions.map((suggestion) => (
+              <Paper key={suggestion.product.id} variant="outlined" sx={{ p: 1.75, borderColor: 'rgba(217,107,135,0.2)' }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1.5}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography fontWeight={700} noWrap title={suggestion.product.name}>{suggestion.product.name}</Typography>
+                    <Typography color="text.secondary" fontSize={12}>{suggestion.reason}</Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1.5} alignItems="center" flexShrink={0}>
+                    <Typography sx={{ fontFamily: '"Baloo 2", "Nunito", sans-serif', fontWeight: 700 }}>{suggestion.suggestedQuantity} un</Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => approveSuggestionMutation.mutate({ productId: suggestion.product.id, targetQuantity: suggestion.suggestedQuantity })}
+                      disabled={approveSuggestionMutation.isLoading}
+                    >
+                      Aprovar
+                    </Button>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        </Paper>
+      ) : null}
 
       <PageSection title="Reposição de produtos" subtitle="Planejamento rápido para o que precisa voltar ao estoque.">
         <Stack spacing={2}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <ProductLookupField
-                label="Produto"
-                value={restockForm.productId}
-                products={sortedProducts}
-                onChange={(productId) => setRestockForm((current) => ({ ...current, productId }))}
-                helperText="Digite nome ou SKU para buscar produtos."
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Qtd alvo"
-                value={restockForm.targetQuantity}
-                onChange={(event) => setRestockForm((current) => ({ ...current, targetQuantity: event.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                label="Observação"
-                helperText="Opcional"
-                value={restockForm.notes}
-                onChange={(event) => setRestockForm((current) => ({ ...current, notes: event.target.value }))}
-              />
-            </Grid>
-          </Grid>
+          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' } }}>
+            <ProductLookupField
+              label="Produto"
+              value={restockForm.productId}
+              products={sortedProducts}
+              onChange={(productId) => setRestockForm((current) => ({ ...current, productId }))}
+              helperText="Digite nome ou SKU para buscar produtos."
+            />
+            <TextField
+              fullWidth
+              type="number"
+              label="Qtd alvo"
+              value={restockForm.targetQuantity}
+              onChange={(event) => setRestockForm((current) => ({ ...current, targetQuantity: event.target.value }))}
+            />
+            <TextField
+              sx={{ gridColumn: { xs: '1 / -1', md: '1 / -1' } }}
+              fullWidth
+              multiline
+              minRows={2}
+              label="Observação"
+              helperText="Opcional"
+              value={restockForm.notes}
+              onChange={(event) => setRestockForm((current) => ({ ...current, notes: event.target.value }))}
+            />
+          </Box>
           <Stack direction="row" spacing={1.5} justifyContent="flex-end">
             {restockForm.id ? <Button variant="outlined" onClick={() => setRestockForm(emptyRestockForm)}>Cancelar edição</Button> : null}
             <Button
@@ -318,27 +402,23 @@ export function OperationalListsPage() {
 
       <PageSection title="Itens a fazer" subtitle="Backlog de novos itens e ideias de produção, com atalho para criar produto ou projeto.">
         <Stack spacing={2}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Nome do item"
-                value={todoForm.name}
-                onChange={(event) => setTodoForm((current) => ({ ...current, name: event.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                label="Fonte"
-                helperText="Opcional"
-                value={todoForm.source}
-                onChange={(event) => setTodoForm((current) => ({ ...current, source: event.target.value }))}
-              />
-            </Grid>
-          </Grid>
+          <Stack spacing={2}>
+            <TextField
+              fullWidth
+              label="Nome do item"
+              value={todoForm.name}
+              onChange={(event) => setTodoForm((current) => ({ ...current, name: event.target.value }))}
+            />
+            <TextField
+              fullWidth
+              multiline
+              minRows={2}
+              label="Fonte"
+              helperText="Opcional"
+              value={todoForm.source}
+              onChange={(event) => setTodoForm((current) => ({ ...current, source: event.target.value }))}
+            />
+          </Stack>
           <Stack direction="row" spacing={1.5} justifyContent="flex-end">
             {todoForm.id ? <Button variant="outlined" onClick={() => setTodoForm(emptyTodoForm)}>Cancelar edição</Button> : null}
             <Button

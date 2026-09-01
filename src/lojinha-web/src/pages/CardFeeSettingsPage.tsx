@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
+  Box,
   Button,
-  Grid,
   Stack,
   TextField,
   Typography
@@ -102,63 +102,51 @@ export function CardFeeSettingsPage() {
   return (
     <Stack spacing={3}>
       <div>
-        <Typography variant="h4">Configuração de taxas</Typography>
+        <Typography variant="h3">Configuração de taxas</Typography>
         <Typography color="text.secondary">Defina as taxas de cartao e reaplique o calculo nas vendas ja registradas quando precisar alinhar o cenário real.</Typography>
       </div>
 
       {feedback ? <Alert severity={feedback.severity}>{feedback.message}</Alert> : null}
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} lg={8}>
-          <PageSection title="Taxas de cartao" subtitle="O lucro da venda passa a descontar primeiro as taxas, depois os demais custos.">
-            <Stack spacing={2}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <TextField label="Taxa de credito (%)" type="number" value={form.creditCardPercentage} onChange={(event) => updateField('creditCardPercentage', event.target.value)} fullWidth />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField label="Taxa de debito (%)" type="number" value={form.debitCardPercentage} onChange={(event) => updateField('debitCardPercentage', event.target.value)} fullWidth />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField label="Taxa adicional (%)" type="number" value={form.additionalPercentage} onChange={(event) => updateField('additionalPercentage', event.target.value)} fullWidth />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <CurrencyField label="Taxa adicional fixa" value={Number(form.additionalFixedAmount || 0)} onValueChange={(value) => updateField('additionalFixedAmount', String(value))} fullWidth />
-                </Grid>
-              </Grid>
+      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) 320px' }, alignItems: 'start' }}>
+        <PageSection title="Taxas de cartao" subtitle="O lucro da venda passa a descontar primeiro as taxas, depois os demais custos.">
+          <Stack spacing={2}>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' } }}>
+              <TextField label="Taxa de credito (%)" type="number" value={form.creditCardPercentage} onChange={(event) => updateField('creditCardPercentage', event.target.value)} fullWidth />
+              <TextField label="Taxa de debito (%)" type="number" value={form.debitCardPercentage} onChange={(event) => updateField('debitCardPercentage', event.target.value)} fullWidth />
+              <TextField label="Taxa adicional (%)" type="number" value={form.additionalPercentage} onChange={(event) => updateField('additionalPercentage', event.target.value)} fullWidth />
+              <CurrencyField label="Taxa adicional fixa" value={Number(form.additionalFixedAmount || 0)} onValueChange={(value) => updateField('additionalFixedAmount', String(value))} fullWidth />
+            </Box>
 
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading}>
-                  {saveMutation.isLoading ? 'Salvando...' : 'Salvar taxas'}
-                </Button>
-                <Button variant="outlined" color="secondary" startIcon={<AutorenewRoundedIcon />} onClick={() => reprocessMutation.mutate()} disabled={reprocessMutation.isLoading}>
-                  {reprocessMutation.isLoading ? 'Reprocessando...' : 'Reaplicar nas vendas em cartao'}
-                </Button>
-              </Stack>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading}>
+                {saveMutation.isLoading ? 'Salvando...' : 'Salvar taxas'}
+              </Button>
+              <Button variant="outlined" color="secondary" startIcon={<AutorenewRoundedIcon />} onClick={() => reprocessMutation.mutate()} disabled={reprocessMutation.isLoading}>
+                {reprocessMutation.isLoading ? 'Reprocessando...' : 'Reaplicar nas vendas em cartao'}
+              </Button>
+            </Stack>
+          </Stack>
+        </PageSection>
+
+        <Stack spacing={3}>
+          <PageSection title="Simulação rápida" subtitle="Referência direta para o cenário real informado.">
+            <Stack spacing={1.2}>
+              <Typography>Venda de {formatCurrency(30)} em crédito: entra {formatCurrency(simulatedCreditNet30)}</Typography>
+              <Typography>Venda de {formatCurrency(25)} em débito: entra {formatCurrency(simulatedDebitNet25)}</Typography>
+              <Typography color="text.secondary">Com 2% total, os exemplos ficam em R$ 29,40 e R$ 24,50.</Typography>
             </Stack>
           </PageSection>
-        </Grid>
 
-        <Grid item xs={12} lg={4}>
-          <Stack spacing={3}>
-            <PageSection title="Simulação rápida" subtitle="Referência direta para o cenário real informado.">
-              <Stack spacing={1.2}>
-                <Typography>Venda de {formatCurrency(30)} em crédito: entra {formatCurrency(simulatedCreditNet30)}</Typography>
-                <Typography>Venda de {formatCurrency(25)} em débito: entra {formatCurrency(simulatedDebitNet25)}</Typography>
-                <Typography color="text.secondary">Com 2% total, os exemplos ficam em R$ 29,40 e R$ 24,50.</Typography>
-              </Stack>
-            </PageSection>
-
-            <PageSection title="Como funciona" subtitle="Aplicação do cálculo no sistema.">
-              <Stack spacing={1.2}>
-                <Typography>O valor líquido recebido passa a alimentar o financeiro nas vendas em cartão.</Typography>
-                <Typography>O lucro bruto da venda é recalculado a partir do valor líquido, antes de descontar custo do produto e demais composições.</Typography>
-                <Typography>O botão de reaplicação atualiza retroativamente as vendas em crédito e débito já registradas.</Typography>
-              </Stack>
-            </PageSection>
-          </Stack>
-        </Grid>
-      </Grid>
+          <PageSection title="Como funciona" subtitle="Aplicação do cálculo no sistema.">
+            <Stack spacing={1.2}>
+              <Typography>O valor líquido recebido passa a alimentar o financeiro nas vendas em cartão.</Typography>
+              <Typography>O lucro bruto da venda é recalculado a partir do valor líquido, antes de descontar custo do produto e demais composições.</Typography>
+              <Typography>O botão de reaplicação atualiza retroativamente as vendas em crédito e débito já registradas.</Typography>
+            </Stack>
+          </PageSection>
+        </Stack>
+      </Box>
     </Stack>
   );
 }
