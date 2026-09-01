@@ -38,14 +38,53 @@ import { usePreservedListState } from '../hooks/useSessionState';
 import { PageSection } from '../components/PageSection';
 import { categoriesApi, productsApi } from '../services/api';
 import { capitalizeFirstLetter } from '../services/text';
-import type { Product } from '../services/types';
+import type { Product, ProductType } from '../services/types';
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+const PRODUCT_TYPE_META: Record<ProductType, { label: string; color: string; background: string }> = {
+  Impressao3D: { label: 'Impressão 3D', color: '#2f7d70', background: 'rgba(123, 207, 192, 0.22)' },
+  Brinco: { label: 'Brinco', color: '#9a6b1f', background: 'rgba(225, 166, 87, 0.22)' },
+  Botton: { label: 'Botton', color: '#a54b62', background: 'rgba(217, 107, 135, 0.18)' }
+};
+
+function TypeChip({ type }: { type: ProductType }) {
+  const meta = PRODUCT_TYPE_META[type] ?? PRODUCT_TYPE_META.Impressao3D;
+  return (
+    <Chip
+      label={meta.label}
+      size="small"
+      sx={{ height: 20, fontSize: 10.5, fontWeight: 800, color: meta.color, backgroundColor: meta.background, '& .MuiChip-label': { px: 0.75 } }}
+    />
+  );
+}
+
+function getProductTypeCaption(product: Product) {
+  if (product.productType === 'Brinco') {
+    return `Pingente: ${product.pingenteSupply ?? 'não definido'}`;
+  }
+
+  if (product.productType === 'Botton') {
+    return `Tamanho: ${product.bottonSize ?? 'não definido'} • insumo em estoque: ${product.bottonSizeStockQuantity}`;
+  }
+
+  const printer = capitalizeFirstLetter(product.printer ?? 'Sem impressora');
+  const filaments = (product.filaments ?? []).map((item) => capitalizeFirstLetter(item.filamentName)).join(', ') || 'Sem filamento';
+  return `${printer} • ${filaments}`;
+}
+
 function getEstimatedProfit(product: Product) {
   return product.salePrice - product.costPrice;
+}
+
+function getMarginPercentage(product: Product) {
+  if (product.salePrice <= 0) {
+    return 0;
+  }
+
+  return ((product.salePrice - product.costPrice) / product.salePrice) * 100;
 }
 
 function getResellerCommissionPercentage(product: Product) {
@@ -69,12 +108,45 @@ function truncateText(value: string, maxLength: number) {
   return `${value.slice(0, maxLength).trimEnd()}...`;
 }
 
+function MarginBar({ product }: { product: Product }) {
+  const margin = getMarginPercentage(product);
+  const profit = getEstimatedProfit(product);
+  const width = Math.max(4, Math.min(100, Math.round(margin)));
+  const barColor = profit < 0 ? '#d96b87' : margin < 35 ? '#e1a657' : '#7bcfc0';
+
+  return (
+    <Stack spacing={0.4} sx={{ minWidth: 116 }}>
+      <Stack direction="row" justifyContent="space-between" spacing={1}>
+        <Typography fontSize={13} fontWeight={700} sx={{ color: profit < 0 ? '#c0566e' : '#4e7a34' }}>{formatCurrency(profit)}</Typography>
+        <Typography fontSize={12} color="text.secondary">{Math.round(margin)}%</Typography>
+      </Stack>
+      <Box sx={{ height: 6, borderRadius: 999, backgroundColor: 'rgba(217,107,135,0.12)', overflow: 'hidden' }}>
+        <Box sx={{ height: '100%', width: `${width}%`, backgroundColor: barColor, borderRadius: 999 }} />
+      </Box>
+    </Stack>
+  );
+}
+
+function KpiCard({ label, value, caption, alert }: { label: string; value: string; caption?: string; alert?: boolean }) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{ p: 2, borderColor: alert ? 'rgba(217,107,135,0.4)' : 'rgba(217,107,135,0.16)', backgroundColor: 'rgba(255,255,255,0.6)' }}
+    >
+      <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.4, display: 'block' }}>{label}</Typography>
+      <Typography sx={{ fontFamily: '"Baloo 2", "Nunito", sans-serif', fontWeight: 700, fontSize: '1.35rem', color: alert ? '#c0566e' : 'inherit' }}>{value}</Typography>
+      {caption ? <Typography color="text.secondary" fontSize={11.5}>{caption}</Typography> : null}
+    </Paper>
+  );
+}
+
 type ProductSortField = 'name' | 'category' | 'supplier' | 'sku' | 'costPrice' | 'suggestedPrice' | 'salePrice' | 'profit';
 
 const defaultListState = {
   search: '',
   scopeFilter: 'all',
   categoryFilter: 'all',
+  typeFilter: 'all',
   page: 0,
   rowsPerPage: 10,
   sortField: 'name' as ProductSortField,
@@ -95,7 +167,7 @@ export function ProductsPage() {
   const [feedback, setFeedback] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [listState, setListState] = usePreservedListState(`products-page:${isBudgetMode ? 'budget' : 'product'}:${session?.role ?? 'guest'}:${session?.supplierId ?? 'store'}`, defaultListState);
-  const { search, scopeFilter, categoryFilter, page, rowsPerPage, sortField, sortDirection } = listState;
+  const { search, scopeFilter, categoryFilter, typeFilter, page, rowsPerPage, sortField, sortDirection } = listState;
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products', isSupplier ? 'catalog' : 'all', isBudgetMode ? 'budget' : 'product'],
     queryFn: () => productsApi.getAll({ isBudget: isBudgetMode, includeAllForSupplier: isSupplier || undefined })
@@ -136,14 +208,15 @@ export function ProductsPage() {
         || product.name.toLowerCase().includes(normalized)
         || product.sku.toLowerCase().includes(normalized);
       const matchesCategory = categoryFilter === 'all' || product.categoryId === categoryFilter;
+      const matchesType = !typeFilter || typeFilter === 'all' || product.productType === typeFilter;
       const matchesScope = scopeFilter === 'all'
         ? true
         : scopeFilter === 'store'
           ? !product.supplierId
           : product.supplierId === scopeFilter;
-      return matchesText && matchesCategory && matchesScope;
+      return matchesText && matchesCategory && matchesType && matchesScope;
     });
-  }, [categoryFilter, products, scopeFilter, search]);
+  }, [categoryFilter, products, scopeFilter, search, typeFilter]);
 
   const sortedProducts = useMemo(() => {
     const sorted = [...filteredProducts];
@@ -176,6 +249,17 @@ export function ProductsPage() {
     () => new Map(categories.map((item) => [item.id, item.colorHex])),
     [categories]
   );
+
+  const showCatalogKpis = !isReseller && !isBudgetMode;
+  const catalogKpis = useMemo(() => {
+    const priced = products.filter((product) => product.salePrice > 0);
+    return {
+      active: products.length,
+      stockValue: products.reduce((sum, product) => sum + product.currentStock * product.costPrice, 0),
+      avgMargin: priced.length > 0 ? priced.reduce((sum, product) => sum + getMarginPercentage(product), 0) / priced.length : 0,
+      withoutPrice: products.filter((product) => product.salePrice <= 0).length
+    };
+  }, [products]);
 
   function canManageProduct(product: Product) {
     if (isReseller) {
@@ -218,9 +302,18 @@ export function ProductsPage() {
 
   return (
     <Stack spacing={3}>
-      <PageSection title={isBudgetMode ? 'Orçamentos' : 'Produtos'} subtitle={isBudgetMode ? 'Orçamentos com estrutura de produto e conversão em um clique.' : 'Catálogo com busca, filtro por categoria e paginação.'}>
+      {showCatalogKpis ? (
+        <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}>
+          <KpiCard label="Produtos ativos" value={`${catalogKpis.active}`} caption={`${(metadata?.suppliers ?? []).length} fornecedores no catálogo`} />
+          <KpiCard label="Valor de catálogo (custo)" value={formatCurrency(catalogKpis.stockValue)} caption="custo × estoque atual" />
+          <KpiCard label="Margem média" value={`${Math.round(catalogKpis.avgMargin)}%`} caption="preço final vs. custo" />
+          <KpiCard label="Sem preço definido" value={`${catalogKpis.withoutPrice}`} caption="usando preço sugerido" alert={catalogKpis.withoutPrice > 0} />
+        </Box>
+      ) : null}
+
+      <PageSection title={isBudgetMode ? 'Orçamentos' : 'Produtos'} subtitle={isBudgetMode ? 'Orçamentos com estrutura de produto e conversão em um clique.' : 'Catálogo com custo, preço, margem e tipo de produção em uma leitura.'}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" sx={{ mb: 2.5 }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ flex: 1 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ flex: 1, flexWrap: 'wrap' }}>
             <TextField
               select
               label="Lista"
@@ -228,7 +321,7 @@ export function ProductsPage() {
               onChange={(event) => {
                 updateListState({ scopeFilter: event.target.value, page: 0 });
               }}
-              sx={{ minWidth: { xs: '100%', md: 220 } }}
+              sx={{ minWidth: { xs: '100%', md: 180 } }}
             >
               <MenuItem value="all">Todos</MenuItem>
               <MenuItem value="store">Lojinha Sem Nome</MenuItem>
@@ -239,11 +332,11 @@ export function ProductsPage() {
               onChange={(event) => {
                 updateListState({ search: event.target.value, page: 0 });
               }}
-              placeholder="Buscar por nome do produto"
-              fullWidth
+              placeholder="Buscar por nome ou SKU"
+              sx={{ flex: 1, minWidth: { xs: '100%', md: 200 } }}
               InputProps={{ startAdornment: <SearchRoundedIcon color="action" sx={{ mr: 1 }} /> }}
             />
-            <Stack sx={{ minWidth: { xs: '100%', md: 220 } }}>
+            <Stack sx={{ minWidth: { xs: '100%', md: 200 } }}>
               <SearchSelectField
                 label="Categoria"
                 value={categoryFilter === 'all' ? '' : categoryFilter}
@@ -255,9 +348,23 @@ export function ProductsPage() {
                 emptyText="Nenhuma categoria encontrada."
               />
             </Stack>
+            <TextField
+              select
+              label="Tipo"
+              value={typeFilter}
+              onChange={(event) => {
+                updateListState({ typeFilter: event.target.value, page: 0 });
+              }}
+              sx={{ minWidth: { xs: '100%', md: 160 } }}
+            >
+              <MenuItem value="all">Todos</MenuItem>
+              <MenuItem value="Impressao3D">Impressão 3D</MenuItem>
+              <MenuItem value="Brinco">Brinco</MenuItem>
+              <MenuItem value="Botton">Botton</MenuItem>
+            </TextField>
           </Stack>
           {!isReseller ? (
-            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate(isBudgetMode ? '/orcamentos/novo' : '/produtos/novo', { state: { preserveState: true } })}>
+            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate(isBudgetMode ? '/orcamentos/novo' : '/produtos/novo', { state: { preserveState: true } })} sx={{ alignSelf: { xs: 'stretch', md: 'flex-start' } }}>
               {isBudgetMode ? 'Novo orçamento' : 'Novo produto'}
             </Button>
           ) : null}
@@ -267,99 +374,115 @@ export function ProductsPage() {
           {filteredProducts.length} {isBudgetMode ? 'orçamento(s)' : 'produto(s)'} encontrado(s)
         </Typography>
 
-          {feedback ? <Alert severity={feedback.severity} sx={{ mb: 2 }}>{feedback.message}</Alert> : null}
-          {isLoading ? <TableSkeleton rows={8} columns={7} /> : isMobile ? (
-            <Stack spacing={1.5}>
-              {pagedProducts.map((product) => (
-                <Paper key={product.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-                  <Stack spacing={1.2}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+        {feedback ? <Alert severity={feedback.severity} sx={{ mb: 2 }}>{feedback.message}</Alert> : null}
+        {isLoading ? <TableSkeleton rows={8} columns={7} /> : isMobile ? (
+          <Stack spacing={1.5}>
+            {pagedProducts.map((product) => (
+              <Paper key={product.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                <Stack spacing={1.2}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                    <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
                       <Typography fontWeight={700}>{capitalizeFirstLetter(product.name)}</Typography>
-                      <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                        <Chip label={product.supplier ?? 'Lojinha'} size="small" color={product.supplier ? 'default' : 'primary'} />
-                      </Stack>
+                      <TypeChip type={product.productType} />
                     </Stack>
-                    <Stack direction="row" spacing={1.2} alignItems="center" flexWrap="wrap">
-                      {renderCategoryWithColor(product)}
-                    </Stack>
-                    {isReseller ? (
-                      <>
-                        <Typography color="text.secondary">Preço para revenda: {formatCurrency(getResellerPrice(product))}</Typography>
-                        <Typography color="text.secondary">Comissão aplicada: {getResellerCommissionPercentage(product).toFixed(2)}%</Typography>
-                      </>
-                    ) : (
-                      <>
-                        <Typography color="text.secondary">Custo / sugerido: {formatCurrency(product.costPrice)} / {formatCurrency(product.suggestedPrice)}</Typography>
-                        <Typography color="text.secondary">Final: {formatCurrency(product.salePrice)}</Typography>
-                        <Typography color="text.secondary">Comissionado: {formatCurrency(product.commissionedSalePrice)}</Typography>
-                        <Typography color="text.secondary">Lucro estimado: {formatCurrency(getEstimatedProfit(product))}</Typography>
-                      </>
-                    )}
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      {!isBudgetMode ? (
-                        <IconButton color="default" onClick={() => navigate(`/produtos/${product.id}`, { state: { preserveState: true } })} title="Ver detalhes">
-                          <OpenInNewRoundedIcon />
-                        </IconButton>
-                      ) : null}
-                      {canManageProduct(product) ? (
-                        <>
-                          <IconButton color="default" onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })} title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
-                            <ContentCopyRoundedIcon />
-                          </IconButton>
-                          <IconButton color="primary" onClick={() => navigate(`${isBudgetMode ? '/orcamentos' : '/produtos'}/${product.id}/editar`, { state: { preserveState: true } })}>
-                            <EditRoundedIcon />
-                          </IconButton>
-                          {isBudgetMode ? (
-                            <Tooltip title="Transformar em produto">
-                              <span>
-                                <IconButton color="success" onClick={() => convertMutation.mutate(product.id)} disabled={convertMutation.isLoading}>
-                                  <SyncAltRoundedIcon />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                          ) : null}
-                          <IconButton color="error" onClick={() => setProductToDelete(product)}>
-                            <DeleteOutlineRoundedIcon />
-                          </IconButton>
-                        </>
-                      ) : null}
-                    </Stack>
+                    <Chip label={product.supplier ?? 'Lojinha'} size="small" color={product.supplier ? 'default' : 'primary'} />
                   </Stack>
-                </Paper>
-              ))}
-            </Stack>
-          ) : (
-            <Paper sx={{ overflowX: 'hidden', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-              <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ width: '24%' }}>{renderSortLabel('name', 'Produto')}</TableCell>
-                    <TableCell sx={{ width: '12%', whiteSpace: 'nowrap' }}>{renderSortLabel('category', 'Categoria')}</TableCell>
-                    <TableCell sx={{ width: '17%', whiteSpace: 'nowrap' }}>{renderSortLabel('supplier', 'Fornecedor')}</TableCell>
-                    {isReseller ? (
-                      <TableCell sx={{ width: '16%', whiteSpace: 'nowrap' }}>Preço revenda</TableCell>
-                    ) : (
+                  <Typography color="text.secondary" fontSize={12.5}>{getProductTypeCaption(product)}</Typography>
+                  <Stack direction="row" spacing={1.2} alignItems="center" flexWrap="wrap">
+                    {renderCategoryWithColor(product)}
+                  </Stack>
+                  {isReseller ? (
+                    <>
+                      <Typography color="text.secondary">Preço para revenda: {formatCurrency(getResellerPrice(product))}</Typography>
+                      <Typography color="text.secondary">Comissão aplicada: {getResellerCommissionPercentage(product).toFixed(2)}%</Typography>
+                    </>
+                  ) : (
+                    <>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1, textAlign: 'center' }}>
+                        {[
+                          { label: 'Custo', value: formatCurrency(product.costPrice) },
+                          { label: 'Preço final', value: formatCurrency(product.salePrice), highlight: true },
+                          { label: 'Comiss.', value: formatCurrency(product.commissionedSalePrice) }
+                        ].map((cell) => (
+                          <Box key={cell.label} sx={{ border: '1px solid rgba(217,107,135,0.14)', borderRadius: 2, p: 0.75, backgroundColor: 'rgba(255,255,255,0.6)' }}>
+                            <Typography variant="overline" sx={{ color: 'text.secondary', fontSize: 9.5, lineHeight: 1.4, display: 'block' }}>{cell.label}</Typography>
+                            <Typography sx={{ fontFamily: '"Baloo 2", "Nunito", sans-serif', fontWeight: 700, fontSize: 14, color: cell.highlight ? '#a54b62' : 'inherit' }}>{cell.value}</Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                      <MarginBar product={product} />
+                    </>
+                  )}
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    {!isBudgetMode ? (
+                      <IconButton color="default" onClick={() => navigate(`/produtos/${product.id}`, { state: { preserveState: true } })} title="Ver detalhes">
+                        <OpenInNewRoundedIcon />
+                      </IconButton>
+                    ) : null}
+                    {canManageProduct(product) ? (
                       <>
-                        <TableCell sx={{ width: '16%', whiteSpace: 'nowrap' }}>Custo / sugerido</TableCell>
-                        <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>{renderSortLabel('salePrice', 'Preço final')}</TableCell>
-                        <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>Preço comiss.</TableCell>
-                        <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>{renderSortLabel('profit', 'Lucro estimado')}</TableCell>
+                        <IconButton color="default" onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })} title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
+                          <ContentCopyRoundedIcon />
+                        </IconButton>
+                        <IconButton color="primary" onClick={() => navigate(`${isBudgetMode ? '/orcamentos' : '/produtos'}/${product.id}/editar`, { state: { preserveState: true } })}>
+                          <EditRoundedIcon />
+                        </IconButton>
+                        {isBudgetMode ? (
+                          <Tooltip title="Transformar em produto">
+                            <span>
+                              <IconButton color="success" onClick={() => convertMutation.mutate(product.id)} disabled={convertMutation.isLoading}>
+                                <SyncAltRoundedIcon />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        ) : null}
+                        <IconButton color="error" onClick={() => setProductToDelete(product)}>
+                          <DeleteOutlineRoundedIcon />
+                        </IconButton>
                       </>
-                    )}
-                    {!isReseller ? <TableCell align="right" sx={{ width: '14%', whiteSpace: 'nowrap' }}>Ações</TableCell> : null}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {pagedProducts.map((product) => (
+                    ) : null}
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        ) : (
+          <Paper sx={{ overflowX: 'hidden', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+            <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: '26%' }}>{renderSortLabel('name', 'Produto')}</TableCell>
+                  <TableCell sx={{ width: '12%', whiteSpace: 'nowrap' }}>{renderSortLabel('category', 'Categoria')}</TableCell>
+                  <TableCell sx={{ width: '14%', whiteSpace: 'nowrap' }}>{renderSortLabel('supplier', 'Fornecedor')}</TableCell>
+                  {isReseller ? (
+                    <TableCell sx={{ width: '16%', whiteSpace: 'nowrap' }}>Preço revenda</TableCell>
+                  ) : (
+                    <>
+                      <TableCell sx={{ width: '15%', whiteSpace: 'nowrap' }}>Custo / sugerido</TableCell>
+                      <TableCell sx={{ width: '10%', whiteSpace: 'nowrap' }}>{renderSortLabel('salePrice', 'Preço final')}</TableCell>
+                      <TableCell sx={{ width: '10%', whiteSpace: 'nowrap' }}>Preço comiss.</TableCell>
+                      <TableCell sx={{ width: '13%', whiteSpace: 'nowrap' }}>{renderSortLabel('profit', 'Lucro & margem')}</TableCell>
+                    </>
+                  )}
+                  {!isReseller ? <TableCell align="right" sx={{ width: '14%', whiteSpace: 'nowrap' }}>Ações</TableCell> : null}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pagedProducts.map((product) => {
+                  const caption = getProductTypeCaption(product);
+                  return (
                     <TableRow key={product.id} hover>
                       <TableCell sx={{ maxWidth: 0, pr: 1.5 }}>
                         <Stack spacing={0.5}>
-                          <Typography fontWeight={700} noWrap title={product.name}>{truncateText(product.name, 34)}</Typography>
-                          <Typography color="text.secondary" fontSize={13} noWrap title={`${capitalizeFirstLetter(product.printer ?? 'Sem impressora')} • ${(product.filaments ?? []).map((f) => capitalizeFirstLetter(f.filamentName)).join(', ') || 'Sem filamento'}`}>{truncateText(`${capitalizeFirstLetter(product.printer ?? 'Sem impressora')} • ${(product.filaments ?? []).map((f) => capitalizeFirstLetter(f.filamentName)).join(', ') || 'Sem filamento'}`, 44)}</Typography>
+                          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                            <Typography fontWeight={700} noWrap title={product.name}>{truncateText(product.name, 26)}</Typography>
+                            <TypeChip type={product.productType} />
+                          </Stack>
+                          <Typography color="text.secondary" fontSize={13} noWrap title={caption}>{caption}</Typography>
                         </Stack>
                       </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{renderCategoryWithColor(product)}</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }} title={capitalizeFirstLetter(product.supplier ?? 'Lojinha Sem Nome')}>{truncateText(capitalizeFirstLetter(product.supplier ?? 'Lojinha Sem Nome'), 22)}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }} title={capitalizeFirstLetter(product.supplier ?? 'Lojinha Sem Nome')}>{truncateText(capitalizeFirstLetter(product.supplier ?? 'Lojinha Sem Nome'), 20)}</TableCell>
                       {isReseller ? (
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(getResellerPrice(product))}</TableCell>
                       ) : (
@@ -372,7 +495,7 @@ export function ProductsPage() {
                           </TableCell>
                           <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(product.salePrice)}</TableCell>
                           <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(product.commissionedSalePrice)}</TableCell>
-                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCurrency(getEstimatedProfit(product))}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}><MarginBar product={product} /></TableCell>
                         </>
                       )}
                       {!isReseller ? (
@@ -380,85 +503,86 @@ export function ProductsPage() {
                           {canManageProduct(product) ? (
                             <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ flexWrap: 'nowrap' }}>
                               {!isBudgetMode ? (
-                                    <Tooltip title="Ver detalhes">
-                                      <IconButton
-                                        size="small"
-                                        color="default"
-                                        onClick={() => navigate(`/produtos/${product.id}`, { state: { preserveState: true } })}
-                                        sx={{ border: '1px solid rgba(121, 99, 88, 0.25)', borderRadius: 1.5 }}
-                                      >
-                                        <OpenInNewRoundedIcon fontSize="small" />
-                                      </IconButton>
-                                    </Tooltip>
+                                <Tooltip title="Ver detalhes">
+                                  <IconButton
+                                    size="small"
+                                    color="default"
+                                    onClick={() => navigate(`/produtos/${product.id}`, { state: { preserveState: true } })}
+                                    sx={{ border: '1px solid rgba(121, 99, 88, 0.25)', borderRadius: 1.5 }}
+                                  >
+                                    <OpenInNewRoundedIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
                               ) : null}
-                                  <Tooltip title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
-                                    <IconButton
-                                      size="small"
-                                      color="default"
-                                      onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })}
-                                      sx={{ border: '1px solid rgba(121, 99, 88, 0.25)', borderRadius: 1.5 }}
-                                    >
-                                      <ContentCopyRoundedIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Editar">
-                                    <IconButton
-                                      size="small"
-                                      color="primary"
-                                      onClick={() => navigate(`${isBudgetMode ? '/orcamentos' : '/produtos'}/${product.id}/editar`, { state: { preserveState: true } })}
-                                      sx={{ border: '1px solid rgba(217, 107, 135, 0.35)', borderRadius: 1.5 }}
-                                    >
-                                      <EditRoundedIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
+                              <Tooltip title={isBudgetMode ? 'Duplicar orçamento' : 'Duplicar produto'}>
+                                <IconButton
+                                  size="small"
+                                  color="default"
+                                  onClick={() => navigate(`${isBudgetMode ? '/orcamentos/novo' : '/produtos/novo'}?clonar=${product.id}`, { state: { preserveState: true } })}
+                                  sx={{ border: '1px solid rgba(121, 99, 88, 0.25)', borderRadius: 1.5 }}
+                                >
+                                  <ContentCopyRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Editar">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => navigate(`${isBudgetMode ? '/orcamentos' : '/produtos'}/${product.id}/editar`, { state: { preserveState: true } })}
+                                  sx={{ border: '1px solid rgba(217, 107, 135, 0.35)', borderRadius: 1.5 }}
+                                >
+                                  <EditRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
                               {isBudgetMode ? (
                                 <Tooltip title="Transformar em produto">
                                   <span>
-                                        <IconButton
-                                          size="small"
-                                          color="success"
-                                          onClick={() => convertMutation.mutate(product.id)}
-                                          disabled={convertMutation.isLoading}
-                                          sx={{ border: '1px solid rgba(123, 207, 192, 0.45)', borderRadius: 1.5 }}
-                                        >
-                                          <SyncAltRoundedIcon fontSize="small" />
+                                    <IconButton
+                                      size="small"
+                                      color="success"
+                                      onClick={() => convertMutation.mutate(product.id)}
+                                      disabled={convertMutation.isLoading}
+                                      sx={{ border: '1px solid rgba(123, 207, 192, 0.45)', borderRadius: 1.5 }}
+                                    >
+                                      <SyncAltRoundedIcon fontSize="small" />
                                     </IconButton>
                                   </span>
                                 </Tooltip>
                               ) : null}
-                                  <Tooltip title="Excluir">
-                                    <IconButton
-                                      size="small"
-                                      color="error"
-                                      onClick={() => setProductToDelete(product)}
-                                      sx={{ border: '1px solid rgba(211, 47, 47, 0.3)', borderRadius: 1.5 }}
-                                    >
-                                      <DeleteOutlineRoundedIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
+                              <Tooltip title="Excluir">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => setProductToDelete(product)}
+                                  sx={{ border: '1px solid rgba(211, 47, 47, 0.3)', borderRadius: 1.5 }}
+                                >
+                                  <DeleteOutlineRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
                             </Stack>
                           ) : null}
                         </TableCell>
                       ) : null}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Paper>
-          )}
-          <TablePagination
-            component="div"
-            count={sortedProducts.length}
-            page={page}
-            onPageChange={(_event, nextPage) => updateListState({ page: nextPage })}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(event) => {
-              updateListState({ rowsPerPage: Number(event.target.value), page: 0 });
-            }}
-            rowsPerPageOptions={[5, 10, 20, 50]}
-            labelRowsPerPage="Itens por página"
-          />
-        </PageSection>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Paper>
+        )}
+        <TablePagination
+          component="div"
+          count={sortedProducts.length}
+          page={page}
+          onPageChange={(_event, nextPage) => updateListState({ page: nextPage })}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(event) => {
+            updateListState({ rowsPerPage: Number(event.target.value), page: 0 });
+          }}
+          rowsPerPageOptions={[5, 10, 20, 50]}
+          labelRowsPerPage="Itens por página"
+        />
+      </PageSection>
       <ConfirmDialog
         open={productToDelete !== null}
         title={isBudgetMode ? 'Excluir orçamento' : 'Excluir produto'}

@@ -1,5 +1,5 @@
-﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Paper, Stack, Tab, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, Tabs, TextField, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
@@ -12,6 +12,23 @@ import { categoriesApi, inventoryApi, productsApi } from '../services/api';
 import { formatUtcDate } from '../services/date';
 import { inventoryMovementTypeLabel } from '../services/labels';
 import type { InventoryMovement } from '../services/types';
+
+function formatCurrency(value: number) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function KpiCard({ label, value, caption, alert }: { label: string; value: string; caption?: string; alert?: boolean }) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{ p: 2, borderColor: alert ? 'rgba(217,107,135,0.4)' : 'rgba(217,107,135,0.16)', backgroundColor: 'rgba(255,255,255,0.6)' }}
+    >
+      <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.4, display: 'block' }}>{label}</Typography>
+      <Typography sx={{ fontFamily: '"Baloo 2", "Nunito", sans-serif', fontWeight: 700, fontSize: '1.3rem', color: alert ? '#c0566e' : 'inherit' }}>{value}</Typography>
+      {caption ? <Typography color="text.secondary" fontSize={11.5}>{caption}</Typography> : null}
+    </Paper>
+  );
+}
 
 export function InventoryPage() {
   const { session } = useAuth();
@@ -29,6 +46,7 @@ export function InventoryPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<InventoryMovement | null>(null);
   const [reverseTarget, setReverseTarget] = useState<InventoryMovement | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
   const [search, setSearch] = useState('');
   const [scopeFilter, setScopeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
@@ -135,6 +153,45 @@ export function InventoryPage() {
     [stockAnalytics]
   );
 
+  const alerts = useMemo(() => {
+    const classify = (item: (typeof stockAnalytics)[number]) => {
+      if (item.product.currentStock === 0) {
+        return {
+          severity: 0,
+          tone: 'out' as const,
+          label: 'Sem estoque',
+          reason: `Saída média ${item.dailyOutflow.toFixed(1)}/dia • vendeu ${item.soldIn30} em 30d`
+        };
+      }
+      if (item.stockRisk && item.coverageDays !== null) {
+        return {
+          severity: 1,
+          tone: 'low' as const,
+          label: 'Cobertura baixa',
+          reason: `Saldo ${item.product.currentStock} • cobertura ~${Math.floor(item.coverageDays)} dias`
+        };
+      }
+      if ((item.daysWithoutMovement ?? 0) >= 30) {
+        return {
+          severity: 2,
+          tone: 'idle' as const,
+          label: `Parado ${item.daysWithoutMovement}d`,
+          reason: `Saldo ${item.product.currentStock} • sem movimento há ${item.daysWithoutMovement} dias`
+        };
+      }
+      return null;
+    };
+
+    return stockAnalytics
+      .map((item) => {
+        const alert = classify(item);
+        return alert ? { product: item.product, ...alert } : null;
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null)
+      .sort((left, right) => left.severity - right.severity)
+      .slice(0, 8);
+  }, [stockAnalytics]);
+
   const filteredMovements = useMemo(() => {
     const term = search.trim().toLowerCase();
     return productMovements
@@ -201,6 +258,11 @@ export function InventoryPage() {
     [inStockProducts, stockPage, stockRowsPerPage]
   );
 
+  const stockTotalValue = useMemo(
+    () => inStockProducts.reduce((sum, product) => sum + product.currentStock * product.costPrice, 0),
+    [inStockProducts]
+  );
+
   const categoryColorsById = useMemo(
     () => new Map(categories.map((c) => [c.id, c.colorHex])),
     [categories]
@@ -250,6 +312,11 @@ export function InventoryPage() {
     setIsDialogOpen(false);
   }
 
+  function openRestockDialog(productId: string, costPrice: number) {
+    setForm({ itemType: 'Product', itemId: productId, type: 'Entry', quantity: 1, unitCost: costPrice, notes: '' });
+    setIsDialogOpen(true);
+  }
+
   function renderCategoryWithColor(categoryId: string, categoryName: string) {
     const color = categoryColorsById.get(categoryId) ?? '#b7a094';
     return (
@@ -282,362 +349,378 @@ export function InventoryPage() {
     );
   }
 
+  const alertToneStyles: Record<'out' | 'low' | 'idle', { color: string; backgroundColor: string }> = {
+    out: { color: '#a54b62', backgroundColor: 'rgba(217, 107, 135, 0.16)' },
+    low: { color: '#9a6b1f', backgroundColor: 'rgba(225, 166, 87, 0.22)' },
+    idle: { color: '#7d6558', backgroundColor: 'rgba(71, 51, 40, 0.1)' }
+  };
+
+  const scopeFilterField = !isSupplier ? (
+    <TextField
+      select
+      label="Lista"
+      value={scopeFilter}
+      onChange={(e) => { setScopeFilter(e.target.value); setEntryPage(0); setExitPage(0); setStockPage(0); setAnalysisPage(0); }}
+      sx={{ minWidth: { xs: '100%', sm: 220 } }}
+    >
+      <MenuItem value="all">Todos</MenuItem>
+      <MenuItem value="store">Lojinha Sem Nome</MenuItem>
+      {(metadata?.suppliers ?? []).map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+    </TextField>
+  ) : null;
+
   return (
     <Stack spacing={3}>
-      {/* KPIs reais */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} lg={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography color="text.secondary" variant="body2">Produtos em estoque</Typography>
-            <Typography variant="h5">{kpiInStock}</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography color="text.secondary" variant="body2">Sem estoque</Typography>
-            <Typography variant="h5">{kpiOutOfStock}</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography color="text.secondary" variant="body2">Valor estimado (custo)</Typography>
-            <Typography variant="h5">{kpiStockValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography color="text.secondary" variant="body2">Itens críticos de estoque</Typography>
-            <Typography variant="h5">{kpiAtRisk}</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography color="text.secondary" variant="body2">Sem movimento há 30+ dias</Typography>
-            <Typography variant="h5">{kpiIdle}</Typography>
-          </Paper>
-        </Grid>
-      </Grid>
+      <Stack spacing={0.5}>
+        <Typography variant="h3">Estoque</Typography>
+        <Typography color="text.secondary">Saldo, movimentações e cobertura em um só lugar — alertas sempre à vista, detalhe nas abas.</Typography>
+      </Stack>
+
+      <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(5, minmax(0, 1fr))' } }}>
+        <KpiCard label="Produtos em estoque" value={`${kpiInStock}`} caption={`de ${managedProducts.length} no catálogo`} />
+        <KpiCard label="Sem estoque" value={`${kpiOutOfStock}`} caption="precisam de reposição" alert={kpiOutOfStock > 0} />
+        <KpiCard label="Valor em estoque (custo)" value={formatCurrency(kpiStockValue)} caption="custo × saldo" />
+        <KpiCard label="Itens críticos" value={`${kpiAtRisk}`} caption="cobertura ≤ 15 dias" alert={kpiAtRisk > 0} />
+        <KpiCard label="Parados 30d+" value={`${kpiIdle}`} caption="sem nenhum movimento" />
+      </Box>
+
+      {feedback ? <Alert severity="success" onClose={() => setFeedback(null)}>{feedback}</Alert> : null}
+
+      {alerts.length > 0 ? (
+        <Paper sx={{ p: { xs: 2, md: 3 }, overflow: 'hidden', border: '1px solid rgba(217,107,135,0.4)' }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1} mb={2}>
+            <Box>
+              <Typography variant="h5" sx={{ fontSize: { xs: '1.2rem', md: '1.5rem' }, lineHeight: 1.2 }}>Alertas de estoque</Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.5 }}>O que precisa de atenção agora — ruptura, cobertura curta e itens parados.</Typography>
+            </Box>
+            <Button variant="text" onClick={() => setActiveTab(2)}>Ver análise completa</Button>
+          </Stack>
+          <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' } }}>
+            {alerts.map((alert) => (
+              <Paper key={alert.product.id} variant="outlined" sx={{ p: 1.75, borderColor: 'rgba(217,107,135,0.2)' }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1.5}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography fontWeight={700} noWrap title={alert.product.name}>{alert.product.name}</Typography>
+                    <Typography color="text.secondary" fontSize={11.5}>{alert.reason}</Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1} alignItems="center" flexShrink={0}>
+                    <Chip label={alert.label} size="small" sx={{ height: 20, fontSize: 10.5, fontWeight: 800, ...alertToneStyles[alert.tone] }} />
+                    <Button size="small" variant="outlined" onClick={() => openRestockDialog(alert.product.id, alert.product.costPrice)}>
+                      {alert.tone === 'idle' ? 'Ajustar' : 'Repor'}
+                    </Button>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+          </Box>
+        </Paper>
+      ) : null}
 
       <PageSection
-        title="Movimentações de produtos"
-        subtitle="Entradas, saídas e baixas automáticas em uma tabela com leitura mais segura."
+        title="Movimentos e cobertura"
+        subtitle="Saldo atual, histórico de movimentações e análise operacional em abas."
         action={<Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setIsDialogOpen(true)}>Registrar movimentação</Button>}
       >
-        <Stack spacing={2}>
-          {feedback ? <Alert severity="success" onClose={() => setFeedback(null)}>{feedback}</Alert> : null}
-          <Grid container spacing={1.5}>
-            {!isSupplier ? (
-              <Grid item xs={12} md={3}>
-                <TextField
-                  select
-                  label="Lista"
-                  value={scopeFilter}
-                  onChange={(e) => { setScopeFilter(e.target.value); setEntryPage(0); setExitPage(0); setStockPage(0); }}
-                  fullWidth
-                >
-                  <MenuItem value="all">Todos</MenuItem>
-                  <MenuItem value="store">Lojinha Sem Nome</MenuItem>
-                  {(metadata?.suppliers ?? []).map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-                </TextField>
-              </Grid>
-            ) : null}
-            <Grid item xs={12} md={6}>
-              <TextField label="Buscar movimentação" value={search} onChange={(e) => { setSearch(e.target.value); setEntryPage(0); setExitPage(0); }} placeholder="Produto, observação ou tipo" fullWidth />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField label="De" type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setEntryPage(0); setExitPage(0); }} InputLabelProps={{ shrink: true }} fullWidth />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField label="Até" type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setEntryPage(0); setExitPage(0); }} InputLabelProps={{ shrink: true }} fullWidth />
-            </Grid>
-          </Grid>
+        <Tabs
+          value={activeTab}
+          onChange={(_event, value) => setActiveTab(value)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ mb: 2.5, borderBottom: '1px solid rgba(217,107,135,0.18)' }}
+        >
+          <Tab label={`Saldo atual (${inStockProducts.length})`} />
+          <Tab label={`Movimentações (${filteredMovements.length})`} />
+          <Tab label="Análise operacional" />
+        </Tabs>
 
-          <Typography variant="h6">Entradas</Typography>
-          {isMobile ? (
-            <Stack spacing={1.5}>
-              {pagedEntryMovements.map((m) => (
-                <Paper key={m.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(123, 207, 192, 0.18)' }}>
-                  <Stack spacing={1.1}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                      <Typography fontWeight={700}>{m.itemName}</Typography>
-                      {renderDeleteButton(m)}
-                    </Stack>
-                    <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
-                    <Typography color="text.secondary">Movimento: {inventoryMovementTypeLabel(m.type)}</Typography>
-                    <Typography color="text.secondary">Quantidade: {m.quantity}</Typography>
-                    <Typography color="text.secondary">Custo unitário: {Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
-                    <Typography color="text.secondary">{m.notes || 'Sem observações'}</Typography>
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
-          ) : (
-            <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-              <Table size="small" sx={{ minWidth: 800 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Item</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Movimento</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Qtd.</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Custo unitário</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Observação</TableCell>
-                    <TableCell />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {pagedEntryMovements.map((m) => (
-                    <TableRow key={m.id} hover sx={{ backgroundColor: 'rgba(123, 207, 192, 0.12)' }}>
-                      <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(m.occurredAtUtc)}</TableCell>
-                      <TableCell sx={{ py: 1.5, minWidth: 180 }}>{m.itemName}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{inventoryMovementTypeLabel(m.type)}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                      <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{renderDeleteButton(m)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Paper>
-          )}
-          {pagedEntryMovements.length === 0 ? <Alert severity="info">Nenhuma entrada encontrada.</Alert> : null}
-          <TablePagination component="div" count={entryMovements.length} page={entryPage} onPageChange={(_, v) => setEntryPage(v)} rowsPerPage={movementRowsPerPage} rowsPerPageOptions={[movementRowsPerPage]} labelRowsPerPage="Itens por página" />
-
-          <Typography variant="h6">Saídas</Typography>
-          {isMobile ? (
-            <Stack spacing={1.5}>
-              {pagedExitMovements.map((m) => (
-                <Paper key={m.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(217, 107, 135, 0.16)' }}>
-                  <Stack spacing={1.1}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                      <Typography fontWeight={700}>{m.itemName}</Typography>
-                      {renderReverseButton(m)}
-                    </Stack>
-                    <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
-                    <Typography color="text.secondary">Movimento: <Chip label={inventoryMovementTypeLabel(m.type)} size="small" /></Typography>
-                    <Typography color="text.secondary">Quantidade: {m.quantity}</Typography>
-                    <Typography color="text.secondary">Custo unitário: {Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Typography>
-                    <Typography color="text.secondary">{m.notes || 'Sem observações'}</Typography>
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
-          ) : (
-            <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-              <Table size="small" sx={{ minWidth: 800 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Item</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Movimento</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Qtd.</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Custo unitário</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Observação</TableCell>
-                    <TableCell />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {pagedExitMovements.map((m) => (
-                    <TableRow key={m.id} hover sx={{ backgroundColor: 'rgba(217, 107, 135, 0.11)' }}>
-                      <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(m.occurredAtUtc)}</TableCell>
-                      <TableCell sx={{ py: 1.5, minWidth: 180 }}>{m.itemName}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}><Chip label={inventoryMovementTypeLabel(m.type)} size="small" variant="outlined" /></TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{Number(m.unitCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                      <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>{renderReverseButton(m)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Paper>
-          )}
-          {pagedExitMovements.length === 0 ? <Alert severity="info">Nenhuma saída encontrada.</Alert> : null}
-          <TablePagination component="div" count={exitMovements.length} page={exitPage} onPageChange={(_, v) => setExitPage(v)} rowsPerPage={movementRowsPerPage} rowsPerPageOptions={[movementRowsPerPage]} labelRowsPerPage="Itens por página" />
-        </Stack>
-      </PageSection>
-
-      <PageSection title="Produtos em estoque" subtitle="Lista paginada apenas com itens que ainda possuem saldo.">
-        <Stack spacing={2}>
-          <Grid container spacing={1.5}>
-            <Grid item xs={12} md={7}>
+        {activeTab === 0 ? (
+          <Stack spacing={2}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap">
+              {scopeFilterField}
               <TextField
                 label="Buscar produto em estoque"
                 value={stockSearch}
-                onChange={(event) => {
-                  setStockSearch(event.target.value);
-                  setStockPage(0);
-                }}
+                onChange={(event) => { setStockSearch(event.target.value); setStockPage(0); }}
                 placeholder="Nome ou SKU"
-                fullWidth
+                sx={{ flex: 1, minWidth: { xs: '100%', md: 220 } }}
               />
-            </Grid>
-            <Grid item xs={12} md={5}>
               <TextField
                 select
                 label="Categoria"
                 value={stockCategoryFilter}
-                onChange={(event) => {
-                  setStockCategoryFilter(event.target.value);
-                  setStockPage(0);
-                }}
-                fullWidth
+                onChange={(event) => { setStockCategoryFilter(event.target.value); setStockPage(0); }}
+                sx={{ minWidth: { xs: '100%', md: 220 } }}
               >
                 <MenuItem value="all">Todas</MenuItem>
                 {categories.map((category) => (
                   <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>
                 ))}
               </TextField>
-            </Grid>
-          </Grid>
-          {isMobile ? (
-            <Stack spacing={1.5}>
-              {pagedInStockProducts.map((p) => (
-                <Paper key={p.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-                  <Stack spacing={1}>
-                    <Typography fontWeight={700}>{p.name}</Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography color="text.secondary">Categoria:</Typography>
-                      {renderCategoryWithColor(p.categoryId, p.category)}
-                    </Stack>
-                    <Typography color="text.secondary">Estoque: {p.currentStock}</Typography>
-                    <Typography color="text.secondary">SKU: {p.sku}</Typography>
-                  </Stack>
-                </Paper>
-              ))}
             </Stack>
-          ) : (
-            <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-              <Table size="small" sx={{ minWidth: 720 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Produto</TableCell>
-                    <TableCell>Categoria</TableCell>
-                    <TableCell>Fornecedor</TableCell>
-                    <TableCell>SKU</TableCell>
-                    <TableCell>Estoque</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {pagedInStockProducts.map((p) => (
-                    <TableRow key={p.id} hover>
-                      <TableCell>{p.name}</TableCell>
-                      <TableCell>{renderCategoryWithColor(p.categoryId, p.category)}</TableCell>
-                      <TableCell>{p.supplier ?? 'Lojinha Sem Nome'}</TableCell>
-                      <TableCell>{p.sku}</TableCell>
-                      <TableCell>{p.currentStock}</TableCell>
+            <Typography color="text.secondary" fontSize={13}>
+              {inStockProducts.length} produto(s) com saldo • valor total {formatCurrency(stockTotalValue)}
+            </Typography>
+            {isMobile ? (
+              <Stack spacing={1.5}>
+                {pagedInStockProducts.map((p) => (
+                  <Paper key={p.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                        <Typography fontWeight={700}>{p.name}</Typography>
+                        <Typography sx={{ fontFamily: '"Baloo 2", "Nunito", sans-serif', fontWeight: 700, fontSize: '1.1rem' }}>{p.currentStock}</Typography>
+                      </Stack>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        {renderCategoryWithColor(p.categoryId, p.category)}
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography color="text.secondary" fontSize={13}>{p.supplier ?? 'Lojinha Sem Nome'} • {p.sku}</Typography>
+                        <Typography color="text.secondary" fontSize={13}>{formatCurrency(p.currentStock * p.costPrice)}</Typography>
+                      </Stack>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
+              <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                <Table size="small" sx={{ minWidth: 760 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Produto</TableCell>
+                      <TableCell>Categoria</TableCell>
+                      <TableCell>Fornecedor</TableCell>
+                      <TableCell>SKU</TableCell>
+                      <TableCell align="right">Saldo</TableCell>
+                      <TableCell align="right">Custo unit.</TableCell>
+                      <TableCell align="right">Valor em estoque</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Paper>
-          )}
-          {pagedInStockProducts.length === 0 ? <Alert severity="info">Nenhum produto com estoque disponível.</Alert> : null}
-          <TablePagination
-            component="div"
-            count={inStockProducts.length}
-            page={stockPage}
-            onPageChange={(_, v) => setStockPage(v)}
-            rowsPerPage={stockRowsPerPage}
-            onRowsPerPageChange={(event) => {
-              setStockRowsPerPage(Number(event.target.value));
-              setStockPage(0);
-            }}
-            rowsPerPageOptions={[8, 16, 32]}
-            labelRowsPerPage="Itens por página"
-          />
-        </Stack>
-      </PageSection>
+                  </TableHead>
+                  <TableBody>
+                    {pagedInStockProducts.map((p) => (
+                      <TableRow key={p.id} hover>
+                        <TableCell>{p.name}</TableCell>
+                        <TableCell>{renderCategoryWithColor(p.categoryId, p.category)}</TableCell>
+                        <TableCell>{p.supplier ?? 'Lojinha Sem Nome'}</TableCell>
+                        <TableCell>{p.sku}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{p.currentStock}</TableCell>
+                        <TableCell align="right">{formatCurrency(p.costPrice)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCurrency(p.currentStock * p.costPrice)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            )}
+            {pagedInStockProducts.length === 0 ? <Alert severity="info">Nenhum produto com estoque disponível.</Alert> : null}
+            <TablePagination
+              component="div"
+              count={inStockProducts.length}
+              page={stockPage}
+              onPageChange={(_, v) => setStockPage(v)}
+              rowsPerPage={stockRowsPerPage}
+              onRowsPerPageChange={(event) => { setStockRowsPerPage(Number(event.target.value)); setStockPage(0); }}
+              rowsPerPageOptions={[8, 16, 32]}
+              labelRowsPerPage="Itens por página"
+            />
+          </Stack>
+        ) : null}
 
-      <PageSection title="Análise operacional do estoque" subtitle="Cobertura estimada, giro recente e ociosidade por produto.">
-        <Stack spacing={2}>
-          <Grid container spacing={1.5}>
-            <Grid item xs={12} md={7}>
+        {activeTab === 1 ? (
+          <Stack spacing={2}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap">
+              {scopeFilterField}
+              <TextField
+                label="Buscar movimentação"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setEntryPage(0); setExitPage(0); }}
+                placeholder="Produto, observação ou tipo"
+                sx={{ flex: 1, minWidth: { xs: '100%', md: 220 } }}
+              />
+              <TextField label="De" type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setEntryPage(0); setExitPage(0); }} InputLabelProps={{ shrink: true }} sx={{ minWidth: { xs: '100%', sm: 160 } }} />
+              <TextField label="Até" type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setEntryPage(0); setExitPage(0); }} InputLabelProps={{ shrink: true }} sx={{ minWidth: { xs: '100%', sm: 160 } }} />
+            </Stack>
+
+            <Typography variant="h6">Entradas</Typography>
+            {isMobile ? (
+              <Stack spacing={1.5}>
+                {pagedEntryMovements.map((m) => (
+                  <Paper key={m.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(123, 207, 192, 0.18)' }}>
+                    <Stack spacing={1.1}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                        <Typography fontWeight={700}>{m.itemName}</Typography>
+                        {renderDeleteButton(m)}
+                      </Stack>
+                      <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
+                      <Typography color="text.secondary">Movimento: {inventoryMovementTypeLabel(m.type)}</Typography>
+                      <Typography color="text.secondary">Quantidade: {m.quantity}</Typography>
+                      <Typography color="text.secondary">Custo unitário: {formatCurrency(Number(m.unitCost ?? 0))}</Typography>
+                      <Typography color="text.secondary">{m.notes || 'Sem observações'}</Typography>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
+              <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                <Table size="small" sx={{ minWidth: 800 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Item</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Movimento</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Qtd.</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Custo unitário</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Observação</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pagedEntryMovements.map((m) => (
+                      <TableRow key={m.id} hover sx={{ backgroundColor: 'rgba(123, 207, 192, 0.12)' }}>
+                        <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(m.occurredAtUtc)}</TableCell>
+                        <TableCell sx={{ py: 1.5, minWidth: 180 }}>{m.itemName}</TableCell>
+                        <TableCell sx={{ py: 1.5 }}>{inventoryMovementTypeLabel(m.type)}</TableCell>
+                        <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
+                        <TableCell sx={{ py: 1.5 }}>{formatCurrency(Number(m.unitCost ?? 0))}</TableCell>
+                        <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
+                        <TableCell sx={{ py: 1.5 }}>{renderDeleteButton(m)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            )}
+            {pagedEntryMovements.length === 0 ? <Alert severity="info">Nenhuma entrada encontrada.</Alert> : null}
+            <TablePagination component="div" count={entryMovements.length} page={entryPage} onPageChange={(_, v) => setEntryPage(v)} rowsPerPage={movementRowsPerPage} rowsPerPageOptions={[movementRowsPerPage]} labelRowsPerPage="Itens por página" />
+
+            <Typography variant="h6">Saídas</Typography>
+            {isMobile ? (
+              <Stack spacing={1.5}>
+                {pagedExitMovements.map((m) => (
+                  <Paper key={m.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(217, 107, 135, 0.16)' }}>
+                    <Stack spacing={1.1}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                        <Typography fontWeight={700}>{m.itemName}</Typography>
+                        {renderReverseButton(m)}
+                      </Stack>
+                      <Typography color="text.secondary">Data: {formatUtcDate(m.occurredAtUtc)}</Typography>
+                      <Typography color="text.secondary">Movimento: <Chip label={inventoryMovementTypeLabel(m.type)} size="small" /></Typography>
+                      <Typography color="text.secondary">Quantidade: {m.quantity}</Typography>
+                      <Typography color="text.secondary">Custo unitário: {formatCurrency(Number(m.unitCost ?? 0))}</Typography>
+                      <Typography color="text.secondary">{m.notes || 'Sem observações'}</Typography>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
+              <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                <Table size="small" sx={{ minWidth: 800 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Data</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Item</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Movimento</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Qtd.</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Custo unitário</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Observação</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pagedExitMovements.map((m) => (
+                      <TableRow key={m.id} hover sx={{ backgroundColor: 'rgba(217, 107, 135, 0.11)' }}>
+                        <TableCell sx={{ py: 1.5, whiteSpace: 'nowrap' }}>{formatUtcDate(m.occurredAtUtc)}</TableCell>
+                        <TableCell sx={{ py: 1.5, minWidth: 180 }}>{m.itemName}</TableCell>
+                        <TableCell sx={{ py: 1.5 }}><Chip label={inventoryMovementTypeLabel(m.type)} size="small" variant="outlined" /></TableCell>
+                        <TableCell sx={{ py: 1.5 }}>{m.quantity}</TableCell>
+                        <TableCell sx={{ py: 1.5 }}>{formatCurrency(Number(m.unitCost ?? 0))}</TableCell>
+                        <TableCell sx={{ py: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', pr: 3 }}>{m.notes || 'Sem observações'}</TableCell>
+                        <TableCell sx={{ py: 1.5 }}>{renderReverseButton(m)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            )}
+            {pagedExitMovements.length === 0 ? <Alert severity="info">Nenhuma saída encontrada.</Alert> : null}
+            <TablePagination component="div" count={exitMovements.length} page={exitPage} onPageChange={(_, v) => setExitPage(v)} rowsPerPage={movementRowsPerPage} rowsPerPageOptions={[movementRowsPerPage]} labelRowsPerPage="Itens por página" />
+          </Stack>
+        ) : null}
+
+        {activeTab === 2 ? (
+          <Stack spacing={2}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap">
               <TextField
                 label="Buscar na análise"
                 value={analysisSearch}
-                onChange={(event) => {
-                  setAnalysisSearch(event.target.value);
-                  setAnalysisPage(0);
-                }}
+                onChange={(event) => { setAnalysisSearch(event.target.value); setAnalysisPage(0); }}
                 placeholder="Nome ou SKU"
-                fullWidth
+                sx={{ flex: 1, minWidth: { xs: '100%', md: 240 } }}
               />
-            </Grid>
-            <Grid item xs={12} md={5}>
               <TextField
                 select
                 label="Status operacional"
                 value={analysisStatusFilter}
-                onChange={(event) => {
-                  setAnalysisStatusFilter(event.target.value);
-                  setAnalysisPage(0);
-                }}
-                fullWidth
+                onChange={(event) => { setAnalysisStatusFilter(event.target.value); setAnalysisPage(0); }}
+                sx={{ minWidth: { xs: '100%', md: 220 } }}
               >
                 <MenuItem value="all">Todos</MenuItem>
                 <MenuItem value="out">Sem estoque</MenuItem>
                 <MenuItem value="low">Cobertura baixa</MenuItem>
                 <MenuItem value="stable">Estável</MenuItem>
               </TextField>
-            </Grid>
-          </Grid>
-          <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-            <Table size="small" sx={{ minWidth: 960 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Produto</TableCell>
-                  <TableCell>SKU</TableCell>
-                  <TableCell>Estoque atual</TableCell>
-                  <TableCell>Vendido 30d</TableCell>
-                  <TableCell>Saída média/dia</TableCell>
-                  <TableCell>Cobertura estimada</TableCell>
-                  <TableCell>Dias sem movimento</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {pagedStockAnalytics.map((item) => (
-                  <TableRow key={item.product.id} hover>
-                    <TableCell>{item.product.name}</TableCell>
-                    <TableCell>{item.product.sku}</TableCell>
-                    <TableCell>{item.product.currentStock}</TableCell>
-                    <TableCell>{item.soldIn30}</TableCell>
-                    <TableCell>{item.dailyOutflow.toFixed(2)}</TableCell>
-                    <TableCell>{item.coverageDays === null ? 'Sem consumo recente' : `${Math.floor(item.coverageDays)} dia(s)`}</TableCell>
-                    <TableCell>{item.daysWithoutMovement === null ? 'Sem histórico' : `${item.daysWithoutMovement} dia(s)`}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        color={item.product.currentStock === 0 ? 'error' : item.stockRisk ? 'warning' : 'success'}
-                        label={item.product.currentStock === 0 ? 'Sem estoque' : item.stockRisk ? 'Cobertura baixa' : 'Estável'}
-                      />
-                    </TableCell>
+            </Stack>
+            <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+              <Table size="small" sx={{ minWidth: 960 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Produto</TableCell>
+                    <TableCell>SKU</TableCell>
+                    <TableCell align="right">Estoque atual</TableCell>
+                    <TableCell align="right">Vendido 30d</TableCell>
+                    <TableCell align="right">Saída média/dia</TableCell>
+                    <TableCell align="right">Cobertura estimada</TableCell>
+                    <TableCell align="right">Dias sem movimento</TableCell>
+                    <TableCell>Status</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-          {pagedStockAnalytics.length === 0 ? <Alert severity="info">Nenhum dado analítico de estoque encontrado para os filtros aplicados.</Alert> : null}
-          <TablePagination
-            component="div"
-            count={filteredStockAnalytics.length}
-            page={analysisPage}
-            onPageChange={(_event, page) => setAnalysisPage(page)}
-            rowsPerPage={analysisRowsPerPage}
-            onRowsPerPageChange={(event) => {
-              setAnalysisRowsPerPage(Number(event.target.value));
-              setAnalysisPage(0);
-            }}
-            rowsPerPageOptions={[8, 16, 32]}
-            labelRowsPerPage="Itens por página"
-          />
-        </Stack>
+                </TableHead>
+                <TableBody>
+                  {pagedStockAnalytics.map((item) => (
+                    <TableRow key={item.product.id} hover>
+                      <TableCell>{item.product.name}</TableCell>
+                      <TableCell>{item.product.sku}</TableCell>
+                      <TableCell align="right">{item.product.currentStock}</TableCell>
+                      <TableCell align="right">{item.soldIn30}</TableCell>
+                      <TableCell align="right">{item.dailyOutflow.toFixed(2)}</TableCell>
+                      <TableCell align="right">{item.coverageDays === null ? 'Sem consumo recente' : `${Math.floor(item.coverageDays)} dia(s)`}</TableCell>
+                      <TableCell align="right">{item.daysWithoutMovement === null ? 'Sem histórico' : `${item.daysWithoutMovement} dia(s)`}</TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          color={item.product.currentStock === 0 ? 'error' : item.stockRisk ? 'warning' : 'success'}
+                          label={item.product.currentStock === 0 ? 'Sem estoque' : item.stockRisk ? 'Cobertura baixa' : 'Estável'}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Paper>
+            {pagedStockAnalytics.length === 0 ? <Alert severity="info">Nenhum dado analítico de estoque encontrado para os filtros aplicados.</Alert> : null}
+            <TablePagination
+              component="div"
+              count={filteredStockAnalytics.length}
+              page={analysisPage}
+              onPageChange={(_event, page) => setAnalysisPage(page)}
+              rowsPerPage={analysisRowsPerPage}
+              onRowsPerPageChange={(event) => { setAnalysisRowsPerPage(Number(event.target.value)); setAnalysisPage(0); }}
+              rowsPerPageOptions={[8, 16, 32]}
+              labelRowsPerPage="Itens por página"
+            />
+          </Stack>
+        ) : null}
       </PageSection>
 
       {/* Dialog: nova movimentação */}
-      <Dialog open={isDialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm">
+      <Dialog open={isDialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm" fullScreen={isMobile}>
         <DialogTitle>Nova movimentação de produto</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
@@ -656,32 +739,24 @@ export function InventoryPage() {
               <MenuItem value="Exit">Saída</MenuItem>
               <MenuItem value="Adjustment">Ajuste</MenuItem>
             </TextField>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField label="Quantidade" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} fullWidth />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <CurrencyField label="Custo unitário" value={form.unitCost} onValueChange={(v) => setForm({ ...form, unitCost: v })} fullWidth />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Valor sugerido (visual)"
-                  value={selectedMovementProduct ? selectedMovementProduct.suggestedPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : ''}
-                  InputProps={{ readOnly: true }}
-                  placeholder="Selecione um produto"
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Valor de venda real (visual)"
-                  value={selectedMovementProduct ? selectedMovementProduct.salePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : ''}
-                  InputProps={{ readOnly: true }}
-                  placeholder="Selecione um produto"
-                  fullWidth
-                />
-              </Grid>
-            </Grid>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+              <TextField label="Quantidade" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} fullWidth />
+              <CurrencyField label="Custo unitário" value={form.unitCost} onValueChange={(v) => setForm({ ...form, unitCost: v })} fullWidth />
+              <TextField
+                label="Valor sugerido (visual)"
+                value={selectedMovementProduct ? formatCurrency(selectedMovementProduct.suggestedPrice) : ''}
+                InputProps={{ readOnly: true }}
+                placeholder="Selecione um produto"
+                fullWidth
+              />
+              <TextField
+                label="Valor de venda real (visual)"
+                value={selectedMovementProduct ? formatCurrency(selectedMovementProduct.salePrice) : ''}
+                InputProps={{ readOnly: true }}
+                placeholder="Selecione um produto"
+                fullWidth
+              />
+            </Box>
             <TextField label="Observação" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} multiline minRows={3} />
           </Stack>
         </DialogContent>
