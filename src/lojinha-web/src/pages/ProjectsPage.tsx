@@ -21,7 +21,9 @@ import {
   TableRow,
   TextField,
   Tooltip,
-  Typography
+  Typography,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -52,6 +54,8 @@ const statusLabels: Record<ProjectStatus, string> = {
 
 export function ProjectsPage() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const todoItemId = searchParams.get('todoItemId');
@@ -226,6 +230,57 @@ export function ProjectsPage() {
             </Button>
           </Stack>
 
+          {isMobile ? (
+            <Stack spacing={1.5}>
+              {paginatedProjects.map((project: Project) => (
+                <Paper key={project.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                  <Stack spacing={1}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                      <Typography fontWeight={700}>{project.name}</Typography>
+                      <Chip label={statusLabels[project.status]} color={statusColors[project.status]} size="small" />
+                    </Stack>
+                    <Typography color="text.secondary" fontSize={13}>
+                      {project.productId ? (productMap.get(project.productId) ?? 'Produto vinculado') : 'Sem produto vinculado'}
+                    </Typography>
+                    <Box>
+                      <LinearProgress variant="determinate" value={project.progressPercentage} sx={{ borderRadius: 999 }} />
+                      <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                        <Typography variant="caption">{project.progressPercentage.toFixed(0)}%</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {project.timeCompletedMinutes.toFixed(0)}/{project.timeEstimatedMinutes.toFixed(0)} min · {project.weightCompletedGrams.toFixed(0)}/{project.weightEstimatedGrams.toFixed(0)} g
+                        </Typography>
+                      </Stack>
+                    </Box>
+                    <Stack direction="row" spacing={0.75} justifyContent="flex-end" alignItems="center" flexWrap="wrap">
+                      {project.status === 'Planejado' ? (
+                        <Button size="small" variant="outlined" startIcon={<PlayArrowRoundedIcon fontSize="small" />} onClick={() => startMutation.mutate(project.id)} disabled={startMutation.isLoading}>Iniciar</Button>
+                      ) : null}
+                      {project.status === 'Concluido' ? (
+                        <Button size="small" variant="outlined" color="warning" startIcon={<ReplayRoundedIcon fontSize="small" />} onClick={() => duplicateMutation.mutate(project.id)} disabled={duplicateMutation.isLoading}>Reabrir</Button>
+                      ) : null}
+                      <IconButton size="small" onClick={() => navigate(`/projetos/${project.id}`)} sx={{ border: '1px solid rgba(121, 99, 88, 0.25)', borderRadius: 1.5 }}>
+                        <EditRoundedIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDeleteProject(project.id)} sx={{ border: '1px solid rgba(211, 47, 47, 0.3)', borderRadius: 1.5 }}>
+                        <DeleteOutlineRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              ))}
+              {filteredProjects.length === 0 ? <Alert severity="info">Nenhum projeto encontrado com os filtros atuais.</Alert> : null}
+              <TablePagination
+                component="div"
+                count={filteredProjects.length}
+                page={page}
+                onPageChange={(_event, nextPage) => setPage(nextPage)}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={(event) => { setRowsPerPage(Number(event.target.value)); setPage(0); }}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                labelRowsPerPage="Linhas por página"
+              />
+            </Stack>
+          ) : (
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small">
               <TableHead>
@@ -322,6 +377,7 @@ export function ProjectsPage() {
               labelRowsPerPage="Linhas por página"
             />
           </Paper>
+          )}
         </Stack>
       </PageSection>
 

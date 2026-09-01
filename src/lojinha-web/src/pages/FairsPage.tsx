@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -285,6 +286,20 @@ export function FairsPage() {
             <Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor resultado líquido</Typography><Typography variant="h6">{bestResultFair ? `${capitalizeFirstLetter(bestResultFair.name)} • ${formatCurrency(bestResultFair.netRevenue)} • ${formatUtcDate(bestResultFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper>
             <Paper sx={{ p: 2 }}><Typography color="text.secondary">Melhor margem</Typography><Typography variant="h6">{bestMarginFair ? `${capitalizeFirstLetter(bestMarginFair.name)} • ${bestMarginFair.margin.toFixed(1)}% • ${formatUtcDate(bestMarginFair.eventDateUtc)}` : 'Sem dados'}</Typography></Paper>
           </Box>
+          {isMobile ? (
+            <Stack spacing={1.25}>
+              {fairComparison.map((item) => (
+                <Paper key={item.id} sx={{ p: 1.75, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)', cursor: 'pointer' }} onClick={() => navigate(`/feiras/${item.id}`, { state: { preserveState: true } })}>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography fontWeight={700}>{capitalizeFirstLetter(item.name)}</Typography>
+                    <Typography color="text.secondary" fontSize={12.5}>{formatUtcDate(item.eventDateUtc)}</Typography>
+                  </Stack>
+                  <Typography fontSize={13} sx={{ mt: 0.5 }}>Bruto {formatCurrency(item.grossRevenue)} · Resultado <strong>{formatCurrency(item.netRevenue)}</strong> · {item.margin.toFixed(1)}%</Typography>
+                </Paper>
+              ))}
+              {fairComparison.length === 0 ? <Alert severity="info">Sem feiras para comparar no momento.</Alert> : null}
+            </Stack>
+          ) : (
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small" sx={{ minWidth: 760 }}>
               <TableHead>
@@ -314,6 +329,7 @@ export function FairsPage() {
               </TableBody>
             </Table>
           </Paper>
+          )}
         </Stack>
         ) : null}
 

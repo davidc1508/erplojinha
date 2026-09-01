@@ -14,7 +14,9 @@ import {
   TablePagination,
   TableRow,
   Tabs,
-  Typography
+  Typography,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useMemo, useState } from 'react';
@@ -50,6 +52,8 @@ function BandCell({ label, value, emphasize }: { label: string; value: string; e
 export function ProductDetailsPage() {
   const { session } = useAuth();
   const isReseller = session?.role === 'Reseller';
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { id } = useParams();
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
@@ -245,6 +249,20 @@ export function ProductDetailsPage() {
 
         {tab === 1 ? (
           <>
+            {isMobile ? (
+              <Stack spacing={1.25}>
+                {pagedSales.map((sale) => (
+                  <Paper key={`${sale.saleId}-${sale.soldAtUtc}`} variant="outlined" sx={{ p: 1.5, borderColor: 'rgba(217,107,135,0.16)' }}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography fontWeight={700} fontSize={13.5}>{formatUtcDate(sale.soldAtUtc)}</Typography>
+                      <Typography color="text.secondary" fontSize={12.5}>{paymentMethodLabel(sale.paymentMethod)}</Typography>
+                    </Stack>
+                    <Typography fontSize={13} sx={{ mt: 0.5 }}>{sale.quantity} × {formatCurrency(sale.unitPrice)} = <strong>{formatCurrency(sale.totalPrice)}</strong></Typography>
+                    <Typography color="text.secondary" fontSize={12.5}>Ganho lojinha: {formatCurrency(sale.lojinhaGainAmount)}</Typography>
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
             <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
               <Table size="small" sx={{ minWidth: 900 }}>
                 <TableHead>
@@ -273,6 +291,7 @@ export function ProductDetailsPage() {
                 </TableBody>
               </Table>
             </Paper>
+            )}
             {pagedSales.length === 0 ? <Alert severity="info" sx={{ mt: 2 }}>Nenhuma venda deste produto foi encontrada.</Alert> : null}
             <TablePagination component="div" count={productSales.length} page={salesPage} onPageChange={(_event, page) => setSalesPage(page)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
           </>
@@ -280,6 +299,20 @@ export function ProductDetailsPage() {
 
         {tab === 2 ? (
           <>
+            {isMobile ? (
+              <Stack spacing={1.25}>
+                {pagedMovements.map((movement) => (
+                  <Paper key={movement.id} variant="outlined" sx={{ p: 1.5, borderColor: 'rgba(217,107,135,0.16)' }}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography fontWeight={700} fontSize={13.5}>{movement.type}</Typography>
+                      <Typography color="text.secondary" fontSize={12.5}>{formatUtcDate(movement.occurredAtUtc)}</Typography>
+                    </Stack>
+                    <Typography fontSize={13} sx={{ mt: 0.5 }}>Qtd {movement.quantity} · custo unit. {formatCurrency(movement.unitCost)}</Typography>
+                    <Typography color="text.secondary" fontSize={12.5}>{movement.notes || 'Sem observação'}</Typography>
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
             <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
               <Table size="small" sx={{ minWidth: 760 }}>
                 <TableHead>
@@ -304,6 +337,7 @@ export function ProductDetailsPage() {
                 </TableBody>
               </Table>
             </Paper>
+            )}
             {pagedMovements.length === 0 ? <Alert severity="info" sx={{ mt: 2 }}>Sem movimentações de estoque para este produto.</Alert> : null}
             <TablePagination component="div" count={productMovements.length} page={movementsPage} onPageChange={(_event, page) => setMovementsPage(page)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
           </>
@@ -311,6 +345,21 @@ export function ProductDetailsPage() {
 
         {tab === 3 ? (
           <>
+            {isMobile ? (
+              <Stack spacing={1.25}>
+                {pagedPriceHistory.map((entry) => (
+                  <Paper key={`${entry.changedAtUtc}-${entry.changedBy}`} variant="outlined" sx={{ p: 1.5, borderColor: 'rgba(217,107,135,0.16)' }}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography fontWeight={700} fontSize={13.5}>{entry.action}</Typography>
+                      <Typography color="text.secondary" fontSize={12.5}>{formatUtcDate(entry.changedAtUtc)}</Typography>
+                    </Stack>
+                    <Typography fontSize={13} sx={{ mt: 0.5 }}>
+                      Custo {entry.costPrice ? formatCurrency(entry.costPrice) : '-'} · Venda {entry.salePrice ? formatCurrency(entry.salePrice) : '-'} · Estoque {entry.currentStock ?? '-'}
+                    </Typography>
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
             <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
               <Table size="small" sx={{ minWidth: 640 }}>
                 <TableHead>
@@ -335,6 +384,7 @@ export function ProductDetailsPage() {
                 </TableBody>
               </Table>
             </Paper>
+            )}
             {pagedPriceHistory.length === 0 ? <Alert severity="info" sx={{ mt: 2 }}>Sem histórico de preço para exibir.</Alert> : null}
             <TablePagination component="div" count={priceHistory.length} page={priceHistoryPage} onPageChange={(_event, page) => setPriceHistoryPage(page)} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} labelRowsPerPage="Itens por página" />
           </>

@@ -89,6 +89,7 @@ export function FairDetailsPage() {
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isFinalizeChecklistOpen, setIsFinalizeChecklistOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
   const [salesSearch, setSalesSearch] = useState('');
   const [salesPaymentFilter, setSalesPaymentFilter] = useState('all');
@@ -695,7 +696,7 @@ export function FairDetailsPage() {
           </MenuItem>
         ) : null}
         {!isSupplier && fair.status === 'Open' ? (
-          <MenuItem onClick={() => runFromMenu(() => finalizeMutation.mutate())} disabled={finalizeMutation.isLoading}>
+          <MenuItem onClick={() => runFromMenu(() => setIsFinalizeChecklistOpen(true))} disabled={finalizeMutation.isLoading}>
             <ListItemIcon><TaskAltRoundedIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Finalizar feira</ListItemText>
           </MenuItem>
@@ -1069,6 +1070,79 @@ export function FairDetailsPage() {
         onCancel={() => setExpenseToDelete(null)}
         onConfirm={() => { if (expenseToDelete) { deleteExpenseMutation.mutate(expenseToDelete); } }}
       />
+
+      <Dialog open={isFinalizeChecklistOpen} onClose={() => setIsFinalizeChecklistOpen(false)} fullWidth maxWidth="sm" fullScreen={isMobile}>
+        <DialogTitle>Antes de finalizar a feira</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            Revise os pontos abaixo. Nenhum é obrigatório, mas depois de finalizar a feira não aceita mais vendas.
+          </Typography>
+          <Stack spacing={1.25}>
+            {(() => {
+              const totalSales = fair.totalSales ?? 0;
+              const totalExpenses = report?.totalExpenses ?? 0;
+              const quotas = report?.supplierQuotaStatus ?? [];
+              const settledQuotas = quotas.filter((quota) => quota.isSettled).length;
+              const outstandingQuotas = quotas.length - settledQuotas;
+              const rows = [
+                {
+                  ok: totalSales > 0,
+                  label: 'Vendas lançadas',
+                  detail: totalSales > 0 ? `${totalSales} venda(s) registrada(s)` : 'Nenhuma venda lançada — confirme se a feira teve movimento'
+                },
+                {
+                  ok: true,
+                  neutral: totalExpenses === 0,
+                  label: 'Despesas da feira',
+                  detail: totalExpenses > 0 ? `${formatCurrency(totalExpenses)} em despesas lançadas` : 'Nenhuma despesa lançada — lance alimentação, combustível, etc. se houver'
+                },
+                {
+                  ok: quotas.length === 0 || outstandingQuotas === 0,
+                  label: 'Cotas dos fornecedores',
+                  detail: quotas.length === 0
+                    ? 'Sem fornecedores participantes'
+                    : outstandingQuotas === 0
+                      ? `Todas as ${quotas.length} cotas quitadas`
+                      : `${outstandingQuotas} de ${quotas.length} cota(s) em aberto — registre os pagamentos na aba Fornecedores`
+                },
+                {
+                  ok: true,
+                  neutral: true,
+                  label: 'Resultado e caixinha',
+                  detail: `Resultado ${formatCurrency(report?.result ?? 0)} · Caixinha ${formatCurrency(report?.piggyBankAmount ?? 0)}`
+                }
+              ];
+
+              return rows.map((row) => (
+                <Paper key={row.label} variant="outlined" sx={{ p: 1.5, borderColor: row.ok ? 'rgba(217,107,135,0.16)' : 'rgba(225,166,87,0.5)' }}>
+                  <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                    <Chip
+                      size="small"
+                      label={row.neutral ? 'Revisar' : row.ok ? 'OK' : 'Atenção'}
+                      color={row.neutral ? 'default' : row.ok ? 'success' : 'warning'}
+                      sx={{ fontWeight: 700, mt: 0.25 }}
+                    />
+                    <Box>
+                      <Typography fontWeight={700} fontSize={14}>{row.label}</Typography>
+                      <Typography color="text.secondary" fontSize={12.5}>{row.detail}</Typography>
+                    </Box>
+                  </Stack>
+                </Paper>
+              ));
+            })()}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button variant="outlined" onClick={() => setIsFinalizeChecklistOpen(false)}>Voltar</Button>
+          <Button
+            variant="contained"
+            onClick={() => { setIsFinalizeChecklistOpen(false); finalizeMutation.mutate(); }}
+            disabled={finalizeMutation.isLoading}
+          >
+            Finalizar feira
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} fullWidth maxWidth="sm" fullScreen={isMobile}>
         <DialogTitle>Nova despesa da feira</DialogTitle>

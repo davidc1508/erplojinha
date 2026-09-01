@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Box, Button, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Tab, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Tab, Typography, useMediaQuery, useTheme } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -33,6 +33,8 @@ export function SaleDetailsPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const isReseller = session?.role === 'Reseller';
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [tab, setTab] = useState(0);
 
   const { data: sale, isLoading, isError } = useQuery({
@@ -131,7 +133,35 @@ export function SaleDetailsPage() {
               {sale.notes ? <Tab label="Observações" /> : null}
             </Tabs>
 
-            {tab === 0 ? (
+            {tab === 0 && isMobile ? (
+              <Stack spacing={1.25}>
+                {sale.items.map((item, index) => {
+                  const costTotal = item.costPrice * item.quantity;
+                  const grossMargin = item.totalPrice - costTotal;
+                  const isResellerSettlementItem = !item.isCommissionedSale && item.commissionAmount > 0;
+                  const displayedCommissionAmount = isResellerSettlementItem ? Math.max(item.totalPrice - item.commissionAmount, 0) : item.commissionAmount;
+                  const displayedLojinhaGainAmount = isResellerSettlementItem ? Math.min(item.commissionAmount, item.totalPrice) : item.lojinhaGainAmount;
+                  const supplierTransfer = item.supplierId && !isResellerSettlementItem ? item.totalPrice - costTotal - displayedLojinhaGainAmount : 0;
+
+                  return (
+                    <Paper key={`${item.productName}-${index}`} variant="outlined" sx={{ p: 1.75, borderColor: 'rgba(217,107,135,0.16)' }}>
+                      <Stack spacing={0.5}>
+                        <Typography fontWeight={700}>{item.productName}</Typography>
+                        <Typography fontSize={13}>{item.quantity} × {formatCurrency(item.unitPrice)} = <strong>{formatCurrency(item.totalPrice)}</strong></Typography>
+                        <Typography color="text.secondary" fontSize={12.5}>Custo {formatCurrency(costTotal)} · Margem bruta <strong>{formatCurrency(grossMargin)}</strong></Typography>
+                        <Typography color="text.secondary" fontSize={12.5}>Fornecedor: {item.supplierName ?? 'Lojinha Sem Nome'}{item.isCommissionedSale ? ' · comissionada' : ''}</Typography>
+                        {item.isCommissionedSale || displayedCommissionAmount > 0 ? (
+                          <Typography color="text.secondary" fontSize={12.5}>Comissão {formatCurrency(displayedCommissionAmount)}{item.commissionSellerSupplierName ? ` (${item.commissionSellerSupplierName})` : ''}</Typography>
+                        ) : null}
+                        <Typography color="text.secondary" fontSize={12.5}>
+                          Ganho lojinha {formatCurrency(displayedLojinhaGainAmount)}{!isReseller && supplierTransfer > 0 ? ` · Repasse ${formatCurrency(supplierTransfer)}` : ''}
+                        </Typography>
+                      </Stack>
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            ) : tab === 0 ? (
               <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
                 <Table size="small" sx={{ minWidth: 1200 }}>
                   <TableHead>

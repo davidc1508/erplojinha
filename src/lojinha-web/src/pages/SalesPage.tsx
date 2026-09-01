@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TableSortLabel, TextField, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TableSortLabel, TextField, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
@@ -35,6 +35,8 @@ export function SalesPage() {
   const { session } = useAuth();
   const isSupplier = session?.role === 'Supplier';
   const isReseller = session?.role === 'Reseller';
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [listState, setListState] = usePreservedListState(`sales-page:${session?.role ?? 'guest'}:${session?.supplierId ?? 'store'}`, defaultListState);
@@ -169,8 +171,48 @@ export function SalesPage() {
               {['Pix', 'CreditCard', 'DebitCard', 'Cash', 'Transfer'].map((method) => <MenuItem key={method} value={method}>{paymentMethodLabel(method)}</MenuItem>)}
             </TextField>
           </Box>
+          {isLoadingSales ? <TableSkeleton rows={8} columns={7} /> : isMobile ? (
+            <Stack spacing={1.5}>
+              {visibleSales.map((sale) => (
+                <Paper key={sale.id} sx={{ p: 2, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                  <Stack spacing={1}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                      <Chip
+                        size="small"
+                        label={sale.fairName ?? 'Balcão'}
+                        sx={sale.fairName
+                          ? { backgroundColor: 'rgba(217,107,135,0.14)', color: 'primary.main', fontWeight: 700 }
+                          : { backgroundColor: 'rgba(123,207,192,0.22)', color: '#2f7d70', fontWeight: 700 }}
+                      />
+                      <Typography color="text.secondary" fontSize={13}>{formatUtcDate(sale.soldAtUtc)}</Typography>
+                    </Stack>
+                    <Typography fontSize={14}>{sale.items.map((item) => item.productName).join(', ')}</Typography>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography color="text.secondary" fontSize={13}>{paymentMethodLabel(sale.paymentMethod)}</Typography>
+                      <Typography fontWeight={700}>{formatCurrency(sale.totalAmount)}</Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography fontSize={13} sx={{ fontWeight: 700, color: sale.profitAmount >= 0 ? 'success.main' : 'error.main' }}>
+                        Lucro {formatCurrency(sale.profitAmount)}
+                        {getResellerTransferAmount(sale) > 0 ? ` · Repasse ${formatCurrency(getResellerTransferAmount(sale))}` : ''}
+                      </Typography>
+                      <Stack direction="row" spacing={0.5}>
+                        <IconButton size="small" onClick={() => navigate(`/vendas/${sale.id}`, { state: { preserveState: true } })}>
+                          <VisibilityRoundedIcon fontSize="small" />
+                        </IconButton>
+                        {sale.canDelete ? (
+                          <IconButton size="small" color="error" onClick={() => setSaleToDelete(sale)} disabled={deleteMutation.isLoading}>
+                            <DeleteOutlineRoundedIcon fontSize="small" />
+                          </IconButton>
+                        ) : null}
+                      </Stack>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              ))}
+            </Stack>
+          ) : (
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
-            {isLoadingSales ? <TableSkeleton rows={8} columns={7} /> : (
             <Table size="small" sx={{ minWidth: 920 }}>
               <TableHead>
                 <TableRow>
@@ -231,8 +273,8 @@ export function SalesPage() {
                 ))}
               </TableBody>
             </Table>
-            )}
           </Paper>
+          )}
           {visibleSales.length === 0 ? <Alert severity="info">Nenhuma venda encontrada para o filtro informado.</Alert> : null}
           <TablePagination
             component="div"

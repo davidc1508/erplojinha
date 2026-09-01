@@ -14,7 +14,9 @@ import {
   TableRow,
   TextField,
   Tooltip,
-  Typography
+  Typography,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import SchemaRoundedIcon from '@mui/icons-material/SchemaRounded';
@@ -126,6 +128,8 @@ export function OperationalListsPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const isSupplier = session?.role === 'Supplier';
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'warning' | 'error'; message: string } | null>(null);
   const [restockForm, setRestockForm] = useState(emptyRestockForm);
@@ -363,6 +367,32 @@ export function OperationalListsPage() {
             </Button>
           </Stack>
 
+          {isMobile ? (
+            <Stack spacing={1.5}>
+              {restockItems.map((item) => (
+                <Paper key={item.id} sx={{ p: 1.75, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                  <Stack spacing={0.75}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                      <Typography fontWeight={700}>{item.productName}</Typography>
+                      <Typography sx={{ fontFamily: '"Baloo 2", "Nunito", sans-serif', fontWeight: 700 }}>{item.targetQuantity} un</Typography>
+                    </Stack>
+                    <Typography color="text.secondary" fontSize={12.5}>{item.productCategory || 'Sem categoria'}</Typography>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack direction="row" spacing={0.75}>
+                        <Chip size="small" label={priorityLabel(item.priority)} color={priorityChipColor(item.priority)} />
+                        <Chip size="small" label={restockStatusLabel(item.status)} color={restockStatusChipColor(item.status)} />
+                      </Stack>
+                      <Stack direction="row" spacing={0.5}>
+                        <IconButton size="small" color="primary" onClick={() => editRestock(item)}><EditRoundedIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => setRestockToDelete({ id: item.id, productName: item.productName })}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton>
+                      </Stack>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              ))}
+              {restockItems.length === 0 ? <Alert severity="info">Sem itens de reposição por enquanto.</Alert> : null}
+            </Stack>
+          ) : (
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small">
               <TableHead>
@@ -397,6 +427,7 @@ export function OperationalListsPage() {
               </TableBody>
             </Table>
           </Paper>
+          )}
         </Stack>
       </PageSection>
 
@@ -431,6 +462,28 @@ export function OperationalListsPage() {
             </Button>
           </Stack>
 
+          {isMobile ? (
+            <Stack spacing={1.5}>
+              {todoItems.map((item) => (
+                <Paper key={item.id} sx={{ p: 1.75, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
+                  <Stack spacing={0.75}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                      <Typography fontWeight={700}>{item.name}</Typography>
+                      <Chip size="small" label={priorityLabel(item.priority)} color={priorityChipColor(item.priority)} />
+                    </Stack>
+                    <Typography color="text.secondary" fontSize={12.5}>{item.source || 'Sem fonte'}</Typography>
+                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                      <Tooltip title="Criar produto"><IconButton size="small" color="success" onClick={() => navigate(`/produtos/novo?todoItemId=${item.id}&todoName=${encodeURIComponent(item.name)}`, { state: { preserveState: true } })}><AddCircleOutlineRoundedIcon fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Criar projeto"><IconButton size="small" color="secondary" onClick={() => navigate(`/projetos?todoItemId=${item.id}&todoName=${encodeURIComponent(item.name)}`, { state: { preserveState: true } })}><SchemaRoundedIcon fontSize="small" /></IconButton></Tooltip>
+                      <IconButton size="small" color="primary" onClick={() => editTodo(item)}><EditRoundedIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" color="error" onClick={() => setTodoToDelete({ id: item.id, name: item.name })}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              ))}
+              {todoItems.length === 0 ? <Alert severity="info">Sem itens a fazer por enquanto.</Alert> : null}
+            </Stack>
+          ) : (
           <Paper sx={{ overflowX: 'auto', borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.68)' }}>
             <Table size="small">
               <TableHead>
@@ -477,6 +530,7 @@ export function OperationalListsPage() {
               </TableBody>
             </Table>
           </Paper>
+          )}
         </Stack>
       </PageSection>
 

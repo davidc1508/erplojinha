@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Box, Button, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, Paper, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { dashboardApi, fairsApi, operationalListsApi, productsApi } from '../services/api';
+import { useActionCenter } from '../hooks/useActionCenter';
+import { dashboardApi } from '../services/api';
 import { PageSection } from '../components/PageSection';
 import { StatCard } from '../components/StatCard';
-import { formatUtcDate, isUtcDateTodayOrPast } from '../services/date';
+import { formatUtcDate } from '../services/date';
 import { fairStatusLabel, formatCurrency, paymentMethodLabel } from '../services/labels';
 
 const GRADIENTS = {
@@ -59,41 +60,12 @@ function RankingList({
 export function DashboardPage() {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isSupplier = session?.role === 'Supplier';
   const isReseller = session?.role === 'Reseller';
-  const isStoreAdmin = !isSupplier && !isReseller;
   const { data } = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.getSummary });
-  const { data: fairs = [] } = useQuery({ queryKey: ['fairs'], queryFn: fairsApi.getAll, enabled: isStoreAdmin });
-  const { data: catalogProducts = [] } = useQuery({ queryKey: ['products', 'all', 'product'], queryFn: () => productsApi.getAll({ isBudget: false }), enabled: isStoreAdmin });
-  const { data: restockItems = [] } = useQuery({ queryKey: ['operational-restock'], queryFn: operationalListsApi.getRestockItems, enabled: isStoreAdmin });
-
-  const actionItems = useMemo(() => {
-    if (!isStoreAdmin) {
-      return [] as { label: string; detail: string; to: string; tone: 'urgent' | 'warn' | 'info' }[];
-    }
-
-    const items: { label: string; detail: string; to: string; tone: 'urgent' | 'warn' | 'info' }[] = [];
-
-    const fairsToStart = fairs.filter((fair) => fair.status === 'Awaiting' && isUtcDateTodayOrPast(fair.eventDateUtc));
-    fairsToStart.forEach((fair) => items.push({ label: `Iniciar feira: ${fair.name}`, detail: `Evento em ${formatUtcDate(fair.eventDateUtc)} ainda aguardando início`, to: `/feiras/${fair.id}`, tone: 'urgent' }));
-
-    const openFairs = fairs.filter((fair) => fair.status === 'Open');
-    if (openFairs.length > 0) {
-      items.push({ label: `${openFairs.length} feira(s) em aberto`, detail: 'Lançar despesas, conferir cotas e finalizar quando terminar', to: '/feiras', tone: 'warn' });
-    }
-
-    const outOfStock = catalogProducts.filter((product) => product.currentStock === 0);
-    if (outOfStock.length > 0) {
-      items.push({ label: `${outOfStock.length} produto(s) sem estoque`, detail: outOfStock.slice(0, 3).map((product) => product.name).join(', ') + (outOfStock.length > 3 ? '…' : ''), to: '/estoque', tone: 'urgent' });
-    }
-
-    const openRestock = restockItems.filter((item) => item.status === 'Open' || item.status === 'InProgress');
-    if (openRestock.length > 0) {
-      items.push({ label: `${openRestock.length} item(ns) de reposição em aberto`, detail: 'Planeje a produção na fila de reposição', to: '/listas-operacionais', tone: 'info' });
-    }
-
-    return items;
-  }, [catalogProducts, fairs, isStoreAdmin, restockItems]);
+  const actionItems = useActionCenter();
 
   const periodItemsTotal = useMemo(
     () => (data?.periodMetrics ?? []).reduce((sum, item) => sum + item.itemsSold, 0),
@@ -154,7 +126,7 @@ export function DashboardPage() {
           <Stack spacing={1}>
             {actionItems.map((item) => (
               <Paper
-                key={item.label}
+                key={item.key}
                 variant="outlined"
                 sx={{ p: 1.5, borderColor: item.tone === 'urgent' ? 'rgba(217,107,135,0.35)' : 'rgba(217,107,135,0.16)' }}
               >
@@ -239,27 +211,45 @@ export function DashboardPage() {
       </Box>
 
       <PageSection title="Vendas por período" subtitle="Faixas isoladas de 0-15, 16-30, 31-60 e 61-90 dias — cada linha é só aquele intervalo.">
-        <Box sx={{ overflowX: 'auto' }}>
-          <Box sx={{ minWidth: 560 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1.2fr repeat(4, 1fr)', gap: 1, px: 1.5, py: 1, borderBottom: '1px solid rgba(217,107,135,0.22)' }}>
-              {['Faixa', 'Itens', 'Receita bruta', 'Receita líquida', 'Caixinha'].map((header, index) => (
-                <Typography key={header} variant="overline" sx={{ color: 'text.secondary', textAlign: index === 0 ? 'left' : 'right' }}>{header}</Typography>
+        {isMobile ? (
+          <Stack spacing={1.25}>
+            {(data?.periodMetrics ?? []).map((metric) => (
+              <Paper key={metric.label} variant="outlined" sx={{ p: 1.5, borderColor: 'rgba(217,107,135,0.16)' }}>
+                <Typography fontWeight={700}>{metric.label}</Typography>
+                <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                  <Typography fontSize={13} color="text.secondary">{metric.itemsSold} itens</Typography>
+                  <Typography fontSize={13}>Bruto {formatCurrency(metric.grossRevenue)}</Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography fontSize={13} sx={{ color: metric.netRevenue >= 0 ? '#4e7a34' : '#c0566e', fontWeight: 700 }}>Líquido {formatCurrency(metric.netRevenue)}</Typography>
+                  <Typography fontSize={13} color="text.secondary">Caixinha {formatCurrency(metric.piggyBankAmount)}</Typography>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        ) : (
+          <Box sx={{ overflowX: 'auto' }}>
+            <Box sx={{ minWidth: 560 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1.2fr repeat(4, 1fr)', gap: 1, px: 1.5, py: 1, borderBottom: '1px solid rgba(217,107,135,0.22)' }}>
+                {['Faixa', 'Itens', 'Receita bruta', 'Receita líquida', 'Caixinha'].map((header, index) => (
+                  <Typography key={header} variant="overline" sx={{ color: 'text.secondary', textAlign: index === 0 ? 'left' : 'right' }}>{header}</Typography>
+                ))}
+              </Box>
+              {(data?.periodMetrics ?? []).map((metric) => (
+                <Box
+                  key={metric.label}
+                  sx={{ display: 'grid', gridTemplateColumns: '1.2fr repeat(4, 1fr)', gap: 1, px: 1.5, py: 1.25, borderBottom: '1px solid rgba(217,107,135,0.12)' }}
+                >
+                  <Typography fontWeight={700}>{metric.label}</Typography>
+                  <Typography textAlign="right">{metric.itemsSold}</Typography>
+                  <Typography textAlign="right">{formatCurrency(metric.grossRevenue)}</Typography>
+                  <Typography textAlign="right" sx={{ color: metric.netRevenue >= 0 ? '#4e7a34' : '#c0566e' }}>{formatCurrency(metric.netRevenue)}</Typography>
+                  <Typography textAlign="right">{formatCurrency(metric.piggyBankAmount)}</Typography>
+                </Box>
               ))}
             </Box>
-            {(data?.periodMetrics ?? []).map((metric) => (
-              <Box
-                key={metric.label}
-                sx={{ display: 'grid', gridTemplateColumns: '1.2fr repeat(4, 1fr)', gap: 1, px: 1.5, py: 1.25, borderBottom: '1px solid rgba(217,107,135,0.12)' }}
-              >
-                <Typography fontWeight={700}>{metric.label}</Typography>
-                <Typography textAlign="right">{metric.itemsSold}</Typography>
-                <Typography textAlign="right">{formatCurrency(metric.grossRevenue)}</Typography>
-                <Typography textAlign="right" sx={{ color: metric.netRevenue >= 0 ? '#4e7a34' : '#c0566e' }}>{formatCurrency(metric.netRevenue)}</Typography>
-                <Typography textAlign="right">{formatCurrency(metric.piggyBankAmount)}</Typography>
-              </Box>
-            ))}
           </Box>
-        </Box>
+        )}
       </PageSection>
 
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, alignItems: 'start' }}>

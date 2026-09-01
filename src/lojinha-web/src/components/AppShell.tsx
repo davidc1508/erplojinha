@@ -2,15 +2,19 @@ import {
   Alert,
   AppBar,
   Avatar,
+  Badge,
   Box,
   Button,
   Chip,
+  Divider,
   Drawer,
   IconButton,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
   Toolbar,
@@ -29,6 +33,7 @@ import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
+import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
 import WarehouseRoundedIcon from '@mui/icons-material/WarehouseRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
@@ -42,6 +47,7 @@ import PrecisionManufacturingRoundedIcon from '@mui/icons-material/PrecisionManu
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useActionCenter } from '../hooks/useActionCenter';
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 88;
@@ -101,6 +107,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [notifyAnchor, setNotifyAnchor] = useState<null | HTMLElement>(null);
+  const actionItems = useActionCenter();
 
   useEffect(() => {
     if (isMobile) {
@@ -233,9 +241,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Encerrar acesso simulado
               </Button>
             ) : null}
+            <IconButton onClick={(event) => setNotifyAnchor(event.currentTarget)} aria-label="Notificações">
+              <Badge badgeContent={actionItems.length} color="error">
+                <NotificationsRoundedIcon />
+              </Badge>
+            </IconButton>
           </Stack>
         </Toolbar>
       </AppBar>
+
+      <Menu
+        anchorEl={notifyAnchor}
+        open={Boolean(notifyAnchor)}
+        onClose={() => setNotifyAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { width: 340, maxWidth: '92vw' } } }}
+      >
+        <Box sx={{ px: 2, py: 1.25 }}>
+          <Typography fontWeight={700}>Precisa de você</Typography>
+          <Typography variant="caption" color="text.secondary">{actionItems.length === 0 ? 'Nada pendente agora.' : `${actionItems.length} item(ns) em aberto`}</Typography>
+        </Box>
+        <Divider />
+        {actionItems.length === 0 ? (
+          <MenuItem disabled>Tudo em dia por aqui.</MenuItem>
+        ) : (
+          actionItems.map((item) => (
+            <MenuItem
+              key={item.key}
+              onClick={() => { setNotifyAnchor(null); navigate(item.to); }}
+              sx={{ display: 'block', whiteSpace: 'normal', py: 1.25 }}
+            >
+              <Typography fontWeight={700} fontSize={13.5} sx={{ color: item.tone === 'urgent' ? 'error.main' : 'inherit' }}>{item.label}</Typography>
+              <Typography variant="caption" color="text.secondary">{item.detail}</Typography>
+            </MenuItem>
+          ))
+        )}
+      </Menu>
 
       <Drawer
         variant={isMobile ? 'temporary' : 'permanent'}
