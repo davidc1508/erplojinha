@@ -573,3 +573,5 @@ Fonte: testes de servico presentes no repositorio.
 
 - U-20260831-26 Cadastro de produto - mobile: split de 2 colunas migrado de `<Grid container spacing>` para `<Box>` CSS grid (`gridTemplateColumns: {xs: "1fr", lg: "minmax(0,1fr) 380px"}`, `gap`) — remove o scroll horizontal do negative-margin do Grid. Campos ganharam breakpoint `sm` (2 col em tablet); numericos curtos ficam 2 por linha no celular (`xs={6}`). Filamento: delete com area de toque. Barra custo x lucro da projecao reescrita (percentuais abaixo, sem texto dentro da barra).
 - U-20260831-27 Deploy Oracle: tag `20260831-product-form-mobile-v1` (API e Web). Sem migration. HTTP 200 nos dois endpoints. Limpeza concluida.
+
+- U-20260831-28 Cadastro de produto - mobile v2: TODO o corpo do formulario (ProductFormPage) migrado de MUI `<Grid container spacing>` para CSS grid (`Box display:grid`, `gap`, `gridTemplateColumns` com `minmax(0,1fr)`). Causa raiz do bug de layout no mobile: `width: calc(100% + Npx)` + negative-margins do `<Grid>` brigando com `overflow:hidden` do PageSection e com a coluna `1fr` (sem minmax) do Box externo. `Grid` removido do import. Deploy tag `20260831-product-form-mobile-v2`.
