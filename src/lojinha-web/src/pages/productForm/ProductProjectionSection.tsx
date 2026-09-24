@@ -124,10 +124,10 @@ function ProductProjectionSectionView({
             <Box sx={{ position: 'absolute', top: -6, bottom: -6, left: `${currentShare}%`, borderLeft: '2px solid #473328', pointerEvents: 'none' }} />
             <Slider
               value={costShare}
-              min={10}
-              max={95}
+              min={0}
+              max={100}
               step={0.5}
-              onChange={(_, value) => { setCostShare(Array.isArray(value) ? value[0] : value); setApplied(false); }}
+              onChange={(_, value) => { setCostShare(Math.min(95, Math.max(10, Array.isArray(value) ? value[0] : value))); setApplied(false); }}
               track={false}
               aria-label="Divisa entre custo e lucro"
               disabled={disabled}
