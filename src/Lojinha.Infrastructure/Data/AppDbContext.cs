@@ -36,6 +36,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<OutsourcedProduction> OutsourcedProductions => Set<OutsourcedProduction>();
     public DbSet<OutsourcedProductionRecipe> OutsourcedProductionRecipes => Set<OutsourcedProductionRecipe>();
     public DbSet<OutsourcedProductionFilament> OutsourcedProductionFilaments => Set<OutsourcedProductionFilament>();
+    public DbSet<PaintingSettings> PaintingSettings => Set<PaintingSettings>();
+    public DbSet<PaintingLevel> PaintingLevels => Set<PaintingLevel>();
+    public DbSet<PaintingComplexity> PaintingComplexities => Set<PaintingComplexity>();
+    public DbSet<PaintingSizeRange> PaintingSizeRanges => Set<PaintingSizeRange>();
+    public DbSet<PaintingSizeRangeHours> PaintingSizeRangeHours => Set<PaintingSizeRangeHours>();
+    public DbSet<PaintingPreparationService> PaintingPreparationServices => Set<PaintingPreparationService>();
+    public DbSet<PaintingMaterial> PaintingMaterials => Set<PaintingMaterial>();
+    public DbSet<PaintingAddOn> PaintingAddOns => Set<PaintingAddOn>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +62,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Product>().HasIndex(x => x.NumericIdentifier).IsUnique();
         modelBuilder.Entity<Fair>().HasIndex(x => new { x.Name, x.EventDateUtc, x.EndDateUtc });
         modelBuilder.Entity<PersonalizedPricingTier>().HasIndex(x => x.Order).IsUnique();
+        modelBuilder.Entity<PaintingLevel>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<PaintingComplexity>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<PaintingSizeRange>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<PaintingPreparationService>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<PaintingMaterial>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<PaintingAddOn>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<PaintingSizeRangeHours>().HasIndex(x => new { x.SizeRangeId, x.LevelId }).IsUnique();
 
         modelBuilder.Entity<Product>()
             .Property(x => x.Sku)
@@ -78,6 +93,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Product>().Property(x => x.ProductType).HasConversion<string>();
         modelBuilder.Entity<FinancialEntry>().Property(x => x.Type).HasConversion<string>();
         modelBuilder.Entity<FinancialEntry>().Property(x => x.Classification).HasConversion<string>();
+        modelBuilder.Entity<PaintingSettings>().Property(x => x.Rounding).HasConversion<string>();
+        modelBuilder.Entity<PaintingPreparationService>().Property(x => x.ChargeType).HasConversion<string>();
+        modelBuilder.Entity<PaintingMaterial>().Property(x => x.Category).HasConversion<string>();
+        modelBuilder.Entity<PaintingAddOn>().Property(x => x.ChargeType).HasConversion<string>();
         modelBuilder.Entity<OperationalRestockItem>().Property(x => x.Priority).HasConversion<string>();
         modelBuilder.Entity<OperationalRestockItem>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<OperationalTodoItem>().Property(x => x.Priority).HasConversion<string>();
@@ -278,6 +297,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany(x => x.Products)
             .HasForeignKey(x => x.BottonSizeId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PaintingSizeRangeHours>()
+            .HasOne(x => x.SizeRange)
+            .WithMany(x => x.Hours)
+            .HasForeignKey(x => x.SizeRangeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PaintingSizeRangeHours>()
+            .HasOne(x => x.Level)
+            .WithMany(x => x.SizeRangeHours)
+            .HasForeignKey(x => x.LevelId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IPersonalizedService, PersonalizedService>();
         services.AddScoped<IOutsourcedProductionService, OutsourcedProductionService>();
+        services.AddScoped<IPaintingPricingService, PaintingPricingService>();
 
         return services;
     }

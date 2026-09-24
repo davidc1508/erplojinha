@@ -560,3 +560,168 @@ export interface PersonalizedProject {
   product?: Product;
   saleId?: string;
 }
+export type PaintingPriceRounding = 'None' | 'NearestInteger' | 'EndsWith90' | 'EndsWith99' | 'MultipleOf5' | 'MultipleOf10';
+export type PaintingPreparationChargeType = 'FixedAmount' | 'Hourly' | 'Percentage' | 'Manual';
+export type PaintingAddOnChargeType = 'FixedAmount' | 'Percentage' | 'AdditionalHours' | 'Manual';
+export type PaintingMaterialCategory = 'Tinta' | 'Primer' | 'Verniz' | 'Thinner' | 'Limpeza' | 'Massa' | 'FitaMascaramento' | 'Pincel' | 'Aerografo' | 'Consumivel' | 'Outros';
+
+export interface PaintingSettings {
+  defaultHourlyRate: number;
+  defaultMaterialsPercentage: number;
+  minimumMaterialsAmount: number;
+  minimumPaintingPrice: number;
+  defaultMarginPercentage: number;
+  rounding: PaintingPriceRounding;
+  updatedAtUtc: string;
+}
+
+export interface PaintingLevel {
+  id: string;
+  name: string;
+  description: string;
+  hourlyRate?: number | null;
+  effectiveHourlyRate: number;
+  order: number;
+  isActive: boolean;
+}
+
+export interface PaintingComplexity {
+  id: string;
+  name: string;
+  description: string;
+  multiplier: number;
+  order: number;
+  isActive: boolean;
+}
+
+export interface PaintingSizeRange {
+  id: string;
+  name: string;
+  minHeightCm: number;
+  maxHeightCm?: number | null;
+  requiresManualReview: boolean;
+  order: number;
+  isActive: boolean;
+  hours: { levelId: string; hours: number }[];
+}
+
+export interface PaintingPreparationService {
+  id: string;
+  name: string;
+  description: string;
+  chargeType: PaintingPreparationChargeType;
+  value: number;
+  estimatedHours: number;
+  isActive: boolean;
+}
+
+export interface PaintingMaterial {
+  id: string;
+  name: string;
+  category: PaintingMaterialCategory;
+  unit: string;
+  unitCost: number;
+  defaultQuantity: number;
+  isActive: boolean;
+}
+
+export interface PaintingAddOn {
+  id: string;
+  name: string;
+  description: string;
+  chargeType: PaintingAddOnChargeType;
+  value: number;
+  percentage: number;
+  additionalHours: number;
+  isActive: boolean;
+}
+
+export interface PaintingPricingOverview {
+  settings: PaintingSettings;
+  levels: PaintingLevel[];
+  complexities: PaintingComplexity[];
+  sizeRanges: PaintingSizeRange[];
+  preparationServices: PaintingPreparationService[];
+  materials: PaintingMaterial[];
+  addOns: PaintingAddOn[];
+}
+
+export interface PaintingItemSelection {
+  id: string;
+  manualAmount?: number | null;
+  hours?: number | null;
+}
+
+export interface PaintingPricingCalculationRequest {
+  heightCm: number;
+  levelId: string;
+  complexityId: string;
+  preparations: PaintingItemSelection[];
+  addOns: PaintingItemSelection[];
+  hoursOverride?: number | null;
+  hourlyRateOverride?: number | null;
+  materialsPercentageOverride?: number | null;
+  materialsAmountOverride?: number | null;
+  preparationAmountOverride?: number | null;
+  addOnsAmountOverride?: number | null;
+  marginPercentageOverride?: number | null;
+  finalPriceOverride?: number | null;
+}
+
+export interface PaintingChargeLine {
+  id: string;
+  name: string;
+  chargeType: string;
+  hours: number;
+  amount: number;
+}
+
+export interface PaintingPricingResult {
+  heightCm: number;
+  level: { id: string; name: string };
+  complexity: { id: string; name: string };
+  sizeRange?: { id: string; name: string; minHeightCm: number; maxHeightCm?: number | null; requiresManualReview: boolean } | null;
+  baseHours: number;
+  complexityMultiplier: number;
+  estimatedHours: number;
+  hoursOverridden: boolean;
+  addOnHours: number;
+  totalHours: number;
+  hourlyRate: number;
+  hourlyRateSource: 'Override' | 'Level' | 'Default';
+  laborAmount: number;
+  materialsPercentage: number;
+  minimumMaterialsAmount: number;
+  materialsAmount: number;
+  materialsMinimumApplied: boolean;
+  materialsOverridden: boolean;
+  preparations: PaintingChargeLine[];
+  preparationAmount: number;
+  preparationOverridden: boolean;
+  addOns: PaintingChargeLine[];
+  addOnsAmount: number;
+  addOnsOverridden: boolean;
+  costAmount: number;
+  marginPercentage: number;
+  marginAmount: number;
+  calculatedAmount: number;
+  minimumPaintingPrice: number;
+  minimumPriceApplied: boolean;
+  rounding: PaintingPriceRounding;
+  suggestedPrice: number;
+  finalPrice: number;
+  finalPriceOverridden: boolean;
+  warnings: string[];
+  calculatedAtUtc: string;
+}
+
+export interface PaintingHistoryEntry {
+  id: string;
+  entityType: string;
+  entityId: string;
+  name: string;
+  action: 'Created' | 'Updated' | 'Deleted' | string;
+  changedBy: string;
+  changedAtUtc: string;
+  changes: { field: string; before?: string | null; after?: string | null }[];
+}

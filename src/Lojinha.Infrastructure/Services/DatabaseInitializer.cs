@@ -27,6 +27,18 @@ public sealed class DatabaseInitializer(
             dbContext.CardFeeSettings.Add(cardFeeSettings);
         }
 
+        if (!await dbContext.PaintingSettings.AnyAsync(cancellationToken))
+        {
+            var paintingSeed = PaintingPricingSeed.Create();
+            dbContext.PaintingSettings.Add(paintingSeed.Settings);
+            dbContext.PaintingLevels.AddRange(paintingSeed.Levels);
+            dbContext.PaintingComplexities.AddRange(paintingSeed.Complexities);
+            dbContext.PaintingSizeRanges.AddRange(paintingSeed.SizeRanges);
+            dbContext.PaintingSizeRangeHours.AddRange(paintingSeed.SizeRangeHours);
+            dbContext.PaintingPreparationServices.AddRange(paintingSeed.PreparationServices);
+            dbContext.PaintingAddOns.AddRange(paintingSeed.AddOns);
+        }
+
         if (!await dbContext.Users.AnyAsync(cancellationToken))
         {
             var user = new User

@@ -14,6 +14,7 @@ import { InventoryPage } from './pages/InventoryPage';
 import { LoginPage } from './pages/LoginPage';
 import { OperationalListsPage } from './pages/OperationalListsPage';
 import { PrintersPage } from './pages/PrintersPage';
+import { PaintingPricingPage } from './pages/PaintingPricingPage';
 import { BottonSizesPage } from './pages/BottonSizesPage';
 import { ProductFormPage } from './pages/ProductFormPage';
 import { ProductDetailsPage } from './pages/ProductDetailsPage';
@@ -77,6 +78,7 @@ function ProtectedApp() {
         {!isReseller ? <Route path="/personalizados" element={<PersonalizadosPage />} /> : null}
         <Route path="/minha-conta/senha" element={<ChangePasswordPage />} />
         {!isSupplier && !isReseller ? <Route path="/configuracoes/taxas" element={<CardFeeSettingsPage />} /> : null}
+        {!isSupplier && !isReseller ? <Route path="/precificacao/pintura" element={<PaintingPricingPage />} /> : null}
         {!isSupplier && !isReseller ? <Route path="/usuarios" element={<UsersPage />} /> : null}
         {!isSupplier && !isReseller ? <Route path="/usuarios/novo" element={<UserFormPage />} /> : null}
         {!isSupplier && !isReseller ? <Route path="/usuarios/:id/editar" element={<UserFormPage />} /> : null}

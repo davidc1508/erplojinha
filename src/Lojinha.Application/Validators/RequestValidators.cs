@@ -6,6 +6,7 @@ using Lojinha.Api.Contracts.Finance;
 using Lojinha.Api.Contracts.Fairs;
 using Lojinha.Api.Contracts.Inventory;
 using Lojinha.Api.Contracts.OperationalLists;
+using Lojinha.Api.Contracts.PaintingPricing;
 using Lojinha.Api.Contracts.Products;
 using Lojinha.Api.Contracts.Recipes;
 using Lojinha.Api.Contracts.Sales;
@@ -273,5 +274,123 @@ public sealed class UpdateCardFeeSettingsRequestValidator : AbstractValidator<Up
         RuleFor(x => x.DebitCardPercentage).InclusiveBetween(0, 100);
         RuleFor(x => x.AdditionalPercentage).InclusiveBetween(0, 100);
         RuleFor(x => x.AdditionalFixedAmount).GreaterThanOrEqualTo(0);
+    }
+}
+
+public sealed class UpdatePaintingSettingsRequestValidator : AbstractValidator<UpdatePaintingSettingsRequest>
+{
+    public UpdatePaintingSettingsRequestValidator()
+    {
+        RuleFor(x => x.DefaultHourlyRate).GreaterThanOrEqualTo(0).WithMessage("O valor-hora padrão não pode ser negativo.");
+        RuleFor(x => x.DefaultMaterialsPercentage).GreaterThanOrEqualTo(0).WithMessage("O percentual de materiais não pode ser negativo.");
+        RuleFor(x => x.MinimumMaterialsAmount).GreaterThanOrEqualTo(0).WithMessage("O valor mínimo de materiais não pode ser negativo.");
+        RuleFor(x => x.MinimumPaintingPrice).GreaterThanOrEqualTo(0).WithMessage("O valor mínimo de pintura não pode ser negativo.");
+        RuleFor(x => x.DefaultMarginPercentage).GreaterThanOrEqualTo(0).WithMessage("A margem adicional não pode ser negativa.");
+        RuleFor(x => x.Rounding).IsInEnum();
+    }
+}
+
+public sealed class PaintingLevelRequestValidator : AbstractValidator<PaintingLevelRequest>
+{
+    public PaintingLevelRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Informe o nome do nível.").MaximumLength(120);
+        RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.HourlyRate).GreaterThanOrEqualTo(0).When(x => x.HourlyRate.HasValue).WithMessage("O valor-hora não pode ser negativo.");
+        RuleFor(x => x.Order).GreaterThanOrEqualTo(0).WithMessage("A ordem não pode ser negativa.");
+    }
+}
+
+public sealed class PaintingComplexityRequestValidator : AbstractValidator<PaintingComplexityRequest>
+{
+    public PaintingComplexityRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Informe o nome da complexidade.").MaximumLength(120);
+        RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.Multiplier).GreaterThan(0).WithMessage("O multiplicador deve ser maior que zero.");
+        RuleFor(x => x.Order).GreaterThanOrEqualTo(0).WithMessage("A ordem não pode ser negativa.");
+    }
+}
+
+public sealed class PaintingSizeRangeRequestValidator : AbstractValidator<PaintingSizeRangeRequest>
+{
+    public PaintingSizeRangeRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Informe o nome da faixa.").MaximumLength(120);
+        RuleFor(x => x.MinHeightCm).GreaterThanOrEqualTo(0).WithMessage("A altura mínima não pode ser negativa.");
+        RuleFor(x => x.MaxHeightCm)
+            .GreaterThan(x => x.MinHeightCm)
+            .When(x => x.MaxHeightCm.HasValue)
+            .WithMessage("A altura mínima não pode superar a altura máxima.");
+        RuleFor(x => x.Order).GreaterThanOrEqualTo(0).WithMessage("A ordem não pode ser negativa.");
+        RuleForEach(x => x.Hours).ChildRules(hours =>
+        {
+            hours.RuleFor(item => item.LevelId).NotEmpty();
+            hours.RuleFor(item => item.Hours).GreaterThanOrEqualTo(0).WithMessage("A quantidade de horas não pode ser negativa.");
+        });
+    }
+}
+
+public sealed class PaintingPreparationServiceRequestValidator : AbstractValidator<PaintingPreparationServiceRequest>
+{
+    public PaintingPreparationServiceRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Informe o nome do serviço.").MaximumLength(120);
+        RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.ChargeType).IsInEnum();
+        RuleFor(x => x.Value).GreaterThanOrEqualTo(0).WithMessage("O valor não pode ser negativo.");
+        RuleFor(x => x.EstimatedHours).GreaterThanOrEqualTo(0).WithMessage("A quantidade de horas não pode ser negativa.");
+    }
+}
+
+public sealed class PaintingMaterialRequestValidator : AbstractValidator<PaintingMaterialRequest>
+{
+    public PaintingMaterialRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Informe o nome do material.").MaximumLength(120);
+        RuleFor(x => x.Category).IsInEnum();
+        RuleFor(x => x.Unit).MaximumLength(30);
+        RuleFor(x => x.UnitCost).GreaterThanOrEqualTo(0).WithMessage("O valor unitário não pode ser negativo.");
+        RuleFor(x => x.DefaultQuantity).GreaterThanOrEqualTo(0).WithMessage("A quantidade padrão não pode ser negativa.");
+    }
+}
+
+public sealed class PaintingAddOnRequestValidator : AbstractValidator<PaintingAddOnRequest>
+{
+    public PaintingAddOnRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Informe o nome do adicional.").MaximumLength(120);
+        RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.ChargeType).IsInEnum();
+        RuleFor(x => x.Value).GreaterThanOrEqualTo(0).WithMessage("O valor não pode ser negativo.");
+        RuleFor(x => x.Percentage).GreaterThanOrEqualTo(0).WithMessage("O percentual não pode ser negativo.");
+        RuleFor(x => x.AdditionalHours).GreaterThanOrEqualTo(0).WithMessage("A quantidade de horas não pode ser negativa.");
+    }
+}
+
+public sealed class PaintingPricingCalculationRequestValidator : AbstractValidator<PaintingPricingCalculationRequest>
+{
+    public PaintingPricingCalculationRequestValidator()
+    {
+        RuleFor(x => x.HeightCm).GreaterThan(0).WithMessage("Informe a altura da peça.");
+        RuleFor(x => x.LevelId).NotEmpty().WithMessage("Selecione o nível de pintura.");
+        RuleFor(x => x.ComplexityId).NotEmpty().WithMessage("Selecione a complexidade.");
+        RuleFor(x => x.HoursOverride).GreaterThanOrEqualTo(0).When(x => x.HoursOverride.HasValue).WithMessage("A quantidade de horas não pode ser negativa.");
+        RuleFor(x => x.HourlyRateOverride).GreaterThanOrEqualTo(0).When(x => x.HourlyRateOverride.HasValue).WithMessage("O valor-hora não pode ser negativo.");
+        RuleFor(x => x.MaterialsPercentageOverride).GreaterThanOrEqualTo(0).When(x => x.MaterialsPercentageOverride.HasValue).WithMessage("O percentual de materiais não pode ser negativo.");
+        RuleFor(x => x.MaterialsAmountOverride).GreaterThanOrEqualTo(0).When(x => x.MaterialsAmountOverride.HasValue).WithMessage("O valor de materiais não pode ser negativo.");
+        RuleFor(x => x.PreparationAmountOverride).GreaterThanOrEqualTo(0).When(x => x.PreparationAmountOverride.HasValue).WithMessage("O valor de preparação não pode ser negativo.");
+        RuleFor(x => x.AddOnsAmountOverride).GreaterThanOrEqualTo(0).When(x => x.AddOnsAmountOverride.HasValue).WithMessage("O valor de adicionais não pode ser negativo.");
+        RuleFor(x => x.MarginPercentageOverride).GreaterThanOrEqualTo(0).When(x => x.MarginPercentageOverride.HasValue).WithMessage("A margem não pode ser negativa.");
+        RuleFor(x => x.FinalPriceOverride).GreaterThanOrEqualTo(0).When(x => x.FinalPriceOverride.HasValue).WithMessage("O preço da pintura não pode ser negativo.");
+        RuleForEach(x => x.Preparations).ChildRules(item =>
+        {
+            item.RuleFor(selection => selection.ManualAmount).GreaterThanOrEqualTo(0).When(selection => selection.ManualAmount.HasValue).WithMessage("O valor não pode ser negativo.");
+            item.RuleFor(selection => selection.Hours).GreaterThanOrEqualTo(0).When(selection => selection.Hours.HasValue).WithMessage("A quantidade de horas não pode ser negativa.");
+        });
+        RuleForEach(x => x.AddOns).ChildRules(item =>
+        {
+            item.RuleFor(selection => selection.ManualAmount).GreaterThanOrEqualTo(0).When(selection => selection.ManualAmount.HasValue).WithMessage("O valor não pode ser negativo.");
+        });
     }
 }

@@ -12,6 +12,11 @@ import type {
   FinancialEntry,
   InventoryMovement,
   OutsourcedProduction,
+  PaintingHistoryEntry,
+  PaintingPricingCalculationRequest,
+  PaintingPricingOverview,
+  PaintingPricingResult,
+  PaintingSettings,
   Product,
   ProductMetadata,
   ProductPriceHistoryEntry,
@@ -637,3 +642,37 @@ export const outsourcedProductionsApi = {
   }
 };
 
+
+type PaintingResource = 'levels' | 'complexities' | 'size-ranges' | 'preparation-services' | 'materials' | 'add-ons';
+
+export const paintingPricingApi = {
+  getOverview: async () => {
+    const { data } = await api.get<PaintingPricingOverview>('/painting-pricing');
+    return data;
+  },
+  updateSettings: async (payload: Record<string, unknown>) => {
+    const { data } = await api.put<PaintingSettings>('/painting-pricing/settings', payload);
+    return data;
+  },
+  create: async (resource: PaintingResource, payload: Record<string, unknown>) => {
+    const { data } = await api.post(`/painting-pricing/${resource}`, payload);
+    return data;
+  },
+  update: async (resource: PaintingResource, id: string, payload: Record<string, unknown>) => {
+    const { data } = await api.put(`/painting-pricing/${resource}/${id}`, payload);
+    return data;
+  },
+  remove: async (resource: PaintingResource, id: string) => {
+    await api.delete(`/painting-pricing/${resource}/${id}`);
+  },
+  calculate: async (payload: PaintingPricingCalculationRequest) => {
+    const { data } = await api.post<PaintingPricingResult>('/painting-pricing/calculate', payload);
+    return data;
+  },
+  getHistory: async (take = 200) => {
+    const { data } = await api.get<PaintingHistoryEntry[]>('/painting-pricing/history', { params: { take } });
+    return data;
+  }
+};
+
+export type { PaintingResource };

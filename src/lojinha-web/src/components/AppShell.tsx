@@ -44,6 +44,7 @@ import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import RequestQuoteRoundedIcon from '@mui/icons-material/RequestQuoteRounded';
 import PrecisionManufacturingRoundedIcon from '@mui/icons-material/PrecisionManufacturingRounded';
+import BrushRoundedIcon from '@mui/icons-material/BrushRounded';
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -85,6 +86,12 @@ const navigationGroups = [
       { label: 'Impressoras', path: '/impressoras', icon: <PrintRoundedIcon /> },
       { label: 'Tam. de Botton', path: '/tamanhos-botton', icon: <RadioButtonCheckedRoundedIcon /> },
       { label: 'Insumos', path: '/insumos', icon: <WarehouseRoundedIcon /> }
+    ]
+  },
+  {
+    label: 'Precificação',
+    items: [
+      { label: 'Pintura', path: '/precificacao/pintura', icon: <BrushRoundedIcon /> }
     ]
   },
   {

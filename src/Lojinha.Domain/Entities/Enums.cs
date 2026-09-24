@@ -129,3 +129,43 @@ public enum OutsourcedProductionStatus
     ConvertidoEmProduto = 2,
     Cancelado = 3
 }
+public enum PaintingPriceRounding
+{
+    None = 1,
+    NearestInteger = 2,
+    EndsWith90 = 3,
+    EndsWith99 = 4,
+    MultipleOf5 = 5,
+    MultipleOf10 = 6
+}
+
+public enum PaintingPreparationChargeType
+{
+    FixedAmount = 1,
+    Hourly = 2,
+    Percentage = 3,
+    Manual = 4
+}
+
+public enum PaintingAddOnChargeType
+{
+    FixedAmount = 1,
+    Percentage = 2,
+    AdditionalHours = 3,
+    Manual = 4
+}
+
+public enum PaintingMaterialCategory
+{
+    Tinta = 1,
+    Primer = 2,
+    Verniz = 3,
+    Thinner = 4,
+    Limpeza = 5,
+    Massa = 6,
+    FitaMascaramento = 7,
+    Pincel = 8,
+    Aerografo = 9,
+    Consumivel = 10,
+    Outros = 11
+}
