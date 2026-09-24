@@ -1,4 +1,5 @@
 import { Alert, Box, Paper, Stack, Typography } from '@mui/material';
+import { memo } from 'react';
 import { PageSection } from '../../components/PageSection';
 import type { ProductPricing } from '../../services/types';
 import { formatCurrency, formatNumber } from '../paintingPricing/paintingPricingShared';
@@ -19,7 +20,7 @@ interface ProductCostSummarySectionProps {
 
 const partColors = ['#a54b62', '#d96b87', '#e1a657', '#4c9f93', '#8fd3c6', '#c9b3a6', '#b98f7a', '#6d5a9e'];
 
-export function ProductCostSummarySection({
+function ProductCostSummarySectionView({
   pricing,
   itemsPerPlate,
   commissionPercentage,
@@ -102,3 +103,5 @@ export function ProductCostSummarySection({
     </PageSection>
   );
 }
+
+export const ProductCostSummarySection = memo(ProductCostSummarySectionView);

@@ -2,7 +2,7 @@ import { Box, Button, Collapse, IconButton, Stack, Typography, useMediaQuery, us
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { PaintedBadge } from './ProductPaintingSection';
 
 interface ProductFormActionBarProps {
@@ -33,7 +33,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-export function ProductFormActionBar({
+function ProductFormActionBarView({
   title,
   dirty,
   unitCost,
@@ -65,8 +65,7 @@ export function ProductFormActionBar({
         mx: { xs: -1.5, md: -4 },
         mt: { xs: -1.5, md: -4 },
         px: { xs: 1, md: 4 },
-        bgcolor: 'rgba(255,252,249,0.96)',
-        backdropFilter: 'blur(14px)',
+        bgcolor: 'rgba(255,252,249,0.98)',
         borderBottom: '1px solid rgba(217,107,135,0.18)',
         boxShadow: '0 10px 30px rgba(217,107,135,0.12)'
       }}
@@ -140,3 +139,5 @@ export function ProductFormActionBar({
     </Box>
   );
 }
+
+export const ProductFormActionBar = memo(ProductFormActionBarView);

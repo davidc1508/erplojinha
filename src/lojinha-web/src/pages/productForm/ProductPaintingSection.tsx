@@ -19,6 +19,7 @@ import {
   ToggleButtonGroup,
   Typography
 } from '@mui/material';
+import { memo } from 'react';
 import BrushRoundedIcon from '@mui/icons-material/BrushRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
@@ -175,7 +176,7 @@ interface ProductPaintingSectionProps {
   disabled?: boolean;
 }
 
-export function ProductPaintingSection({
+function ProductPaintingSectionView({
   painting,
   onChange,
   overview,
@@ -635,3 +636,5 @@ export function PaintedBadge({ detail, size = 'medium' }: { detail?: string | nu
     </Stack>
   );
 }
+
+export const ProductPaintingSection = memo(ProductPaintingSectionView);

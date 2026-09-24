@@ -19,7 +19,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CurrencyField } from '../components/CurrencyField';
 import { SearchSelectField } from '../components/SearchSelectField';
@@ -405,7 +405,7 @@ export function ProductFormPage() {
     retry: false
   });
 
-  function updatePainting(patch: Partial<ProductPaintingRequest>, affectsCalculation = true) {
+  const updatePainting = useCallback((patch: Partial<ProductPaintingRequest>, affectsCalculation = true) => {
     setDirty(true);
     setPainting((current) => {
       const next = { ...current, ...patch, keepStoredSnapshot: affectsCalculation ? false : current.keepStoredSnapshot };
@@ -416,13 +416,15 @@ export function ProductFormPage() {
       }
       return next;
     });
-  }
+  }, [paintingOverview, productHeightCm]);
 
-  async function openRecalculation() {
+  const storedPaintingSnapshot = product?.painting?.snapshot;
+  const keepStoredPaintingSnapshot = painting.keepStoredSnapshot;
+  const openRecalculation = useCallback(async () => {
     setRecalculationOpen(true);
     setRecalculation(null);
     setRecalculationError(null);
-    if (!isEditing || !painting.keepStoredSnapshot || !product?.painting?.snapshot) {
+    if (!isEditing || !keepStoredPaintingSnapshot || !storedPaintingSnapshot) {
       return;
     }
 
@@ -436,7 +438,7 @@ export function ProductFormPage() {
     finally {
       setRecalculationLoading(false);
     }
-  }
+  }, [id, isEditing, keepStoredPaintingSnapshot, storedPaintingSnapshot]);
 
   function applyRecalculation() {
     setRecalculationOpen(false);
@@ -444,27 +446,43 @@ export function ProductFormPage() {
     updatePainting({}, true);
   }
 
-  const pricingPayload = useMemo(() => ({
-    ...form,
-    categoryId: form.categoryId || null,
-    supplierId: (isSupplier ? session?.supplierId : form.supplierId) || null,
-    printerProfileId: isPrint3D ? (form.printerProfileId || null) : null,
-    filaments: isPrint3D ? form.filaments.filter((f) => f.filamentProfileId) : [],
-    marketplaceFeeId: form.marketplaceFeeId || null,
-    pingenteSupplyId: isEarring ? (form.pingenteSupplyId || null) : null,
-    pingenteCost: isEarring ? Number(form.pingenteCost) : 0,
-    bottonSizeId: isBotton ? (form.bottonSizeId || null) : null,
-    bottonSizeQuantity: isBotton ? Number(form.bottonSizeQuantity) : 1,
-    costPrice: null,
-    commissionPercentage: Number(form.commissionPercentage),
-    salePrice: form.salePrice === '' ? null : Number(form.salePrice),
-    painting: debouncedPaintingPayload
-  }), [form, isSupplier, session?.supplierId, isPrint3D, isEarring, isBotton, debouncedPaintingPayload]);
+  const togglePaintingExpanded = useCallback(() => setPaintingExpanded((current) => !current), []);
+  const keepStoredPainting = useCallback(() => setPaintingBannerDismissed(true), []);
+  const paintingView = useMemo(
+    () => ({ ...painting, heightCm: painting.heightOverridden ? painting.heightCm : productHeightCm }),
+    [painting, productHeightCm]);
+  const suppliers = useMemo(() => metadata?.suppliers ?? [], [metadata?.suppliers]);
+  const debouncedForm = useDebouncedValue(form, 350);
+
+  const pricingPayload = useMemo(() => {
+    const source = debouncedForm;
+    const print3D = source.productType === 'Impressao3D';
+    const earring = source.productType === 'Brinco';
+    const botton = source.productType === 'Botton';
+    return {
+      ...source,
+      categoryId: source.categoryId || null,
+      supplierId: (isSupplier ? session?.supplierId : source.supplierId) || null,
+      printerProfileId: print3D ? (source.printerProfileId || null) : null,
+      filaments: print3D ? source.filaments.filter((f) => f.filamentProfileId) : [],
+      marketplaceFeeId: source.marketplaceFeeId || null,
+      pingenteSupplyId: earring ? (source.pingenteSupplyId || null) : null,
+      pingenteCost: earring ? Number(source.pingenteCost) : 0,
+      bottonSizeId: botton ? (source.bottonSizeId || null) : null,
+      bottonSizeQuantity: botton ? Number(source.bottonSizeQuantity) : 1,
+      costPrice: null,
+      commissionPercentage: Number(source.commissionPercentage),
+      salePrice: source.salePrice === '' ? null : Number(source.salePrice),
+      painting: debouncedPaintingPayload
+    };
+  }, [debouncedForm, isSupplier, session?.supplierId, debouncedPaintingPayload]);
 
   const { data: pricing } = useQuery({
     queryKey: ['product-pricing-preview', pricingPayload],
     queryFn: () => productsApi.previewPricing(pricingPayload),
-    enabled: Boolean((pricingPayload.categoryId ?? '').length > 0 && (!isEditing || product))
+    enabled: Boolean((pricingPayload.categoryId ?? '').length > 0 && (!isEditing || product)),
+    keepPreviousData: true,
+    staleTime: 30_000
   });
 
   const saveMutation = useMutation({
@@ -598,6 +616,13 @@ export function ProductFormPage() {
       }));
     }
 
+  const mutateSave = saveMutation.mutate;
+  const save = useCallback(() => mutateSave(), [mutateSave]);
+  const goBack = useCallback(() => navigate(backTarget, { state: { preserveState: true } }), [backTarget, navigate]);
+  const applySimulatedPrice = useCallback((price: number) => {
+    setDirty(true);
+    setForm((current) => ({ ...current, salePrice: String(price) }));
+  }, []);
   const pageTitle = isProjectDraftMode ? 'Pré-cadastro do produto do projeto' : isEditing ? (form.isBudget ? 'Editar orçamento' : 'Editar produto') : (isBudgetMode ? 'Novo orçamento' : 'Novo produto');
   const saveLabel = saveMutation.isLoading ? 'Salvando...' : isProjectDraftMode ? 'Concluir projeto e salvar produto' : isEditing ? 'Salvar alterações' : (isBudgetMode || form.isBudget ? 'Cadastrar orçamento' : 'Cadastrar produto');
   const saveDisabled = hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments || hasMissingPingente || hasMissingBottonSize;
@@ -633,8 +658,8 @@ export function ProductFormPage() {
         saveTitle={hasMissingPrinterWithFilaments ? 'Selecione uma impressora quando há filamentos' : undefined}
         showPainted={painting.enabled}
         paintedDetail={paintedDetail}
-        onBack={() => navigate(backTarget, { state: { preserveState: true } })}
-        onSave={() => saveMutation.mutate()}
+        onBack={goBack}
+        onSave={save}
       />
 
       {isProjectDraftMode ? <Typography color="text.secondary">Revise os dados consolidados do projeto antes de concluir e vincular o produto.</Typography> : null}
@@ -882,20 +907,20 @@ export function ProductFormPage() {
       </PageSection>
 
       <ProductPaintingSection
-        painting={{ ...painting, heightCm: painting.heightOverridden ? painting.heightCm : productHeightCm }}
+        painting={paintingView}
         onChange={updatePainting}
         overview={paintingOverview}
         productHeightCm={productHeightCm}
-        suppliers={metadata?.suppliers ?? []}
+        suppliers={suppliers}
         calculation={painting.enabled ? paintingCalculation : null}
         isCalculating={isPaintingCalculating}
         calculationError={painting.enabled && paintingError ? getErrorMessage(paintingError, 'Não foi possível calcular a pintura com os dados informados.') : null}
         expanded={paintingExpanded}
-        onToggleExpanded={() => setPaintingExpanded((current) => !current)}
+        onToggleExpanded={togglePaintingExpanded}
         showOutdatedBanner={showOutdatedBanner}
         showKeptNote={showKeptNote}
         storedAtLabel={storedAtLabel}
-        onKeepStored={() => setPaintingBannerDismissed(true)}
+        onKeepStored={keepStoredPainting}
         onOpenRecalculation={openRecalculation}
       />
 
@@ -952,7 +977,7 @@ export function ProductFormPage() {
         printMinutesPerPlate={Number(form.estimatedPrintTimeMinutes) || 0}
         bottonQuantityPerUnit={Number(form.bottonSizeQuantity || 1)}
         bottonStock={selectedBottonSize?.stockQuantity}
-        onApplyPrice={(price) => updateForm('salePrice', String(price))}
+        onApplyPrice={applySimulatedPrice}
       />
 
       {isEditing ? (

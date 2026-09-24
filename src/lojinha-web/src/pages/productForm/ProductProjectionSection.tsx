@@ -1,6 +1,6 @@
 import { Alert, Box, Button, Chip, Paper, Slider, Stack, TextField, Typography } from '@mui/material';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { PageSection } from '../../components/PageSection';
 import type { ProductPricing } from '../../services/types';
 import { formatCurrency, formatNumber } from '../paintingPricing/paintingPricingShared';
@@ -37,7 +37,7 @@ function clampQuantity(value: number) {
   return Math.min(maxQuantity, Math.max(1, Math.round(value) || 1));
 }
 
-export function ProductProjectionSection({
+function ProductProjectionSectionView({
   pricing,
   unitCost,
   salePrice,
@@ -195,3 +195,5 @@ export function ProductProjectionSection({
     </PageSection>
   );
 }
+
+export const ProductProjectionSection = memo(ProductProjectionSectionView);

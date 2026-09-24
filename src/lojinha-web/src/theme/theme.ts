@@ -57,11 +57,15 @@ export const appTheme = createTheme({
   components: {
     MuiPaper: {
       styleOverrides: {
-        root: {
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(217, 107, 135, 0.12)',
-          boxShadow: '0 18px 50px rgba(217, 107, 135, 0.12)'
-        }
+        root: ({ ownerState }) => ownerState.variant === 'outlined'
+          ? {
+            border: '1px solid rgba(217, 107, 135, 0.12)'
+          }
+          : {
+            backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(217, 107, 135, 0.12)',
+            boxShadow: '0 18px 50px rgba(217, 107, 135, 0.12)'
+          }
       }
     },
     MuiButton: {
