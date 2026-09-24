@@ -261,7 +261,7 @@ public sealed record ProductPaintingRequest
     public bool Enabled { get; init; }
     public PaintingPricingMode Mode { get; init; } = PaintingPricingMode.Automatic;
     public PaintingExecution Execution { get; init; } = PaintingExecution.Internal;
-    public PaintingPriceApplication Application { get; init; } = PaintingPriceApplication.IncorporateCost;
+    public PaintingPriceApplication Application { get; init; } = PaintingPriceApplication.IncorporatePrice;
     public decimal HeightCm { get; init; }
     public bool HeightOverridden { get; init; }
     public Guid? LevelId { get; init; }

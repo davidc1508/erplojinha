@@ -7,7 +7,7 @@ public sealed class ProductPainting : AuditableEntity
     public bool Enabled { get; set; }
     public PaintingPricingMode Mode { get; set; } = PaintingPricingMode.Automatic;
     public PaintingExecution Execution { get; set; } = PaintingExecution.Internal;
-    public PaintingPriceApplication Application { get; set; } = PaintingPriceApplication.IncorporateCost;
+    public PaintingPriceApplication Application { get; set; } = PaintingPriceApplication.IncorporatePrice;
     public decimal HeightCm { get; set; }
     public bool HeightOverridden { get; set; }
     public Guid? LevelId { get; set; }

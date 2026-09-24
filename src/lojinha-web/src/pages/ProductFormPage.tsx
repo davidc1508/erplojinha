@@ -69,7 +69,7 @@ const emptyPainting: ProductPaintingRequest = {
   enabled: false,
   mode: 'Automatic',
   execution: 'Internal',
-  application: 'IncorporateCost',
+  application: 'IncorporatePrice',
   heightCm: 0,
   heightOverridden: false,
   levelId: null,
@@ -609,10 +609,10 @@ export function ProductFormPage() {
   const storedAtLabel = product?.painting?.snapshot ? new Date(product.painting.snapshot.calculatedAtUtc).toLocaleDateString('pt-BR') : undefined;
   const showOutdatedBanner = painting.enabled && painting.keepStoredSnapshot && Boolean(product?.painting?.hasNewerParameters) && !paintingBannerDismissed;
   const showKeptNote = painting.enabled && painting.keepStoredSnapshot && Boolean(product?.painting?.hasNewerParameters) && paintingBannerDismissed;
-  const paintingApplicationNote = painting.enabled && (painting.application === 'IncorporatePrice' || painting.application === 'ReferenceOnly')
-    ? (painting.application === 'IncorporatePrice'
-      ? `Pintura somada ao preço sugerido: + ${formatCurrency(pricing?.paintingPrice ?? 0)} (fora do custo).`
-      : applicationNotes.ReferenceOnly)
+  const paintingApplicationNote = painting.enabled
+    ? (painting.application === 'ReferenceOnly'
+      ? applicationNotes.ReferenceOnly
+      : `Pintura somada ao preço sugerido: + ${formatCurrency(pricing?.paintingPrice ?? 0)} (não entra no custo nem no preço mínimo).`)
     : null;
   const materialLabel = `Material${isEarring ? ' (pingente)' : isBotton ? ' (tamanho de botton)' : ''}`;
 

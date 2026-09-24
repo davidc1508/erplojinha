@@ -679,14 +679,13 @@ public sealed class PaintingPricingService(
         bool fromStoredSnapshot,
         DateTime calculatedAtUtc)
     {
-        var incorporatedCost = application switch
+        var incorporatedPrice = application switch
         {
-            PaintingPriceApplication.IncorporateCost => costAmount,
+            PaintingPriceApplication.ReferenceOnly => 0m,
             PaintingPriceApplication.ManualAmount => Money(Math.Max(0m, manualIncorporatedAmount)),
-            _ => 0m
+            _ => priceUsed
         };
-        var incorporatedPrice = application == PaintingPriceApplication.IncorporatePrice ? priceUsed : 0m;
-        return new ProductPaintingCalculationDto(mode, execution, application, costAmount, suggestedPrice, priceUsed, incorporatedCost, incorporatedPrice, details, fromStoredSnapshot, calculatedAtUtc);
+        return new ProductPaintingCalculationDto(mode, execution, application, costAmount, suggestedPrice, priceUsed, 0m, incorporatedPrice, details, fromStoredSnapshot, calculatedAtUtc);
     }
 
     private async Task<PaintingBaseCharge?> ResolveBaseChargeAsync(PaintingBaseRequest? request, PaintingSettings settings, CancellationToken cancellationToken)

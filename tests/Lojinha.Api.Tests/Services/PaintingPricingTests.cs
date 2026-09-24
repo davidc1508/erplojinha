@@ -321,16 +321,16 @@ public sealed class PaintingPricingServiceTests
         Assert.Equal(35m, result.Details.PreparationAmount);
         Assert.Equal(0m, result.Details.AddOnsAmount);
         Assert.Equal(350m, result.CostAmount);
-        Assert.Equal(350m, result.IncorporatedCost);
-        Assert.Equal(0m, result.IncorporatedPrice);
+        Assert.Equal(0m, result.IncorporatedCost);
+        Assert.Equal(350m, result.IncorporatedPrice);
     }
 
     [Theory]
-    [InlineData(PaintingPriceApplication.IncorporateCost, 350, 0)]
+    [InlineData(PaintingPriceApplication.IncorporateCost, 0, 350)]
     [InlineData(PaintingPriceApplication.IncorporatePrice, 0, 350)]
     [InlineData(PaintingPriceApplication.ReferenceOnly, 0, 0)]
-    [InlineData(PaintingPriceApplication.ManualAmount, 120, 0)]
-    public async Task CalculateForProductAsync_ShouldApplyPaintingToProductPriceAsChosen(PaintingPriceApplication application, double expectedCost, double expectedPrice)
+    [InlineData(PaintingPriceApplication.ManualAmount, 0, 120)]
+    public async Task CalculateForProductAsync_ShouldAddPaintingToSalePriceNeverToProductCost(PaintingPriceApplication application, double expectedCost, double expectedPrice)
     {
         await using var dbContext = CreateSeededDbContext();
         var service = CreateService(dbContext);
@@ -368,7 +368,8 @@ public sealed class PaintingPricingServiceTests
         Assert.Null(result!.Details);
         Assert.Equal(300m, result.CostAmount);
         Assert.Equal(420m, result.PriceUsed);
-        Assert.Equal(300m, result.IncorporatedCost);
+        Assert.Equal(0m, result.IncorporatedCost);
+        Assert.Equal(420m, result.IncorporatedPrice);
     }
 
     [Fact]

@@ -54,10 +54,9 @@ const modeOptions: { value: PaintingPricingMode; label: string; description: str
 ];
 
 const applicationOptions: { value: PaintingPriceApplication; label: string; description: string }[] = [
-  { value: 'IncorporateCost', label: 'Incorporar ao custo', description: 'O custo da pintura entra no custo do produto e passa pelo markup geral.' },
-  { value: 'IncorporatePrice', label: 'Incorporar ao preço', description: 'O preço de venda da pintura é somado direto ao preço final.' },
-  { value: 'ReferenceOnly', label: 'Somente referência', description: 'Calcula e mostra, mas não altera custo nem preço do produto.' },
-  { value: 'ManualAmount', label: 'Valor manual', description: 'Você informa quanto da pintura entra no custo do produto.' }
+  { value: 'IncorporatePrice', label: 'Somar ao preço sugerido', description: 'O preço de venda da pintura é somado ao preço sugerido. Não entra no custo do produto.' },
+  { value: 'ReferenceOnly', label: 'Somente referência', description: 'Calcula e mostra, mas não altera o preço do produto.' },
+  { value: 'ManualAmount', label: 'Valor manual', description: 'Você informa quanto somar ao preço sugerido.' }
 ];
 
 const baseModeOptions: { value: PaintingBaseMode; label: string }[] = [
@@ -68,10 +67,10 @@ const baseModeOptions: { value: PaintingBaseMode; label: string }[] = [
 ];
 
 export const applicationNotes: Record<PaintingPriceApplication, string> = {
-  IncorporateCost: 'Custo da pintura somado ao custo do produto',
-  IncorporatePrice: 'Preço da pintura somado ao preço final',
+  IncorporateCost: 'Somado ao preço sugerido do produto',
+  IncorporatePrice: 'Somado ao preço sugerido do produto',
   ReferenceOnly: 'Só referência: não altera o produto',
-  ManualAmount: 'Valor manual incorporado ao custo'
+  ManualAmount: 'Valor manual somado ao preço sugerido'
 };
 
 function preparationRule(service: PaintingPreparationService) {
@@ -606,13 +605,13 @@ export function ProductPaintingSection({
 
               <div>
                 <Typography fontWeight={800} sx={{ mb: 1 }}>Aplicar pintura ao preço do produto</Typography>
-                <Box sx={{ display: 'grid', gap: 1.25, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}>
+                <Box sx={{ display: 'grid', gap: 1.25, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(3, minmax(0, 1fr))' } }}>
                   {applicationOptions.map((option) => (
-                    <OptionCard key={option.value} selected={painting.application === option.value} label={option.label} description={option.description} onClick={() => !disabled && onChange({ application: option.value }, false)} />
+                    <OptionCard key={option.value} selected={painting.application === option.value || (option.value === 'IncorporatePrice' && painting.application === 'IncorporateCost')} label={option.label} description={option.description} onClick={() => !disabled && onChange({ application: option.value }, false)} />
                   ))}
                 </Box>
                 {painting.application === 'ManualAmount' ? (
-                  <CurrencyField label="Valor incorporado ao custo" value={painting.manualIncorporatedAmount} onValueChange={(value) => onChange({ manualIncorporatedAmount: value }, false)} sx={{ mt: 2, maxWidth: 320 }} disabled={disabled} fullWidth />
+                  <CurrencyField label="Valor somado ao preço sugerido" value={painting.manualIncorporatedAmount} onValueChange={(value) => onChange({ manualIncorporatedAmount: value }, false)} sx={{ mt: 2, maxWidth: 320 }} disabled={disabled} fullWidth />
                 ) : null}
               </div>
 
