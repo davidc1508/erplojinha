@@ -655,3 +655,5 @@ Fonte: testes de servico presentes no repositorio.
   - `ProductPaintingSection`, `ProductCostSummarySection`, `ProductProjectionSection` e `ProductFormActionBar` exportados com `React.memo` (padrão `function XView` + `export const X = memo(XView)`); props estabilizadas no `ProductFormPage` (`useCallback` para handlers, `useMemo` para `paintingView` e `suppliers`). Digitar nos cards 1/2/4 não re-renderiza mais pintura/resumo/projeção.
   - Tema: `MuiPaper` só aplica `backdropFilter: blur(16px)` e sombra em Papers não-outlined (cartões internos `variant="outlined"` ficam sem blur); barra fixa do produto sem blur. Blur empilhado era o principal custo na rolagem.
   - Deploy Oracle tag `20260924-product-form-perf-v1`. HTTP 200. Limpeza concluída.
+
+- U-20260924-05 Projeção: o thumb do Slider da barra custo/lucro ficava fora da divisa porque o Slider usava `min=10/max=95` enquanto o segmento de custo usa `width: costShare%` (escala 0–100). Slider agora é 0–100 e o limite 10–95% é aplicado no `onChange`. Deploy tag `20260924-projection-thumb-v1`, HTTP 200, limpeza concluída.
