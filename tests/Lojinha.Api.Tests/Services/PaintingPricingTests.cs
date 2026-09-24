@@ -301,6 +301,163 @@ public sealed class PaintingPricingServiceTests
         Assert.Equal("5,5 h", change.After);
     }
 
+    [Fact]
+    public async Task CalculateForProductAsync_ShouldReturnAcceptanceScenarioFromCentralService()
+    {
+        await using var dbContext = CreateSeededDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.CalculateForProductAsync(ProductRequest(dbContext));
+
+        Assert.NotNull(result);
+        Assert.Equal(20m, result!.Details!.HeightCm);
+        Assert.Equal("16 a 20 cm", result.Details.SizeRange?.Name);
+        Assert.Equal(5m, result.Details.BaseHours);
+        Assert.Equal(1.25m, result.Details.ComplexityMultiplier);
+        Assert.Equal(6.25m, result.Details.TotalHours);
+        Assert.Equal(45m, result.Details.HourlyRate);
+        Assert.Equal(281.25m, result.Details.LaborAmount);
+        Assert.Equal(33.75m, result.Details.MaterialsAmount);
+        Assert.Equal(35m, result.Details.PreparationAmount);
+        Assert.Equal(0m, result.Details.AddOnsAmount);
+        Assert.Equal(350m, result.CostAmount);
+        Assert.Equal(350m, result.IncorporatedCost);
+        Assert.Equal(0m, result.IncorporatedPrice);
+    }
+
+    [Theory]
+    [InlineData(PaintingPriceApplication.IncorporateCost, 350, 0)]
+    [InlineData(PaintingPriceApplication.IncorporatePrice, 0, 350)]
+    [InlineData(PaintingPriceApplication.ReferenceOnly, 0, 0)]
+    [InlineData(PaintingPriceApplication.ManualAmount, 120, 0)]
+    public async Task CalculateForProductAsync_ShouldApplyPaintingToProductPriceAsChosen(PaintingPriceApplication application, double expectedCost, double expectedPrice)
+    {
+        await using var dbContext = CreateSeededDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.CalculateForProductAsync(ProductRequest(dbContext) with { Application = application, ManualIncorporatedAmount = 120m });
+
+        Assert.Equal((decimal)expectedCost, result!.IncorporatedCost);
+        Assert.Equal((decimal)expectedPrice, result.IncorporatedPrice);
+    }
+
+    [Fact]
+    public async Task CalculateForProductAsync_ShouldIgnoreOverridesInAutomaticModeAndHonorThemInSemiAutomatic()
+    {
+        await using var dbContext = CreateSeededDbContext();
+        var service = CreateService(dbContext);
+        var request = ProductRequest(dbContext) with { HoursOverride = 7m, HourlyRateOverride = 50m };
+
+        var automatic = await service.CalculateForProductAsync(request);
+        var semiAutomatic = await service.CalculateForProductAsync(request with { Mode = PaintingPricingMode.SemiAutomatic });
+
+        Assert.Equal(350m, automatic!.CostAmount);
+        Assert.Equal(7m, semiAutomatic!.Details!.TotalHours);
+        Assert.Equal(50m, semiAutomatic.Details.HourlyRate);
+        Assert.Equal(350m + 42m + 35m, semiAutomatic.CostAmount);
+    }
+
+    [Fact]
+    public async Task CalculateForProductAsync_ShouldUseInformedValuesInManualMode()
+    {
+        await using var dbContext = CreateSeededDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.CalculateForProductAsync(new ProductPaintingRequest { Enabled = true, Mode = PaintingPricingMode.Manual, ManualCost = 300m, ManualPrice = 420m });
+
+        Assert.Null(result!.Details);
+        Assert.Equal(300m, result.CostAmount);
+        Assert.Equal(420m, result.PriceUsed);
+        Assert.Equal(300m, result.IncorporatedCost);
+    }
+
+    [Fact]
+    public async Task CalculateForProductAsync_ShouldPriceOutsourcedPaintingFromChargedCosts()
+    {
+        await using var dbContext = CreateSeededDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.CalculateForProductAsync(ProductRequest(dbContext) with
+        {
+            Execution = PaintingExecution.Outsourced,
+            OutsourcedChargedAmount = 200m,
+            OutsourcedFreightAmount = 20m,
+            OutsourcedOtherCosts = 10m,
+            OutsourcedIncorporatedPrice = 320m
+        });
+
+        Assert.True(result!.Details!.IsOutsourced);
+        Assert.Equal(0m, result.Details.LaborAmount);
+        Assert.Equal(230m, result.CostAmount);
+        Assert.Equal(320m, result.PriceUsed);
+    }
+
+    [Fact]
+    public async Task CalculateForProductAsync_ShouldAddBaseExtraPreparationAndFreeAddOn()
+    {
+        await using var dbContext = CreateSeededDbContext();
+        var service = CreateService(dbContext);
+        var basica = dbContext.PaintingLevels.Single(x => x.Name == "Básica / Comercial");
+
+        var result = await service.CalculateForProductAsync(ProductRequest(dbContext) with
+        {
+            BaseNeedsPainting = true,
+            BaseMode = PaintingBaseMode.OtherLevel,
+            BaseLevelId = basica.Id,
+            BaseHours = 2m,
+            ExtraPreparationDescription = "Remover resina",
+            ExtraPreparationAmount = 15m,
+            FreeAddOnDescription = "Gema",
+            FreeAddOnQuantity = 2m,
+            FreeAddOnUnitAmount = 5m
+        });
+
+        Assert.Equal(70m, result!.Details!.BaseAmount);
+        Assert.Equal(50m, result.Details.PreparationAmount);
+        Assert.Equal(10m, result.Details.AddOnsAmount);
+        Assert.Equal(281.25m + 33.75m + 50m + 10m + 70m, result.CostAmount);
+    }
+
+    [Fact]
+    public async Task ProductPainting_ShouldKeepStoredSnapshotUntilExplicitRecalculation()
+    {
+        await using var dbContext = CreateSeededDbContext();
+        var service = CreateService(dbContext);
+        var productId = Guid.NewGuid();
+        var request = ProductRequest(dbContext);
+        var calculation = await service.CalculateForProductAsync(request);
+        var stored = new ProductPainting { ProductId = productId };
+        ProductPaintingMapper.Apply(stored, request, calculation);
+        dbContext.ProductPaintings.Add(stored);
+        await dbContext.SaveChangesAsync();
+
+        var level = dbContext.PaintingLevels.Single(x => x.Name == "Colecionável");
+        await service.UpdateLevelAsync(level.Id, new PaintingLevelRequest(level.Name, level.Description, 55m, level.Order, true), "teste");
+
+        var kept = await service.CalculateForProductAsync(request with { KeepStoredSnapshot = true, SourceProductId = productId });
+        var hasNewer = await service.HasNewerParametersAsync(stored);
+        var recalculation = await service.RecalculateForProductAsync(productId);
+
+        Assert.True(kept!.FromStoredSnapshot);
+        Assert.Equal(350m, kept.CostAmount);
+        Assert.Equal(350m, stored.CostAmount);
+        Assert.True(hasNewer);
+        Assert.True(recalculation!.HasDifferences);
+        Assert.Equal(350m, recalculation.Stored!.CostAmount);
+        Assert.Equal(343.75m + 41.25m + 35m, recalculation.Recalculated.CostAmount);
+        Assert.Equal(70m, recalculation.CostDifference);
+    }
+
+    private static ProductPaintingRequest ProductRequest(AppDbContext dbContext)
+        => new()
+        {
+            Enabled = true,
+            HeightCm = 20m,
+            LevelId = dbContext.PaintingLevels.Single(x => x.Name == "Colecionável").Id,
+            ComplexityId = dbContext.PaintingComplexities.Single(x => x.Name == "Normal").Id,
+            Preparations = [new PaintingItemSelectionRequest(dbContext.PaintingPreparationServices.Single(x => x.Name == "Remoção de marcas de suporte e lixamento").Id, null, null)]
+        };
+
     private static PaintingPricingCalculationRequest Request(decimal heightCm, Guid levelId, Guid complexityId)
         => new(heightCm, levelId, complexityId, [], [], null, null, null, null, null, null, null, null);
 
@@ -314,7 +471,8 @@ public sealed class PaintingPricingServiceTests
             new Repository<PaintingPreparationService>(dbContext),
             new Repository<PaintingMaterial>(dbContext),
             new Repository<PaintingAddOn>(dbContext),
-            new Repository<AuditLog>(dbContext));
+            new Repository<AuditLog>(dbContext),
+            new Repository<ProductPainting>(dbContext));
 
     private static AppDbContext CreateSeededDbContext()
     {

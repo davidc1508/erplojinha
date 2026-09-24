@@ -157,7 +157,29 @@ public sealed record PaintingPricingCalculationRequest(
     decimal? PreparationAmountOverride,
     decimal? AddOnsAmountOverride,
     decimal? MarginPercentageOverride,
-    decimal? FinalPriceOverride);
+    decimal? FinalPriceOverride,
+    PaintingBaseRequest? Base = null,
+    PaintingOutsourcedRequest? Outsourced = null,
+    PaintingExtraChargeRequest? ExtraPreparation = null,
+    PaintingExtraChargeRequest? FreeAddOn = null);
+
+public sealed record PaintingBaseRequest(
+    PaintingBaseMode Mode,
+    Guid? LevelId,
+    decimal Hours,
+    decimal ManualAmount,
+    Guid? AddOnId);
+
+public sealed record PaintingOutsourcedRequest(
+    decimal ChargedAmount,
+    decimal FreightAmount,
+    decimal OtherCosts,
+    decimal? IncorporatedPrice);
+
+public sealed record PaintingExtraChargeRequest(
+    string? Description,
+    decimal Quantity,
+    decimal UnitAmount);
 
 public sealed record PaintingReferenceDto(
     Guid Id,
@@ -202,6 +224,9 @@ public sealed record PaintingPricingResultDto(
     IReadOnlyList<PaintingChargeLineDto> AddOns,
     decimal AddOnsAmount,
     bool AddOnsOverridden,
+    decimal BaseAmount,
+    bool IsOutsourced,
+    decimal OutsourcedAmount,
     decimal CostAmount,
     decimal MarginPercentage,
     decimal MarginAmount,
@@ -213,7 +238,8 @@ public sealed record PaintingPricingResultDto(
     decimal FinalPrice,
     bool FinalPriceOverridden,
     IReadOnlyList<string> Warnings,
-    DateTime CalculatedAtUtc);
+    DateTime CalculatedAtUtc,
+    decimal MaterialsByPercentageAmount = 0m);
 
 public sealed record PaintingHistoryChangeDto(
     string Field,
@@ -229,3 +255,77 @@ public sealed record PaintingHistoryEntryDto(
     string ChangedBy,
     DateTime ChangedAtUtc,
     IReadOnlyList<PaintingHistoryChangeDto> Changes);
+
+public sealed record ProductPaintingRequest
+{
+    public bool Enabled { get; init; }
+    public PaintingPricingMode Mode { get; init; } = PaintingPricingMode.Automatic;
+    public PaintingExecution Execution { get; init; } = PaintingExecution.Internal;
+    public PaintingPriceApplication Application { get; init; } = PaintingPriceApplication.IncorporateCost;
+    public decimal HeightCm { get; init; }
+    public bool HeightOverridden { get; init; }
+    public Guid? LevelId { get; init; }
+    public Guid? ComplexityId { get; init; }
+    public int CharacterCount { get; init; } = 1;
+    public decimal? HoursOverride { get; init; }
+    public decimal? HourlyRateOverride { get; init; }
+    public decimal? MaterialsAmountOverride { get; init; }
+    public decimal? PreparationAmountOverride { get; init; }
+    public decimal? AddOnsAmountOverride { get; init; }
+    public decimal? MarginPercentageOverride { get; init; }
+    public decimal? FinalPriceOverride { get; init; }
+    public IReadOnlyList<PaintingItemSelectionRequest> Preparations { get; init; } = [];
+    public IReadOnlyList<PaintingItemSelectionRequest> AddOns { get; init; } = [];
+    public string? ExtraPreparationDescription { get; init; }
+    public decimal ExtraPreparationAmount { get; init; }
+    public string? FreeAddOnDescription { get; init; }
+    public decimal FreeAddOnQuantity { get; init; } = 1m;
+    public decimal FreeAddOnUnitAmount { get; init; }
+    public bool BaseNeedsPainting { get; init; }
+    public PaintingBaseMode BaseMode { get; init; } = PaintingBaseMode.SameLevel;
+    public Guid? BaseLevelId { get; init; }
+    public decimal BaseHours { get; init; }
+    public decimal BaseManualAmount { get; init; }
+    public Guid? BaseAddOnId { get; init; }
+    public Guid? OutsourcedSupplierId { get; init; }
+    public decimal OutsourcedChargedAmount { get; init; }
+    public decimal OutsourcedFreightAmount { get; init; }
+    public decimal OutsourcedOtherCosts { get; init; }
+    public decimal? OutsourcedIncorporatedPrice { get; init; }
+    public decimal ManualCost { get; init; }
+    public decimal ManualPrice { get; init; }
+    public decimal ManualIncorporatedAmount { get; init; }
+    public string? Notes { get; init; }
+    public string? ColorReferences { get; init; }
+    public bool NeedsReview { get; init; }
+    public bool KeepStoredSnapshot { get; init; }
+    public Guid? SourceProductId { get; init; }
+}
+
+public sealed record ProductPaintingCalculationDto(
+    PaintingPricingMode Mode,
+    PaintingExecution Execution,
+    PaintingPriceApplication Application,
+    decimal CostAmount,
+    decimal SuggestedPrice,
+    decimal PriceUsed,
+    decimal IncorporatedCost,
+    decimal IncorporatedPrice,
+    PaintingPricingResultDto? Details,
+    bool FromStoredSnapshot,
+    DateTime CalculatedAtUtc);
+
+public sealed record ProductPaintingDto(
+    ProductPaintingRequest Configuration,
+    ProductPaintingCalculationDto? Snapshot,
+    string? LevelName,
+    string? ComplexityName,
+    decimal TotalHours,
+    bool HasNewerParameters);
+
+public sealed record ProductPaintingRecalculationDto(
+    ProductPaintingCalculationDto? Stored,
+    ProductPaintingCalculationDto Recalculated,
+    decimal CostDifference,
+    decimal PriceDifference,
+    bool HasDifferences);

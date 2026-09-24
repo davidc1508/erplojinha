@@ -23,18 +23,20 @@ public sealed record PricingSnapshot(
     decimal FinalPriceWithoutCommission,
     decimal FinalPriceWithCommission,
     decimal MarketplaceAdjustedPrice,
-    decimal EstimatedMargin);
+    decimal EstimatedMargin,
+    decimal PaintingCost = 0m,
+    decimal PaintingPrice = 0m);
 
 public interface IPricingService
 {
-    PricingSnapshot Calculate(Product product, ProductRecipe? recipe, PrinterProfile? printer, IReadOnlyList<(FilamentProfile filament, decimal weightGrams)> filaments, MarketplaceFee? marketplace, decimal? materialCostOverride = null);
+    PricingSnapshot Calculate(Product product, ProductRecipe? recipe, PrinterProfile? printer, IReadOnlyList<(FilamentProfile filament, decimal weightGrams)> filaments, MarketplaceFee? marketplace, decimal? materialCostOverride = null, decimal paintingCost = 0m, decimal paintingPrice = 0m);
 }
 
 public sealed class PricingService : IPricingService
 {
     private const decimal DepreciationDivisor = 2058.333333m;
 
-    public PricingSnapshot Calculate(Product product, ProductRecipe? recipe, PrinterProfile? printer, IReadOnlyList<(FilamentProfile filament, decimal weightGrams)> filaments, MarketplaceFee? marketplace, decimal? materialCostOverride = null)
+    public PricingSnapshot Calculate(Product product, ProductRecipe? recipe, PrinterProfile? printer, IReadOnlyList<(FilamentProfile filament, decimal weightGrams)> filaments, MarketplaceFee? marketplace, decimal? materialCostOverride = null, decimal paintingCost = 0m, decimal paintingPrice = 0m)
     {
         var recipeSupplyCost = recipe?.Items.Sum(item => item.Quantity * (item.Supply?.CostPerUnit ?? 0m)) ?? 0m;
 
@@ -67,12 +69,14 @@ public sealed class PricingService : IPricingService
         var plateCompositionCost = materialCost + maintenanceCost + failureCost + finishingCost + returnInvestmentCost + depreciationCost + laborCost + additionalCosts;
         var plateTotalCost = plateCompositionCost + energyCost;
         var itemsPerPlate = Math.Max(1, product.ItemsPerPlate);
-        var compositionCost = plateCompositionCost / itemsPerPlate;
-        var totalCost = plateTotalCost / itemsPerPlate;
-        var wholesalePrice = RoundPrice(totalCost * (recipe?.WholesaleMarkup ?? 2m));
-        var retailPrice = RoundPrice(totalCost * (recipe?.RetailMarkup ?? 2.7m));
+        var incorporatedPaintingCost = Math.Max(0m, paintingCost);
+        var incorporatedPaintingPrice = Math.Max(0m, paintingPrice);
+        var compositionCost = plateCompositionCost / itemsPerPlate + incorporatedPaintingCost;
+        var totalCost = plateTotalCost / itemsPerPlate + incorporatedPaintingCost;
+        var wholesalePrice = RoundPrice(totalCost * (recipe?.WholesaleMarkup ?? 2m) + incorporatedPaintingPrice);
+        var retailPrice = RoundPrice(totalCost * (recipe?.RetailMarkup ?? 2.7m) + incorporatedPaintingPrice);
         var desiredMarkup = recipe?.ResellerMarkup ?? 2.7m;
-        var resellerPrice = RoundPrice(totalCost * desiredMarkup);
+        var resellerPrice = RoundPrice(totalCost * desiredMarkup + incorporatedPaintingPrice);
         var commissionRate = product.CommissionPercentage <= 0m ? 0m : product.CommissionPercentage / 100m;
         var finalPriceWithoutCommission = product.SalePrice > 0m ? product.SalePrice : resellerPrice;
         var suggestedPriceWithCommission = CalculateGrossFromNet(resellerPrice, commissionRate);
@@ -105,7 +109,9 @@ public sealed class PricingService : IPricingService
             decimal.Round(finalPriceWithoutCommission, 2),
             finalPriceWithCommission,
             decimal.Round(marketplaceAdjustedPrice, 2),
-            decimal.Round(estimatedMargin, 4));
+            decimal.Round(estimatedMargin, 4),
+            decimal.Round(incorporatedPaintingCost, 2),
+            decimal.Round(incorporatedPaintingPrice, 2));
     }
 
     private static decimal RoundPrice(decimal value)

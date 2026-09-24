@@ -69,6 +69,9 @@ public sealed class ProductRequestValidator : AbstractValidator<ProductRequest>
             .GreaterThan(0)
             .When(x => x.ProductType == ProductType.Botton)
             .WithMessage("Informe a quantidade do tamanho de botton consumida por unidade.");
+        RuleFor(x => x.Painting!)
+            .SetValidator(new ProductPaintingRequestValidator())
+            .When(x => x.Painting is not null);
     }
 }
 
@@ -365,6 +368,40 @@ public sealed class PaintingAddOnRequestValidator : AbstractValidator<PaintingAd
         RuleFor(x => x.Value).GreaterThanOrEqualTo(0).WithMessage("O valor não pode ser negativo.");
         RuleFor(x => x.Percentage).GreaterThanOrEqualTo(0).WithMessage("O percentual não pode ser negativo.");
         RuleFor(x => x.AdditionalHours).GreaterThanOrEqualTo(0).WithMessage("A quantidade de horas não pode ser negativa.");
+    }
+}
+
+public sealed class ProductPaintingRequestValidator : AbstractValidator<ProductPaintingRequest>
+{
+    public ProductPaintingRequestValidator()
+    {
+        RuleFor(x => x.HeightCm).GreaterThanOrEqualTo(0).WithMessage("A altura da pintura não pode ser negativa.");
+        RuleFor(x => x.CharacterCount).GreaterThanOrEqualTo(1).WithMessage("Informe ao menos 1 personagem ou elemento principal.");
+        RuleFor(x => x.Mode).IsInEnum();
+        RuleFor(x => x.Execution).IsInEnum();
+        RuleFor(x => x.Application).IsInEnum();
+        RuleFor(x => x.BaseMode).IsInEnum();
+        RuleFor(x => x.HoursOverride).GreaterThanOrEqualTo(0).When(x => x.HoursOverride.HasValue).WithMessage("A quantidade de horas não pode ser negativa.");
+        RuleFor(x => x.HourlyRateOverride).GreaterThanOrEqualTo(0).When(x => x.HourlyRateOverride.HasValue).WithMessage("O valor-hora não pode ser negativo.");
+        RuleFor(x => x.MaterialsAmountOverride).GreaterThanOrEqualTo(0).When(x => x.MaterialsAmountOverride.HasValue).WithMessage("O valor de materiais não pode ser negativo.");
+        RuleFor(x => x.PreparationAmountOverride).GreaterThanOrEqualTo(0).When(x => x.PreparationAmountOverride.HasValue).WithMessage("O valor de preparação não pode ser negativo.");
+        RuleFor(x => x.AddOnsAmountOverride).GreaterThanOrEqualTo(0).When(x => x.AddOnsAmountOverride.HasValue).WithMessage("O valor de adicionais não pode ser negativo.");
+        RuleFor(x => x.MarginPercentageOverride).GreaterThanOrEqualTo(0).When(x => x.MarginPercentageOverride.HasValue).WithMessage("A margem não pode ser negativa.");
+        RuleFor(x => x.FinalPriceOverride).GreaterThanOrEqualTo(0).When(x => x.FinalPriceOverride.HasValue).WithMessage("O preço da pintura não pode ser negativo.");
+        RuleFor(x => x.ExtraPreparationAmount).GreaterThanOrEqualTo(0).WithMessage("A preparação adicional não pode ser negativa.");
+        RuleFor(x => x.FreeAddOnQuantity).GreaterThanOrEqualTo(0).WithMessage("A quantidade do adicional livre não pode ser negativa.");
+        RuleFor(x => x.FreeAddOnUnitAmount).GreaterThanOrEqualTo(0).WithMessage("O valor do adicional livre não pode ser negativo.");
+        RuleFor(x => x.BaseHours).GreaterThanOrEqualTo(0).WithMessage("As horas da base não podem ser negativas.");
+        RuleFor(x => x.BaseManualAmount).GreaterThanOrEqualTo(0).WithMessage("O valor da base não pode ser negativo.");
+        RuleFor(x => x.OutsourcedChargedAmount).GreaterThanOrEqualTo(0).WithMessage("O custo cobrado não pode ser negativo.");
+        RuleFor(x => x.OutsourcedFreightAmount).GreaterThanOrEqualTo(0).WithMessage("O frete não pode ser negativo.");
+        RuleFor(x => x.OutsourcedOtherCosts).GreaterThanOrEqualTo(0).WithMessage("Outros custos não podem ser negativos.");
+        RuleFor(x => x.OutsourcedIncorporatedPrice).GreaterThanOrEqualTo(0).When(x => x.OutsourcedIncorporatedPrice.HasValue).WithMessage("O preço incorporado não pode ser negativo.");
+        RuleFor(x => x.ManualCost).GreaterThanOrEqualTo(0).WithMessage("O custo da pintura não pode ser negativo.");
+        RuleFor(x => x.ManualPrice).GreaterThanOrEqualTo(0).WithMessage("O preço da pintura não pode ser negativo.");
+        RuleFor(x => x.ManualIncorporatedAmount).GreaterThanOrEqualTo(0).WithMessage("O valor incorporado não pode ser negativo.");
+        RuleFor(x => x.Notes).MaximumLength(2000);
+        RuleFor(x => x.ColorReferences).MaximumLength(2000);
     }
 }
 

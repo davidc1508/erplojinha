@@ -27,6 +27,17 @@ public sealed record PaintingAddOnCharge(
     decimal AdditionalHours,
     decimal? ManualAmount);
 
+public sealed record PaintingBaseCharge(
+    decimal Hours,
+    decimal? HourlyRate,
+    decimal? Amount);
+
+public sealed record PaintingOutsourcedCharge(
+    decimal ChargedAmount,
+    decimal FreightAmount,
+    decimal OtherCosts,
+    decimal? IncorporatedPrice);
+
 public sealed record PaintingCalculationInput(
     decimal DefaultHourlyRate,
     decimal DefaultMaterialsPercentage,
@@ -46,7 +57,9 @@ public sealed record PaintingCalculationInput(
     decimal? PreparationAmountOverride = null,
     decimal? AddOnsAmountOverride = null,
     decimal? MarginPercentageOverride = null,
-    decimal? FinalPriceOverride = null);
+    decimal? FinalPriceOverride = null,
+    PaintingBaseCharge? Base = null,
+    PaintingOutsourcedCharge? Outsourced = null);
 
 public sealed record PaintingChargeLine(
     Guid Id,
@@ -75,6 +88,9 @@ public sealed record PaintingCalculationResult(
     IReadOnlyList<PaintingChargeLine> AddOns,
     decimal AddOnsAmount,
     bool AddOnsOverridden,
+    decimal BaseAmount,
+    bool IsOutsourced,
+    decimal OutsourcedAmount,
     decimal CostAmount,
     decimal MarginPercentage,
     decimal MarginAmount,
@@ -84,12 +100,18 @@ public sealed record PaintingCalculationResult(
     PaintingPriceRounding Rounding,
     decimal SuggestedPrice,
     decimal FinalPrice,
-    bool FinalPriceOverridden);
+    bool FinalPriceOverridden,
+    decimal MaterialsByPercentageAmount = 0m);
 
 public static class PaintingPriceCalculator
 {
     public static PaintingCalculationResult Calculate(PaintingCalculationInput input)
     {
+        if (input.Outsourced is not null)
+        {
+            return CalculateOutsourced(input, input.Outsourced);
+        }
+
         var estimatedHours = RoundHours(Math.Max(0m, input.BaseHours) * Math.Max(0m, input.ComplexityMultiplier));
         var addOnHours = RoundHours(input.AddOns
             .Where(addOn => addOn.ChargeType == PaintingAddOnChargeType.AdditionalHours)
@@ -125,18 +147,12 @@ public static class PaintingPriceCalculator
             ? Money(Math.Max(0m, input.AddOnsAmountOverride!.Value))
             : Money(addOns.Sum(line => line.Amount));
 
-        var costAmount = Money(laborAmount + materialsAmount + preparationAmount + addOnsAmount);
-        var marginPercentage = Math.Max(0m, input.MarginPercentageOverride ?? input.DefaultMarginPercentage);
-        var marginAmount = marginPercentage > 0m ? Money(costAmount * marginPercentage / 100m) : 0m;
-        var calculatedAmount = Money(costAmount + marginAmount);
+        var baseAmount = input.Base is null
+            ? 0m
+            : Money(Math.Max(0m, input.Base.Amount ?? Math.Max(0m, input.Base.Hours) * (input.Base.HourlyRate ?? hourlyRate)));
 
-        var minimumPaintingPrice = Math.Max(0m, input.MinimumPaintingPrice);
-        var minimumPriceApplied = calculatedAmount < minimumPaintingPrice;
-        var priceBeforeRounding = minimumPriceApplied ? minimumPaintingPrice : calculatedAmount;
-        var suggestedPrice = ApplyRounding(priceBeforeRounding, input.Rounding);
-
-        var finalPriceOverridden = input.FinalPriceOverride.HasValue;
-        var finalPrice = finalPriceOverridden ? Money(Math.Max(0m, input.FinalPriceOverride!.Value)) : suggestedPrice;
+        var costAmount = Money(laborAmount + materialsAmount + preparationAmount + addOnsAmount + baseAmount);
+        var pricing = PriceFromCost(input, costAmount, null);
 
         return new PaintingCalculationResult(
             input.BaseHours,
@@ -158,17 +174,84 @@ public static class PaintingPriceCalculator
             addOns,
             addOnsAmount,
             addOnsOverridden,
+            baseAmount,
+            false,
+            0m,
             costAmount,
-            marginPercentage,
-            marginAmount,
-            calculatedAmount,
-            minimumPaintingPrice,
-            minimumPriceApplied,
+            pricing.MarginPercentage,
+            pricing.MarginAmount,
+            pricing.CalculatedAmount,
+            pricing.MinimumPaintingPrice,
+            pricing.MinimumPriceApplied,
             input.Rounding,
-            suggestedPrice,
-            finalPrice,
-            finalPriceOverridden);
+            pricing.SuggestedPrice,
+            pricing.FinalPrice,
+            pricing.FinalPriceOverridden,
+            materialsByPercentage);
     }
+
+    private static PaintingCalculationResult CalculateOutsourced(PaintingCalculationInput input, PaintingOutsourcedCharge outsourced)
+    {
+        var outsourcedAmount = Money(Math.Max(0m, outsourced.ChargedAmount) + Math.Max(0m, outsourced.FreightAmount) + Math.Max(0m, outsourced.OtherCosts));
+        var pricing = PriceFromCost(input, outsourcedAmount, outsourced.IncorporatedPrice);
+
+        return new PaintingCalculationResult(
+            0m,
+            0m,
+            0m,
+            false,
+            0m,
+            0m,
+            0m,
+            PaintingHourlyRateSource.Default,
+            0m,
+            0m,
+            0m,
+            false,
+            false,
+            [],
+            0m,
+            false,
+            [],
+            0m,
+            false,
+            0m,
+            true,
+            outsourcedAmount,
+            outsourcedAmount,
+            pricing.MarginPercentage,
+            pricing.MarginAmount,
+            pricing.CalculatedAmount,
+            pricing.MinimumPaintingPrice,
+            pricing.MinimumPriceApplied,
+            input.Rounding,
+            pricing.SuggestedPrice,
+            pricing.FinalPrice,
+            pricing.FinalPriceOverridden);
+    }
+
+    private static PaintingPriceFromCost PriceFromCost(PaintingCalculationInput input, decimal costAmount, decimal? incorporatedPrice)
+    {
+        var marginPercentage = Math.Max(0m, input.MarginPercentageOverride ?? input.DefaultMarginPercentage);
+        var marginAmount = marginPercentage > 0m ? Money(costAmount * marginPercentage / 100m) : 0m;
+        var calculatedAmount = Money(costAmount + marginAmount);
+        var minimumPaintingPrice = Math.Max(0m, input.MinimumPaintingPrice);
+        var minimumPriceApplied = calculatedAmount < minimumPaintingPrice;
+        var suggestedPrice = ApplyRounding(minimumPriceApplied ? minimumPaintingPrice : calculatedAmount, input.Rounding);
+        var chosenPrice = input.FinalPriceOverride ?? incorporatedPrice;
+        var finalPrice = chosenPrice.HasValue ? Money(Math.Max(0m, chosenPrice.Value)) : suggestedPrice;
+        return new PaintingPriceFromCost(marginPercentage, marginAmount, calculatedAmount, minimumPaintingPrice, minimumPriceApplied, suggestedPrice, finalPrice, chosenPrice.HasValue);
+    }
+
+    private sealed record PaintingPriceFromCost(
+        decimal MarginPercentage,
+        decimal MarginAmount,
+        decimal CalculatedAmount,
+        decimal MinimumPaintingPrice,
+        bool MinimumPriceApplied,
+        decimal SuggestedPrice,
+        decimal FinalPrice,
+        bool FinalPriceOverridden);
 
     public static decimal ApplyRounding(decimal value, PaintingPriceRounding rounding)
     {

@@ -1,3 +1,4 @@
+using Lojinha.Api.Contracts.PaintingPricing;
 using Lojinha.Api.Entities;
 
 namespace Lojinha.Api.Contracts.Products;
@@ -34,7 +35,8 @@ public sealed record ProductRequest(
     decimal PingenteCost = 0m,
     Guid? BottonSizeId = null,
     decimal BottonSizeQuantity = 1m,
-    decimal LaborCost = 0.5m);
+    decimal LaborCost = 0.5m,
+    ProductPaintingRequest? Painting = null);
 
 public sealed record ProductDto(
     Guid Id,
@@ -81,7 +83,8 @@ public sealed record ProductDto(
     decimal BottonSizeQuantity = 1m,
     decimal BottonSizeStockQuantity = 0m,
     decimal BottonSizeCostPerUnit = 0m,
-    decimal LaborCost = 0.5m);
+    decimal LaborCost = 0.5m,
+    ProductPaintingDto? Painting = null);
 
 public sealed record ProductPriceHistoryEntryDto(
     DateTime ChangedAtUtc,
@@ -125,4 +128,6 @@ public sealed record PriceSuggestionDto(
     decimal FinalPriceWithoutCommission,
     decimal FinalPriceWithCommission,
     decimal MarketplaceAdjustedPrice,
-    decimal EstimatedMargin);
+    decimal EstimatedMargin,
+    decimal PaintingCost = 0m,
+    decimal PaintingPrice = 0m);

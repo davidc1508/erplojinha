@@ -1,3 +1,4 @@
+using Lojinha.Api.Contracts.PaintingPricing;
 using System.Text.Json;
 using Lojinha.Api.Caching;
 using Lojinha.Api.Contracts.Products;
@@ -38,7 +39,9 @@ public sealed class ProductService(
     IRepository<AuditLog> auditRepository,
     IRepository<ProductFilament> productFilamentRepository,
     IPricingService pricingService,
-    IOperationalListService operationalListService) : IProductService
+    IOperationalListService operationalListService,
+    IPaintingPricingService paintingPricingService,
+    IRepository<ProductPainting> productPaintingRepository) : IProductService
     {
     public async Task<IReadOnlyList<ProductDto>> GetAllAsync(Guid? scopedSupplierId = null, bool includeAllForSupplier = false, bool? isBudget = null, CancellationToken cancellationToken = default)
         => await cache.GetOrCreateAsync(
@@ -66,7 +69,19 @@ public sealed class ProductService(
     public async Task<ProductDto?> GetByIdAsync(Guid id, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
         var product = await productRepository.GetDetailedByIdAsync(id, cancellationToken);
-        return product is null || !IsProductVisible(product, scopedSupplierId) ? null : Map(product);
+        if (product is null || !IsProductVisible(product, scopedSupplierId))
+        {
+            return null;
+        }
+
+        var dto = Map(product);
+        if (product.Painting is null)
+        {
+            return dto;
+        }
+
+        var hasNewerParameters = await paintingPricingService.HasNewerParametersAsync(product.Painting, cancellationToken);
+        return dto with { Painting = ProductPaintingMapper.ToDto(product.Painting, hasNewerParameters) };
     }
 
     public async Task<ProductDto> CreateAsync(ProductRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
@@ -116,10 +131,18 @@ public sealed class ProductService(
             ResellerMarkup = request.DesiredMarkup
         };
 
-        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, materialCostOverride, cancellationToken);
+        var paintingRequest = request.Painting is null ? null : request.Painting with { KeepStoredSnapshot = false, SourceProductId = null };
+        var painting = await paintingPricingService.CalculateForProductAsync(paintingRequest, cancellationToken);
+        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, materialCostOverride, cancellationToken, painting?.IncorporatedCost ?? 0m, painting?.IncorporatedPrice ?? 0m);
 
         await productRepository.AddAsync(product, cancellationToken);
         await recipeRepository.AddAsync(recipe, cancellationToken);
+        if (paintingRequest is { Enabled: true })
+        {
+            var productPainting = new ProductPainting { ProductId = product.Id };
+            ProductPaintingMapper.Apply(productPainting, paintingRequest, painting);
+            await productPaintingRepository.AddAsync(productPainting, cancellationToken);
+        }
         if (product.CurrentStock > 0)
         {
             await inventoryRepository.AddAsync(new InventoryMovement
@@ -234,7 +257,29 @@ public sealed class ProductService(
         recipe.LaborHours = 1m;
         recipe.LaborCostPerHour = Math.Max(0m, request.LaborCost);
 
-        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, materialCostOverride, cancellationToken);
+        var existingPainting = productPaintingRepository.Query().FirstOrDefault(x => x.ProductId == product.Id);
+        var paintingRequest = request.Painting is null ? null : request.Painting with { SourceProductId = product.Id };
+        var painting = paintingRequest is null
+            ? null
+            : await paintingPricingService.CalculateForProductAsync(paintingRequest, cancellationToken);
+        var incorporatedPaintingCost = paintingRequest is null ? StoredPaintingCost(existingPainting) : painting?.IncorporatedCost ?? 0m;
+        var incorporatedPaintingPrice = paintingRequest is null ? StoredPaintingPrice(existingPainting) : painting?.IncorporatedPrice ?? 0m;
+        await ApplyPricingAsync(product, recipe, request.SalePrice, request.Filaments, materialCostOverride, cancellationToken, incorporatedPaintingCost, incorporatedPaintingPrice);
+
+        if (paintingRequest is not null)
+        {
+            if (existingPainting is null && paintingRequest.Enabled)
+            {
+                existingPainting = new ProductPainting { ProductId = product.Id };
+                ProductPaintingMapper.Apply(existingPainting, paintingRequest, painting);
+                await productPaintingRepository.AddAsync(existingPainting, cancellationToken);
+            }
+            else if (existingPainting is not null)
+            {
+                ProductPaintingMapper.Apply(existingPainting, paintingRequest, painting);
+                productPaintingRepository.Update(existingPainting);
+            }
+        }
 
         productRepository.Update(product);
         if (recipe.Id == Guid.Empty)
@@ -341,7 +386,9 @@ public sealed class ProductService(
                     .Select(f => (f.FilamentProfile!, f.WeightGrams))
                     .ToList(),
             product.DefaultMarketplaceFee,
-            ResolveMaterialCostOverrideFromProduct(product)));
+            ResolveMaterialCostOverrideFromProduct(product),
+            StoredPaintingCost(product.Painting),
+            StoredPaintingPrice(product.Painting)));
     }
 
     public async Task<IReadOnlyList<ProductPriceHistoryEntryDto>> GetPriceHistoryAsync(Guid id, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
@@ -420,7 +467,16 @@ public sealed class ProductService(
             ResellerMarkup = request.DesiredMarkup
         };
 
-        return Map(await BuildPricingAsync(product, recipe, request.Filaments, materialCostOverride, cancellationToken));
+        ProductPaintingCalculationDto? painting = null;
+        try
+        {
+            painting = await paintingPricingService.CalculateForProductAsync(request.Painting, cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        return Map(await BuildPricingAsync(product, recipe, request.Filaments, materialCostOverride, cancellationToken, painting?.IncorporatedCost ?? 0m, painting?.IncorporatedPrice ?? 0m));
     }
 
     public async Task<ProductMetadataDto> GetMetadataAsync(Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
@@ -454,7 +510,7 @@ public sealed class ProductService(
                 ResellerMarkup = 2.7m
             };
 
-            var pricing = await BuildPricingAsync(product, recipe, null, ResolveMaterialCostOverrideFromProduct(product), cancellationToken);
+            var pricing = await BuildPricingAsync(product, recipe, null, ResolveMaterialCostOverrideFromProduct(product), cancellationToken, StoredPaintingCost(product.Painting), StoredPaintingPrice(product.Painting));
             product.CostPrice = pricing.TotalCost;
             product.SuggestedPrice = pricing.SuggestedPrice;
             product.ProfitMargin = product.SalePrice <= 0m
@@ -471,7 +527,7 @@ public sealed class ProductService(
         return products.Count;
     }
 
-    private async Task ApplyPricingAsync(Product product, ProductRecipe recipe, decimal? manualSale, IReadOnlyList<FilamentItemRequest>? requestFilaments, decimal? materialCostOverride, CancellationToken cancellationToken)
+    private async Task ApplyPricingAsync(Product product, ProductRecipe recipe, decimal? manualSale, IReadOnlyList<FilamentItemRequest>? requestFilaments, decimal? materialCostOverride, CancellationToken cancellationToken, decimal paintingCost = 0m, decimal paintingPrice = 0m)
     {
         // Pricing in ProductForm must be based on the same inputs shown in preview.
         // Ignore recipe supply items here so material cost comes from selected filaments.
@@ -485,7 +541,7 @@ public sealed class ProductService(
             ResellerMarkup = recipe.ResellerMarkup
         };
 
-        var pricing = await BuildPricingAsync(product, pricingRecipe, requestFilaments, materialCostOverride, cancellationToken);
+        var pricing = await BuildPricingAsync(product, pricingRecipe, requestFilaments, materialCostOverride, cancellationToken, paintingCost, paintingPrice);
         product.CostPrice = pricing.TotalCost;
         product.SuggestedPrice = pricing.SuggestedPrice;
         var minimumSalePrice = decimal.Round(product.CostPrice * 2m, 2);
@@ -501,7 +557,7 @@ public sealed class ProductService(
         recipe.TotalCost = pricing.CompositionCost;
     }
 
-    private async Task<PricingSnapshot> BuildPricingAsync(Product product, ProductRecipe recipe, IReadOnlyList<FilamentItemRequest>? requestFilaments, decimal? materialCostOverride, CancellationToken cancellationToken)
+    private async Task<PricingSnapshot> BuildPricingAsync(Product product, ProductRecipe recipe, IReadOnlyList<FilamentItemRequest>? requestFilaments, decimal? materialCostOverride, CancellationToken cancellationToken, decimal paintingCost = 0m, decimal paintingPrice = 0m)
     {
         var printer = product.PrinterProfileId.HasValue
             ? await printerRepository.GetByIdAsync(product.PrinterProfileId.Value, cancellationToken)
@@ -513,7 +569,7 @@ public sealed class ProductService(
         var filaments = materialCostOverride.HasValue
             ? Array.Empty<(FilamentProfile filament, decimal weightGrams)>()
             : await ResolveFilamentsForPricingAsync(product, requestFilaments, cancellationToken);
-        return pricingService.Calculate(product, recipe, printer, filaments, marketplace, materialCostOverride);
+        return pricingService.Calculate(product, recipe, printer, filaments, marketplace, materialCostOverride, paintingCost, paintingPrice);
     }
 
     private async Task<IReadOnlyList<(FilamentProfile filament, decimal weightGrams)>> ResolveFilamentsForPricingAsync(
@@ -737,7 +793,14 @@ public sealed class ProductService(
             product.BottonSizeQuantity,
             product.BottonSize?.StockQuantity ?? 0m,
             product.BottonSize?.CostPerUnit ?? 0m,
-            product.Recipe is null ? 0.5m : decimal.Round(product.Recipe.LaborHours * product.Recipe.LaborCostPerHour, 2));
+            product.Recipe is null ? 0.5m : decimal.Round(product.Recipe.LaborHours * product.Recipe.LaborCostPerHour, 2),
+            product.Painting is null ? null : ProductPaintingMapper.ToDto(product.Painting, false));
+
+    private static decimal StoredPaintingCost(ProductPainting? painting)
+        => painting is { Enabled: true } ? painting.IncorporatedCost : 0m;
+
+    private static decimal StoredPaintingPrice(ProductPainting? painting)
+        => painting is { Enabled: true } ? painting.IncorporatedPrice : 0m;
 
     private static PriceSuggestionDto Map(PricingSnapshot pricing)
         => new(
@@ -761,7 +824,9 @@ public sealed class ProductService(
             pricing.FinalPriceWithoutCommission,
             pricing.FinalPriceWithCommission,
             pricing.MarketplaceAdjustedPrice,
-            pricing.EstimatedMargin);
+            pricing.EstimatedMargin,
+            pricing.PaintingCost,
+            pricing.PaintingPrice);
 
     private static ProductPriceHistoryEntryDto MapPriceHistory(AuditLog log)
     {

@@ -169,3 +169,32 @@ public enum PaintingMaterialCategory
     Consumivel = 10,
     Outros = 11
 }
+
+public enum PaintingPricingMode
+{
+    Automatic = 1,
+    SemiAutomatic = 2,
+    Manual = 3
+}
+
+public enum PaintingExecution
+{
+    Internal = 1,
+    Outsourced = 2
+}
+
+public enum PaintingPriceApplication
+{
+    IncorporateCost = 1,
+    IncorporatePrice = 2,
+    ReferenceOnly = 3,
+    ManualAmount = 4
+}
+
+public enum PaintingBaseMode
+{
+    SameLevel = 1,
+    OtherLevel = 2,
+    ManualAmount = 3,
+    AddOn = 4
+}

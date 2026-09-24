@@ -26,6 +26,7 @@ import { inventoryApi, productsApi, salesApi } from '../services/api';
 import { formatUtcDate } from '../services/date';
 import { formatCurrency, paymentMethodLabel } from '../services/labels';
 import { useAuth } from '../hooks/useAuth';
+import { PaintedBadge } from './productForm/ProductPaintingSection';
 
 const productTypeLabel: Record<string, string> = {
   Impressao3D: 'Impressão 3D',
@@ -166,6 +167,9 @@ export function ProductDetailsPage() {
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <Typography variant="h3">{product.name}</Typography>
             <Chip label={productTypeLabel[product.productType] ?? product.productType} size="small" sx={{ fontWeight: 700 }} />
+            {product.painting?.configuration.enabled ? (
+              <PaintedBadge detail={product.painting.levelName ? `${product.painting.levelName} • ${product.painting.complexityName ?? ''} • ${product.painting.totalHours.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}h` : null} />
+            ) : null}
           </Stack>
           <Typography color="text.secondary">SKU {product.sku} • {product.category} • {product.supplier ?? 'Lojinha Sem Nome'}</Typography>
         </div>

@@ -31,6 +31,9 @@ public interface IPaintingPricingService
     Task<bool> DeleteAddOnAsync(Guid id, string actor, CancellationToken cancellationToken = default);
     Task<PaintingPricingResultDto> CalculateAsync(PaintingPricingCalculationRequest request, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PaintingHistoryEntryDto>> GetHistoryAsync(int take, CancellationToken cancellationToken = default);
+    Task<ProductPaintingCalculationDto?> CalculateForProductAsync(ProductPaintingRequest? request, CancellationToken cancellationToken = default);
+    Task<ProductPaintingRecalculationDto?> RecalculateForProductAsync(Guid productId, CancellationToken cancellationToken = default);
+    Task<bool> HasNewerParametersAsync(ProductPainting painting, CancellationToken cancellationToken = default);
 }
 
 public sealed class PaintingPricingService(
@@ -42,7 +45,8 @@ public sealed class PaintingPricingService(
     IRepository<PaintingPreparationService> preparationRepository,
     IRepository<PaintingMaterial> materialRepository,
     IRepository<PaintingAddOn> addOnRepository,
-    IRepository<AuditLog> auditRepository) : IPaintingPricingService
+    IRepository<AuditLog> auditRepository,
+    IRepository<ProductPainting> productPaintingRepository) : IPaintingPricingService
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -422,7 +426,7 @@ public sealed class PaintingPricingService(
             .OrderBy(x => x.MinHeightCm)
             .FirstOrDefault(x => x.Covers(request.HeightCm));
 
-        if (sizeRange is null && !request.HoursOverride.HasValue)
+        if (sizeRange is null && !request.HoursOverride.HasValue && request.Outsourced is null)
         {
             throw new InvalidOperationException("Nenhuma faixa de tamanho ativa cobre a altura informada. Cadastre a faixa ou informe as horas manualmente.");
         }
@@ -443,14 +447,35 @@ public sealed class PaintingPricingService(
             "serviço de preparação",
             (item, selection) => new PaintingPreparationCharge(item.Id, item.Name, item.ChargeType, item.Value, item.EstimatedHours, selection.ManualAmount, selection.Hours));
 
+        var addOnSelections = (request.AddOns ?? []).ToList();
+        if (request.Base?.Mode == PaintingBaseMode.AddOn && request.Base.AddOnId.HasValue && addOnSelections.All(selection => selection.Id != request.Base.AddOnId.Value))
+        {
+            addOnSelections.Add(new PaintingItemSelectionRequest(request.Base.AddOnId.Value, null, null));
+        }
+
         var addOns = ResolveSelections(
-            request.AddOns,
+            addOnSelections,
             addOnRepository.Query().ToList(),
             item => item.Id,
             item => item.IsActive,
             item => item.Name,
             "adicional",
             (item, selection) => new PaintingAddOnCharge(item.Id, item.Name, item.ChargeType, item.Value, item.Percentage, item.AdditionalHours, selection.ManualAmount));
+
+        if (request.ExtraPreparation is { UnitAmount: > 0m } extraPreparation)
+        {
+            preparations.Add(new PaintingPreparationCharge(Guid.Empty, ExtraName(extraPreparation, "Preparação adicional"), PaintingPreparationChargeType.Manual, 0m, 0m, ExtraAmount(extraPreparation), null));
+        }
+
+        if (request.FreeAddOn is { UnitAmount: > 0m } freeAddOn)
+        {
+            addOns.Add(new PaintingAddOnCharge(Guid.Empty, ExtraName(freeAddOn, "Adicional livre"), PaintingAddOnChargeType.Manual, 0m, 0m, 0m, ExtraAmount(freeAddOn)));
+        }
+
+        var baseCharge = await ResolveBaseChargeAsync(request.Base, settings, cancellationToken);
+        var outsourcedCharge = request.Outsourced is null
+            ? null
+            : new PaintingOutsourcedCharge(request.Outsourced.ChargedAmount, request.Outsourced.FreightAmount, request.Outsourced.OtherCosts, request.Outsourced.IncorporatedPrice);
 
         var result = PaintingPriceCalculator.Calculate(new PaintingCalculationInput(
             settings.DefaultHourlyRate,
@@ -471,7 +496,9 @@ public sealed class PaintingPricingService(
             request.PreparationAmountOverride,
             request.AddOnsAmountOverride,
             request.MarginPercentageOverride,
-            request.FinalPriceOverride));
+            request.FinalPriceOverride,
+            baseCharge,
+            outsourcedCharge));
 
         var warnings = new List<string>();
         if (sizeRange?.RequiresManualReview == true)
@@ -514,6 +541,9 @@ public sealed class PaintingPricingService(
             result.AddOns.Select(MapLine).ToList(),
             result.AddOnsAmount,
             result.AddOnsOverridden,
+            result.BaseAmount,
+            result.IsOutsourced,
+            result.OutsourcedAmount,
             result.CostAmount,
             result.MarginPercentage,
             result.MarginAmount,
@@ -525,7 +555,8 @@ public sealed class PaintingPricingService(
             result.FinalPrice,
             result.FinalPriceOverridden,
             warnings,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            result.MaterialsByPercentageAmount);
     }
 
     public Task<IReadOnlyList<PaintingHistoryEntryDto>> GetHistoryAsync(int take, CancellationToken cancellationToken = default)
@@ -539,6 +570,164 @@ public sealed class PaintingPricingService(
 
         return Task.FromResult<IReadOnlyList<PaintingHistoryEntryDto>>(logs.Select(MapHistory).ToList());
     }
+
+    public async Task<ProductPaintingCalculationDto?> CalculateForProductAsync(ProductPaintingRequest? request, CancellationToken cancellationToken = default)
+    {
+        if (request is null || !request.Enabled)
+        {
+            return null;
+        }
+
+        if (request.KeepStoredSnapshot && request.SourceProductId.HasValue)
+        {
+            var stored = productPaintingRepository.Query().FirstOrDefault(x => x.ProductId == request.SourceProductId.Value);
+            if (stored is { Enabled: true, CalculatedAtUtc: not null })
+            {
+                var snapshot = ProductPaintingMapper.ReadSnapshot(stored);
+                return BuildProductCalculation(stored.Mode, stored.Execution, request.Application, stored.CostAmount, stored.SuggestedPrice, stored.PriceUsed, request.ManualIncorporatedAmount, snapshot?.Details, true, stored.CalculatedAtUtc.Value);
+            }
+        }
+
+        if (request.Mode == PaintingPricingMode.Manual)
+        {
+            return BuildProductCalculation(request.Mode, request.Execution, request.Application, Money(Math.Max(0m, request.ManualCost)), Money(Math.Max(0m, request.ManualPrice)), Money(Math.Max(0m, request.ManualPrice)), request.ManualIncorporatedAmount, null, false, DateTime.UtcNow);
+        }
+
+        if (request.HeightCm <= 0m)
+        {
+            throw new InvalidOperationException("Informe a altura usada no cálculo da pintura.");
+        }
+
+        if (!request.LevelId.HasValue || !request.ComplexityId.HasValue)
+        {
+            throw new InvalidOperationException("Selecione o nível de pintura e a complexidade.");
+        }
+
+        var semi = request.Mode == PaintingPricingMode.SemiAutomatic;
+        var outsourced = request.Execution == PaintingExecution.Outsourced;
+        var details = await CalculateAsync(new PaintingPricingCalculationRequest(
+            request.HeightCm,
+            request.LevelId.Value,
+            request.ComplexityId.Value,
+            outsourced ? [] : request.Preparations,
+            outsourced ? [] : request.AddOns,
+            semi ? request.HoursOverride : null,
+            semi ? request.HourlyRateOverride : null,
+            null,
+            semi ? request.MaterialsAmountOverride : null,
+            semi ? request.PreparationAmountOverride : null,
+            semi ? request.AddOnsAmountOverride : null,
+            semi ? request.MarginPercentageOverride : null,
+            semi ? request.FinalPriceOverride : null,
+            !outsourced && request.BaseNeedsPainting ? new PaintingBaseRequest(request.BaseMode, request.BaseLevelId, request.BaseHours, request.BaseManualAmount, request.BaseAddOnId) : null,
+            outsourced ? new PaintingOutsourcedRequest(request.OutsourcedChargedAmount, request.OutsourcedFreightAmount, request.OutsourcedOtherCosts, request.OutsourcedIncorporatedPrice) : null,
+            outsourced ? null : new PaintingExtraChargeRequest(request.ExtraPreparationDescription, 1m, request.ExtraPreparationAmount),
+            outsourced ? null : new PaintingExtraChargeRequest(request.FreeAddOnDescription, request.FreeAddOnQuantity, request.FreeAddOnUnitAmount)), cancellationToken);
+
+        return BuildProductCalculation(request.Mode, request.Execution, request.Application, details.CostAmount, details.SuggestedPrice, details.FinalPrice, request.ManualIncorporatedAmount, details, false, details.CalculatedAtUtc);
+    }
+
+    public async Task<ProductPaintingRecalculationDto?> RecalculateForProductAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var stored = productPaintingRepository.Query().FirstOrDefault(x => x.ProductId == productId);
+        if (stored is null || !stored.Enabled)
+        {
+            return null;
+        }
+
+        var recalculated = await CalculateForProductAsync(ProductPaintingMapper.ToRequest(stored) with { KeepStoredSnapshot = false }, cancellationToken);
+        if (recalculated is null)
+        {
+            return null;
+        }
+
+        var storedCalculation = ProductPaintingMapper.ReadSnapshot(stored);
+        var costDifference = Money(recalculated.CostAmount - stored.CostAmount);
+        var priceDifference = Money(recalculated.PriceUsed - stored.PriceUsed);
+        var hasDifferences = costDifference != 0m || priceDifference != 0m || recalculated.SuggestedPrice != stored.SuggestedPrice;
+        return new ProductPaintingRecalculationDto(storedCalculation, recalculated, costDifference, priceDifference, hasDifferences);
+    }
+
+    public async Task<bool> HasNewerParametersAsync(ProductPainting painting, CancellationToken cancellationToken = default)
+    {
+        if (!painting.Enabled || painting.Mode == PaintingPricingMode.Manual || !painting.CalculatedAtUtc.HasValue)
+        {
+            return false;
+        }
+
+        try
+        {
+            var recalculated = await CalculateForProductAsync(ProductPaintingMapper.ToRequest(painting) with { KeepStoredSnapshot = false }, cancellationToken);
+            return recalculated is not null
+                && (recalculated.CostAmount != painting.CostAmount || recalculated.SuggestedPrice != painting.SuggestedPrice || recalculated.PriceUsed != painting.PriceUsed);
+        }
+        catch (InvalidOperationException)
+        {
+            return true;
+        }
+    }
+
+    private static ProductPaintingCalculationDto BuildProductCalculation(
+        PaintingPricingMode mode,
+        PaintingExecution execution,
+        PaintingPriceApplication application,
+        decimal costAmount,
+        decimal suggestedPrice,
+        decimal priceUsed,
+        decimal manualIncorporatedAmount,
+        PaintingPricingResultDto? details,
+        bool fromStoredSnapshot,
+        DateTime calculatedAtUtc)
+    {
+        var incorporatedCost = application switch
+        {
+            PaintingPriceApplication.IncorporateCost => costAmount,
+            PaintingPriceApplication.ManualAmount => Money(Math.Max(0m, manualIncorporatedAmount)),
+            _ => 0m
+        };
+        var incorporatedPrice = application == PaintingPriceApplication.IncorporatePrice ? priceUsed : 0m;
+        return new ProductPaintingCalculationDto(mode, execution, application, costAmount, suggestedPrice, priceUsed, incorporatedCost, incorporatedPrice, details, fromStoredSnapshot, calculatedAtUtc);
+    }
+
+    private async Task<PaintingBaseCharge?> ResolveBaseChargeAsync(PaintingBaseRequest? request, PaintingSettings settings, CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return null;
+        }
+
+        switch (request.Mode)
+        {
+            case PaintingBaseMode.SameLevel:
+                return new PaintingBaseCharge(request.Hours, null, null);
+            case PaintingBaseMode.OtherLevel:
+                var level = request.LevelId.HasValue ? await levelRepository.GetByIdAsync(request.LevelId.Value, cancellationToken) : null;
+                if (level is null)
+                {
+                    throw new InvalidOperationException("Selecione o nível de pintura da base.");
+                }
+
+                if (!level.IsActive)
+                {
+                    throw new InvalidOperationException($"O nível de pintura '{level.Name}' está inativo e não pode ser usado na base.");
+                }
+
+                return new PaintingBaseCharge(request.Hours, level.HourlyRate ?? settings.DefaultHourlyRate, null);
+            case PaintingBaseMode.ManualAmount:
+                return new PaintingBaseCharge(0m, null, request.ManualAmount);
+            default:
+                return null;
+        }
+    }
+
+    private static string ExtraName(PaintingExtraChargeRequest charge, string fallback)
+    {
+        var name = string.IsNullOrWhiteSpace(charge.Description) ? fallback : charge.Description.Trim();
+        return charge.Quantity > 1m ? $"{name} × {charge.Quantity.ToString("0.##", PtBr)}" : name;
+    }
+
+    private static decimal ExtraAmount(PaintingExtraChargeRequest charge)
+        => Money(Math.Max(1m, charge.Quantity) * charge.UnitAmount);
 
     private async Task<PaintingSettings> GetOrCreateSettingsAsync(CancellationToken cancellationToken)
     {

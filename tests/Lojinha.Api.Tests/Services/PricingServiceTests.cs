@@ -84,4 +84,23 @@ public sealed class PricingServiceTests
         Assert.Equal(3m, result.TotalCost);
         Assert.Equal(9m, result.SuggestedPrice);
     }
+
+    [Fact]
+    public void Calculate_ShouldIncludePaintingAsNewCostComposition()
+    {
+        var service = new PricingService();
+        var product = new Product { ItemsPerPlate = 1 };
+        var recipe = new ProductRecipe { AdditionalCosts = 100m, ResellerMarkup = 2m, WholesaleMarkup = 2m, RetailMarkup = 2m };
+
+        var withoutPainting = service.Calculate(product, recipe, null, [], null);
+        var paintingInCost = service.Calculate(product, recipe, null, [], null, null, 350m, 0m);
+        var paintingInPrice = service.Calculate(product, recipe, null, [], null, null, 0m, 409.90m);
+
+        Assert.Equal(100m, withoutPainting.TotalCost);
+        Assert.Equal(450m, paintingInCost.TotalCost);
+        Assert.Equal(350m, paintingInCost.PaintingCost);
+        Assert.Equal(900m, paintingInCost.SuggestedPrice);
+        Assert.Equal(100m, paintingInPrice.TotalCost);
+        Assert.Equal(609.90m, paintingInPrice.SuggestedPrice);
+    }
 }

@@ -17,6 +17,9 @@ import type {
   PaintingPricingOverview,
   PaintingPricingResult,
   PaintingSettings,
+  ProductPaintingCalculation,
+  ProductPaintingRecalculation,
+  ProductPaintingRequest,
   Product,
   ProductMetadata,
   ProductPriceHistoryEntry,
@@ -220,6 +223,10 @@ export const productsApi = {
   },
   getPricing: async (id: string) => {
     const { data } = await api.get<ProductPricing>(`/products/${id}/pricing`);
+    return data;
+  },
+  recalculatePainting: async (id: string) => {
+    const { data } = await api.get<ProductPaintingRecalculation>(`/products/${id}/painting/recalculation`);
     return data;
   },
   getPriceHistory: async (id: string) => {
@@ -664,6 +671,10 @@ export const paintingPricingApi = {
   },
   remove: async (resource: PaintingResource, id: string) => {
     await api.delete(`/painting-pricing/${resource}/${id}`);
+  },
+  previewProduct: async (payload: ProductPaintingRequest) => {
+    const { data } = await api.post<ProductPaintingCalculation | null>('/painting-pricing/product-preview', payload);
+    return data;
   },
   calculate: async (payload: PaintingPricingCalculationRequest) => {
     const { data } = await api.post<PaintingPricingResult>('/painting-pricing/calculate', payload);

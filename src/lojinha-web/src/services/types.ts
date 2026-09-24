@@ -119,6 +119,7 @@ export interface Product {
   bottonSizeStockQuantity: number;
   bottonSizeCostPerUnit: number;
   laborCost: number;
+  painting?: ProductPainting | null;
 }
 
 export interface OutsourcedProductionFilamentItem {
@@ -201,6 +202,8 @@ export interface ProductPricing {
   finalPriceWithCommission: number;
   marketplaceAdjustedPrice: number;
   estimatedMargin: number;
+  paintingCost: number;
+  paintingPrice: number;
 }
 
 export interface ProductPriceHistoryEntry {
@@ -701,6 +704,9 @@ export interface PaintingPricingResult {
   addOns: PaintingChargeLine[];
   addOnsAmount: number;
   addOnsOverridden: boolean;
+  baseAmount: number;
+  isOutsourced: boolean;
+  outsourcedAmount: number;
   costAmount: number;
   marginPercentage: number;
   marginAmount: number;
@@ -713,6 +719,7 @@ export interface PaintingPricingResult {
   finalPriceOverridden: boolean;
   warnings: string[];
   calculatedAtUtc: string;
+  materialsByPercentageAmount: number;
 }
 
 export interface PaintingHistoryEntry {
@@ -724,4 +731,85 @@ export interface PaintingHistoryEntry {
   changedBy: string;
   changedAtUtc: string;
   changes: { field: string; before?: string | null; after?: string | null }[];
+}
+
+export type PaintingPricingMode = 'Automatic' | 'SemiAutomatic' | 'Manual';
+export type PaintingExecution = 'Internal' | 'Outsourced';
+export type PaintingPriceApplication = 'IncorporateCost' | 'IncorporatePrice' | 'ReferenceOnly' | 'ManualAmount';
+export type PaintingBaseMode = 'SameLevel' | 'OtherLevel' | 'ManualAmount' | 'AddOn';
+
+export interface ProductPaintingRequest {
+  enabled: boolean;
+  mode: PaintingPricingMode;
+  execution: PaintingExecution;
+  application: PaintingPriceApplication;
+  heightCm: number;
+  heightOverridden: boolean;
+  levelId?: string | null;
+  complexityId?: string | null;
+  characterCount: number;
+  hoursOverride?: number | null;
+  hourlyRateOverride?: number | null;
+  materialsAmountOverride?: number | null;
+  preparationAmountOverride?: number | null;
+  addOnsAmountOverride?: number | null;
+  marginPercentageOverride?: number | null;
+  finalPriceOverride?: number | null;
+  preparations: PaintingItemSelection[];
+  addOns: PaintingItemSelection[];
+  extraPreparationDescription?: string | null;
+  extraPreparationAmount: number;
+  freeAddOnDescription?: string | null;
+  freeAddOnQuantity: number;
+  freeAddOnUnitAmount: number;
+  baseNeedsPainting: boolean;
+  baseMode: PaintingBaseMode;
+  baseLevelId?: string | null;
+  baseHours: number;
+  baseManualAmount: number;
+  baseAddOnId?: string | null;
+  outsourcedSupplierId?: string | null;
+  outsourcedChargedAmount: number;
+  outsourcedFreightAmount: number;
+  outsourcedOtherCosts: number;
+  outsourcedIncorporatedPrice?: number | null;
+  manualCost: number;
+  manualPrice: number;
+  manualIncorporatedAmount: number;
+  notes?: string | null;
+  colorReferences?: string | null;
+  needsReview: boolean;
+  keepStoredSnapshot: boolean;
+  sourceProductId?: string | null;
+}
+
+export interface ProductPaintingCalculation {
+  mode: PaintingPricingMode;
+  execution: PaintingExecution;
+  application: PaintingPriceApplication;
+  costAmount: number;
+  suggestedPrice: number;
+  priceUsed: number;
+  incorporatedCost: number;
+  incorporatedPrice: number;
+  details?: PaintingPricingResult | null;
+  fromStoredSnapshot: boolean;
+  calculatedAtUtc: string;
+}
+
+export interface ProductPainting {
+  configuration: ProductPaintingRequest;
+  snapshot?: ProductPaintingCalculation | null;
+  levelName?: string | null;
+  complexityName?: string | null;
+  totalHours: number;
+  hasNewerParameters: boolean;
+}
+
+export interface ProductPaintingRecalculation {
+  stored?: ProductPaintingCalculation | null;
+  recalculated: ProductPaintingCalculation;
+  costDifference: number;
+  priceDifference: number;
+  hasDifferences: boolean;
 }

@@ -25,8 +25,14 @@ import { CurrencyField } from '../components/CurrencyField';
 import { SearchSelectField } from '../components/SearchSelectField';
 import { useAuth } from '../hooks/useAuth';
 import { PageSection } from '../components/PageSection';
-import { bottonSizesApi, operationalListsApi, productsApi, projectsApi } from '../services/api';
-import type { ProductType } from '../services/types';
+import { bottonSizesApi, operationalListsApi, paintingPricingApi, productsApi, projectsApi } from '../services/api';
+import type { ProductPaintingRecalculation, ProductPaintingRequest, ProductType } from '../services/types';
+import { getErrorMessage } from './paintingPricing/paintingPricingShared';
+import { PaintingRecalculationDialog } from './productForm/PaintingRecalculationDialog';
+import { ProductCostSummarySection } from './productForm/ProductCostSummarySection';
+import { ProductFormActionBar } from './productForm/ProductFormActionBar';
+import { applicationNotes, ProductPaintingSection } from './productForm/ProductPaintingSection';
+import { ProductProjectionSection } from './productForm/ProductProjectionSection';
 import { durationPartsToMinutes, minutesToDurationParts } from '../services/product';
 
 const emptyForm = {
@@ -59,6 +65,60 @@ const emptyForm = {
   isBudget: false
 };
 
+const emptyPainting: ProductPaintingRequest = {
+  enabled: false,
+  mode: 'Automatic',
+  execution: 'Internal',
+  application: 'IncorporateCost',
+  heightCm: 0,
+  heightOverridden: false,
+  levelId: null,
+  complexityId: null,
+  characterCount: 1,
+  hoursOverride: null,
+  hourlyRateOverride: null,
+  materialsAmountOverride: null,
+  preparationAmountOverride: null,
+  addOnsAmountOverride: null,
+  marginPercentageOverride: null,
+  finalPriceOverride: null,
+  preparations: [],
+  addOns: [],
+  extraPreparationDescription: '',
+  extraPreparationAmount: 0,
+  freeAddOnDescription: '',
+  freeAddOnQuantity: 1,
+  freeAddOnUnitAmount: 0,
+  baseNeedsPainting: false,
+  baseMode: 'SameLevel',
+  baseLevelId: null,
+  baseHours: 1,
+  baseManualAmount: 0,
+  baseAddOnId: null,
+  outsourcedSupplierId: null,
+  outsourcedChargedAmount: 0,
+  outsourcedFreightAmount: 0,
+  outsourcedOtherCosts: 0,
+  outsourcedIncorporatedPrice: null,
+  manualCost: 0,
+  manualPrice: 0,
+  manualIncorporatedAmount: 0,
+  notes: '',
+  colorReferences: '',
+  needsReview: false,
+  keepStoredSnapshot: false,
+  sourceProductId: null
+};
+
+function useDebouncedValue<T>(value: T, delay: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
@@ -87,7 +147,13 @@ export function ProductFormPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ ...emptyForm, isBudget: isBudgetMode });
-  const [projectionQty, setProjectionQty] = useState(12);
+  const [painting, setPainting] = useState<ProductPaintingRequest>(emptyPainting);
+  const [paintingExpanded, setPaintingExpanded] = useState(false);
+  const [paintingBannerDismissed, setPaintingBannerDismissed] = useState(false);
+  const [recalculationOpen, setRecalculationOpen] = useState(false);
+  const [recalculation, setRecalculation] = useState<ProductPaintingRecalculation | null>(null);
+  const [recalculationLoading, setRecalculationLoading] = useState(false);
+  const [recalculationError, setRecalculationError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [duration, setDuration] = useState(() => minutesToDurationParts(emptyForm.estimatedPrintTimeMinutes));
@@ -118,6 +184,7 @@ export function ProductFormPage() {
     enabled: isEditing
   });
   const { data: bottonSizes = [] } = useQuery({ queryKey: ['botton-sizes'], queryFn: bottonSizesApi.getAll });
+  const { data: paintingOverview } = useQuery({ queryKey: ['painting-pricing'], queryFn: paintingPricingApi.getOverview });
   const selectedBottonSize = bottonSizes.find((size) => size.id === form.bottonSizeId);
   const isEarring = form.productType === 'Brinco';
   const isBotton = form.productType === 'Botton';
@@ -168,6 +235,10 @@ export function ProductFormPage() {
       isBudget: product.lifecycleStatus === 'Orcamento'
     });
     setDuration(minutesToDurationParts(product.estimatedPrintTimeMinutes));
+    setPainting(product.painting
+      ? { ...emptyPainting, ...product.painting.configuration, keepStoredSnapshot: Boolean(product.painting.snapshot), sourceProductId: product.id }
+      : { ...emptyPainting, heightCm: product.heightCentimeters, sourceProductId: product.id });
+    setPaintingBannerDismissed(false);
     setDirty(false);
   }, [product]);
 
@@ -206,6 +277,9 @@ export function ProductFormPage() {
       isBudget: cloneSource.lifecycleStatus === 'Orcamento' || isBudgetMode
     });
     setDuration(minutesToDurationParts(cloneSource.estimatedPrintTimeMinutes));
+    setPainting(cloneSource.painting?.configuration.enabled
+      ? { ...emptyPainting, ...cloneSource.painting.configuration, needsReview: true, keepStoredSnapshot: false, sourceProductId: null }
+      : { ...emptyPainting, heightCm: cloneSource.heightCentimeters });
     setDirty(true);
   }, [cloneSource, isBudgetMode]);
 
@@ -309,6 +383,67 @@ export function ProductFormPage() {
     }
   }, [form.supplierId, isEditing, isSupplier, session?.supplierId]);
 
+  const productHeightCm = Number(form.heightCentimeters) || 0;
+  const paintingPayload = useMemo<ProductPaintingRequest>(() => ({
+    ...painting,
+    heightCm: painting.heightOverridden ? painting.heightCm : productHeightCm,
+    sourceProductId: isEditing ? id ?? null : null
+  }), [id, isEditing, painting, productHeightCm]);
+  const debouncedPaintingPayload = useDebouncedValue(paintingPayload, 350);
+
+  useEffect(() => {
+    setPainting((current) => current.enabled && current.keepStoredSnapshot && !current.heightOverridden && current.heightCm !== productHeightCm
+      ? { ...current, heightCm: productHeightCm, keepStoredSnapshot: false }
+      : current);
+  }, [productHeightCm]);
+
+  const { data: paintingCalculation, isFetching: isPaintingCalculating, error: paintingError } = useQuery({
+    queryKey: ['product-painting-preview', debouncedPaintingPayload],
+    queryFn: () => paintingPricingApi.previewProduct(debouncedPaintingPayload),
+    enabled: debouncedPaintingPayload.enabled && Boolean(paintingOverview) && (!isEditing || Boolean(product)),
+    keepPreviousData: true,
+    retry: false
+  });
+
+  function updatePainting(patch: Partial<ProductPaintingRequest>, affectsCalculation = true) {
+    setDirty(true);
+    setPainting((current) => {
+      const next = { ...current, ...patch, keepStoredSnapshot: affectsCalculation ? false : current.keepStoredSnapshot };
+      if (patch.enabled && !current.levelId && paintingOverview) {
+        next.levelId = paintingOverview.levels.find((level) => level.isActive)?.id ?? null;
+        next.complexityId = paintingOverview.complexities.find((complexity) => complexity.isActive)?.id ?? null;
+        next.heightCm = productHeightCm;
+      }
+      return next;
+    });
+  }
+
+  async function openRecalculation() {
+    setRecalculationOpen(true);
+    setRecalculation(null);
+    setRecalculationError(null);
+    if (!isEditing || !painting.keepStoredSnapshot || !product?.painting?.snapshot) {
+      return;
+    }
+
+    setRecalculationLoading(true);
+    try {
+      setRecalculation(await productsApi.recalculatePainting(id!));
+    }
+    catch (error) {
+      setRecalculationError(getErrorMessage(error, 'Não foi possível recalcular a pintura com os parâmetros atuais.'));
+    }
+    finally {
+      setRecalculationLoading(false);
+    }
+  }
+
+  function applyRecalculation() {
+    setRecalculationOpen(false);
+    setPaintingBannerDismissed(true);
+    updatePainting({}, true);
+  }
+
   const pricingPayload = useMemo(() => ({
     ...form,
     categoryId: form.categoryId || null,
@@ -322,8 +457,9 @@ export function ProductFormPage() {
     bottonSizeQuantity: isBotton ? Number(form.bottonSizeQuantity) : 1,
     costPrice: null,
     commissionPercentage: Number(form.commissionPercentage),
-    salePrice: form.salePrice === '' ? null : Number(form.salePrice)
-  }), [form, isSupplier, session?.supplierId, isPrint3D, isEarring, isBotton]);
+    salePrice: form.salePrice === '' ? null : Number(form.salePrice),
+    painting: debouncedPaintingPayload
+  }), [form, isSupplier, session?.supplierId, isPrint3D, isEarring, isBotton, debouncedPaintingPayload]);
 
   const { data: pricing } = useQuery({
     queryKey: ['product-pricing-preview', pricingPayload],
@@ -348,7 +484,8 @@ export function ProductFormPage() {
         desiredMarkup: Number(form.desiredMarkup),
         costPrice: null,
         isBudget: isBudgetMode || form.isBudget,
-        salePrice: form.salePrice === '' ? null : Number(form.salePrice)
+        salePrice: form.salePrice === '' ? null : Number(form.salePrice),
+        painting: paintingPayload
       };
 
       return isProjectDraftMode
@@ -380,10 +517,10 @@ export function ProductFormPage() {
 
       navigate(form.isBudget ? '/orcamentos' : '/produtos', { state: { preserveState: true } });
     },
-    onError: () => {
-      setFeedback(isProjectDraftMode
+    onError: (error) => {
+      setFeedback(getErrorMessage(error, isProjectDraftMode
         ? 'Nao foi possivel concluir o projeto com o produto informado.'
-        : 'Nao foi possivel salvar o produto com os dados informados.');
+        : 'Nao foi possivel salvar o produto com os dados informados.'));
     }
   });
 
@@ -417,30 +554,6 @@ export function ProductFormPage() {
   const hasMissingPrinterWithFilaments = isPrint3D && form.filaments.filter(f => f.filamentProfileId).length > 0 && form.printerProfileId === '';
   const hasMissingPingente = isEarring && !form.pingenteSupplyId;
   const hasMissingBottonSize = isBotton && !form.bottonSizeId;
-
-  const projN = Math.max(1, Math.round(projectionQty));
-  const projItemsPerPlate = Math.max(1, Number(form.itemsPerPlate) || 1);
-  const projPlates = Math.max(1, Math.ceil(projN / projItemsPerPlate));
-  const projFilamentGrams = form.filaments.reduce((sum, item) => sum + (Number(item.weightGrams) || 0), 0) * projPlates;
-  const projPrintMinutes = (Number(form.estimatedPrintTimeMinutes) || 0) * projPlates;
-  const projBottonConsumed = Number(form.bottonSizeQuantity || 1) * projN;
-  const projection = pricing ? {
-    cost: pricing.totalCost * projN,
-    revenue: effectiveSalePrice * projN,
-    profit: (effectiveSalePrice - pricing.totalCost) * projN,
-    margin: effectiveSalePrice > 0 ? ((effectiveSalePrice - pricing.totalCost) / effectiveSalePrice) * 100 : 0,
-    material: pricing.materialCost * projN,
-    energy: pricing.energyCost * projN,
-    failure: pricing.failureCost * projN,
-    finishingLabor: (pricing.finishingCost + pricing.laborCost) * projN
-  } : null;
-
-  function formatMinutes(totalMinutes: number) {
-    const rounded = Math.round(totalMinutes);
-    const hours = Math.floor(rounded / 60);
-    const minutes = rounded % 60;
-    return hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
-  }
 
   function updateForm(field: keyof typeof emptyForm, value: string | number | boolean) {
     setDirty(true);
@@ -485,18 +598,46 @@ export function ProductFormPage() {
       }));
     }
 
+  const pageTitle = isProjectDraftMode ? 'Pré-cadastro do produto do projeto' : isEditing ? (form.isBudget ? 'Editar orçamento' : 'Editar produto') : (isBudgetMode ? 'Novo orçamento' : 'Novo produto');
+  const saveLabel = saveMutation.isLoading ? 'Salvando...' : isProjectDraftMode ? 'Concluir projeto e salvar produto' : isEditing ? 'Salvar alterações' : (isBudgetMode || form.isBudget ? 'Cadastrar orçamento' : 'Cadastrar produto');
+  const saveDisabled = hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments || hasMissingPingente || hasMissingBottonSize;
+  const unitMargin = effectiveSalePrice > 0 ? (estimatedProfit / effectiveSalePrice) * 100 : 0;
+  const paintingDetails = paintingCalculation?.details ?? null;
+  const paintedDetail = paintingDetails
+    ? `${paintingDetails.level.name} • ${paintingDetails.complexity.name} • ${paintingDetails.totalHours.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}h`
+    : product?.painting?.levelName ? `${product.painting.levelName} • ${product.painting.complexityName ?? ''}` : null;
+  const storedAtLabel = product?.painting?.snapshot ? new Date(product.painting.snapshot.calculatedAtUtc).toLocaleDateString('pt-BR') : undefined;
+  const showOutdatedBanner = painting.enabled && painting.keepStoredSnapshot && Boolean(product?.painting?.hasNewerParameters) && !paintingBannerDismissed;
+  const showKeptNote = painting.enabled && painting.keepStoredSnapshot && Boolean(product?.painting?.hasNewerParameters) && paintingBannerDismissed;
+  const paintingApplicationNote = painting.enabled && (painting.application === 'IncorporatePrice' || painting.application === 'ReferenceOnly')
+    ? (painting.application === 'IncorporatePrice'
+      ? `Pintura somada ao preço sugerido: + ${formatCurrency(pricing?.paintingPrice ?? 0)} (fora do custo).`
+      : applicationNotes.ReferenceOnly)
+    : null;
+  const materialLabel = `Material${isEarring ? ' (pingente)' : isBotton ? ' (tamanho de botton)' : ''}`;
+
   return (
     <Stack spacing={3}>
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
-        <div>
-          <Typography variant="h4">{isProjectDraftMode ? 'Pré-cadastro do produto do projeto' : isEditing ? (form.isBudget ? 'Editar orçamento' : 'Editar produto') : (isBudgetMode ? 'Novo orçamento' : 'Novo produto')}</Typography>
-          <Typography color="text.secondary">{isProjectDraftMode ? 'Revise os dados consolidados do projeto antes de concluir e vincular o produto.' : 'Cadastro em tela separada, com cálculo de preço atualizado durante a digitação.'}</Typography>
-        </div>
-        <Button variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(backTarget, { state: { preserveState: true } })}>
-          Voltar para listagem
-        </Button>
-      </Stack>
+      <ProductFormActionBar
+        title={pageTitle}
+        dirty={dirty}
+        unitCost={formatCurrency(liveCost)}
+        salePrice={formatCurrency(effectiveSalePrice)}
+        unitProfit={formatCurrency(estimatedProfit)}
+        margin={`${unitMargin.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`}
+        profitPositive={estimatedProfit >= 0}
+        saveLabel={saveLabel}
+        mobileSaveLabel={isEditing ? 'Salvar' : 'Cadastrar'}
+        isSaving={saveMutation.isLoading}
+        saveDisabled={saveDisabled}
+        saveTitle={hasMissingPrinterWithFilaments ? 'Selecione uma impressora quando há filamentos' : undefined}
+        showPainted={painting.enabled}
+        paintedDetail={paintedDetail}
+        onBack={() => navigate(backTarget, { state: { preserveState: true } })}
+        onSave={() => saveMutation.mutate()}
+      />
 
+      {isProjectDraftMode ? <Typography color="text.secondary">Revise os dados consolidados do projeto antes de concluir e vincular o produto.</Typography> : null}
       {feedback ? <Alert severity="warning">{feedback}</Alert> : null}
       {isFromOutsourcedProduction ? (
         <Alert severity="info">
@@ -542,387 +683,303 @@ export function ProductFormPage() {
         </PageSection>
       ) : null}
 
-      <Box sx={{ display: 'grid', gap: { xs: 2, md: 3 }, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) 380px' }, alignItems: 'start' }}>
-          <Stack spacing={{ xs: 2, md: 3 }} sx={{ minWidth: 0 }}>
-          <PageSection title="1 · Identificação" subtitle="O que é o produto e onde ele é vendido.">
-            <Stack spacing={2}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Tipo de produto"
-                  value={form.productType}
-                  onChange={(event) => updateForm('productType', event.target.value)}
-                  helperText="Define quais campos de produção aparecem abaixo. Impressão 3D mantém impressora e filamentos."
-                  disabled={isFromOutsourcedProduction}
-                >
-                  <MenuItem value="Impressao3D">Impressão 3D</MenuItem>
-                  <MenuItem value="Brinco">Brinco</MenuItem>
-                  <MenuItem value="Botton">Botton</MenuItem>
-                </TextField>
-                <TextField fullWidth label="Nome" value={form.name} onChange={(event) => updateForm('name', capitalizeFirstLetter(event.target.value))} disabled={isFromOutsourcedProduction} />
-                <TextField
-                  fullWidth
-                  label="SKU"
-                  value={form.sku}
-                  onChange={(event) => {
-                    updateForm('sku', event.target.value.toUpperCase());
-                  }}
-                  helperText="Se ficar vazio, será gerado automaticamente no padrão 00001-00000001."
-                  disabled={isFromOutsourcedProduction}
-                />
-                <TextField fullWidth label="Descrição" multiline minRows={3} value={form.description} onChange={(event) => updateForm('description', event.target.value)} disabled={isFromOutsourcedProduction} />
+      <PageSection title="1 · Identificação" subtitle="O que é o produto e onde ele é vendido.">
+        <Stack spacing={2}>
+            <TextField
+              select
+              fullWidth
+              label="Tipo de produto"
+              value={form.productType}
+              onChange={(event) => updateForm('productType', event.target.value)}
+              helperText="Define quais campos de produção aparecem abaixo. Impressão 3D mantém impressora e filamentos."
+              disabled={isFromOutsourcedProduction}
+            >
+              <MenuItem value="Impressao3D">Impressão 3D</MenuItem>
+              <MenuItem value="Brinco">Brinco</MenuItem>
+              <MenuItem value="Botton">Botton</MenuItem>
+            </TextField>
+            <TextField fullWidth label="Nome" value={form.name} onChange={(event) => updateForm('name', capitalizeFirstLetter(event.target.value))} disabled={isFromOutsourcedProduction} />
+            <TextField
+              fullWidth
+              label="SKU"
+              value={form.sku}
+              onChange={(event) => {
+                updateForm('sku', event.target.value.toUpperCase());
+              }}
+              helperText="Se ficar vazio, será gerado automaticamente no padrão 00001-00000001."
+              disabled={isFromOutsourcedProduction}
+            />
+            <TextField fullWidth label="Descrição" multiline minRows={3} value={form.description} onChange={(event) => updateForm('description', event.target.value)} disabled={isFromOutsourcedProduction} />
 
-                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+              <SearchSelectField
+                label="Categoria"
+                value={form.categoryId}
+                options={(metadata?.categories ?? []).map((item) => ({ id: item.id, name: item.name }))}
+                onChange={(value) => updateForm('categoryId', value)}
+                helperText="Busque e selecione a categoria. Nenhuma vem preenchida por padrão."
+                placeholder="Digite o nome da categoria"
+                minQueryLength={0}
+                disabled={isFromOutsourcedProduction}
+              />
+              <TextField select label="Fornecedor" value={isSupplier ? (session?.supplierId ?? '') : form.supplierId} onChange={(event) => updateForm('supplierId', event.target.value)} fullWidth disabled={isSupplier || isFromOutsourcedProduction} helperText={isSupplier ? 'Vinculado automaticamente ao fornecedor logado.' : undefined}>
+                {!isSupplier ? <MenuItem value="">Lojinha Sem Nome</MenuItem> : null}
+                {(metadata?.suppliers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
+              </TextField>
+              <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction} helperText="Vem pré-selecionado como Nenhum.">
+                {form.marketplaceFeeId === '' ? <MenuItem value="">— Sem marketplace —</MenuItem> : null}
+                {(metadata?.marketplaces ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
+              </TextField>
+            </Box>
+        </Stack>
+      </PageSection>
+
+      <PageSection title="2 · Produção e insumo" subtitle="Como o produto é feito — muda conforme o tipo escolhido.">
+        <Stack spacing={2}>
+            {isEarring ? (
+              <>
+                <Stack spacing={0.75}>
+                  <Typography fontWeight={700}>Insumo do brinco</Typography>
+                  <Divider />
+                </Stack>
+                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: '2fr 1fr' } }}>
                   <SearchSelectField
-                    label="Categoria"
-                    value={form.categoryId}
-                    options={(metadata?.categories ?? []).map((item) => ({ id: item.id, name: item.name }))}
-                    onChange={(value) => updateForm('categoryId', value)}
-                    helperText="Busque e selecione a categoria. Nenhuma vem preenchida por padrão."
-                    placeholder="Digite o nome da categoria"
+                    label="Pingente"
+                    value={form.pingenteSupplyId}
+                    options={(metadata?.supplies ?? []).map((item) => ({ id: item.id, name: item.name }))}
+                    onChange={(value) => updateForm('pingenteSupplyId', value)}
+                    helperText="Buscado no cadastro de Insumos."
+                    placeholder="Digite o nome do pingente"
                     minQueryLength={0}
+                  />
+                  <CurrencyField
+                    label="Custo do pingente"
+                    value={Number(form.pingenteCost)}
+                    onValueChange={(value) => updateForm('pingenteCost', value)}
+                    helperText="Pode variar por compra. Não baixa estoque."
+                    fullWidth
+                  />
+                </Box>
+              </>
+            ) : null}
+
+            {isBotton ? (
+              <>
+                <Stack spacing={0.75}>
+                  <Typography fontWeight={700}>Insumo do botton</Typography>
+                  <Divider />
+                </Stack>
+                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+                  <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+                    <SearchSelectField
+                      label="Tamanho de botton"
+                      value={form.bottonSizeId}
+                      options={(metadata?.bottonSizes ?? []).map((item) => ({ id: item.id, name: item.name }))}
+                      onChange={(value) => updateForm('bottonSizeId', value)}
+                      helperText="Cadastro próprio em Tam. de Botton."
+                      placeholder="Digite o nome do tamanho"
+                      minQueryLength={0}
+                    />
+                  </Box>
+                  <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+                    <TextField
+                      label="Qtd. consumida por unidade"
+                      type="number"
+                      value={form.bottonSizeQuantity}
+                      onChange={(event) => updateForm('bottonSizeQuantity', Number(event.target.value))}
+                      helperText="Quantas peças cada botton usa."
+                      fullWidth
+                    />
+                  </Box>
+                  <CurrencyField label="Custo do tamanho" value={selectedBottonSize?.costPerUnit ?? 0} onValueChange={() => undefined} helperText="Do cadastro de Tam. de Botton." fullWidth disabled />
+                  <TextField label="Estoque atual do tamanho" value={selectedBottonSize ? `${selectedBottonSize.stockQuantity}` : '—'} helperText="Somente leitura." fullWidth disabled />
+                  <Alert severity="info" sx={{ gridColumn: '1 / -1' }}>
+                    A cada entrada em estoque deste botton, o estoque do tamanho selecionado é baixado na mesma proporção (qtd. por unidade × entrada), limitado a zero — nunca fica negativo.
+                  </Alert>
+                </Box>
+              </>
+            ) : null}
+
+            {isPrint3D ? (
+            <>
+            <Stack spacing={0.75}>
+              <Typography fontWeight={700}>Equipamentos e produção</Typography>
+              <Divider />
+            </Stack>
+
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' } }}>
+              <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+                <TextField select label="Impressora" value={form.printerProfileId} onChange={(event) => updateForm('printerProfileId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction}>
+                  <MenuItem value="">Sem impressora</MenuItem>
+                  {(metadata?.printers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
+                </TextField>
+              </Box>
+              <TextField label="Itens por placa" type="number" value={form.itemsPerPlate} onChange={(event) => updateForm('itemsPerPlate', Number(event.target.value))} helperText="1 quando o custo já for unitário." fullWidth disabled={isFromOutsourcedProduction} />
+              <CurrencyField label="Tarifa kWh" value={form.tariffPerKwh} onValueChange={(value) => updateForm('tariffPerKwh', value)} fullWidth disabled={isFromOutsourcedProduction} />
+            </Box>
+
+            <Stack spacing={1.25}>
+              <Typography variant="body2" fontWeight={600}>Filamentos</Typography>
+              {form.filaments.map((item, index) => (
+                <Box key={index} sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr 96px', sm: 'minmax(0, 1fr) 110px 44px' }, alignItems: 'start' }}>
+                  <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+                    <SearchSelectField
+                      label="Filamento"
+                      value={item.filamentProfileId}
+                      options={(metadata?.filaments ?? []).map((f) => ({ id: f.id, name: f.name }))}
+                      onChange={(value) => updateFilament(index, 'filamentProfileId', value)}
+                      placeholder="Digite o nome do filamento"
+                      minQueryLength={0}
+                      helperText={undefined}
+                      disabled={isFromOutsourcedProduction}
+                    />
+                  </Box>
+                  <TextField
+                    label="Peso (g)"
+                    type="number"
+                    value={item.weightGrams}
+                    onChange={(event) => updateFilament(index, 'weightGrams', Number(event.target.value))}
+                    fullWidth
                     disabled={isFromOutsourcedProduction}
                   />
-                  <TextField select label="Fornecedor" value={isSupplier ? (session?.supplierId ?? '') : form.supplierId} onChange={(event) => updateForm('supplierId', event.target.value)} fullWidth disabled={isSupplier || isFromOutsourcedProduction} helperText={isSupplier ? 'Vinculado automaticamente ao fornecedor logado.' : undefined}>
-                    {!isSupplier ? <MenuItem value="">Lojinha Sem Nome</MenuItem> : null}
-                    {(metadata?.suppliers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
-                  </TextField>
-                  <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction} helperText="Vem pré-selecionado como Nenhum.">
-                    {form.marketplaceFeeId === '' ? <MenuItem value="">— Sem marketplace —</MenuItem> : null}
-                    {(metadata?.marketplaces ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
-                  </TextField>
-                </Box>
-            </Stack>
-          </PageSection>
-
-          <PageSection title="2 · Produção e insumo" subtitle="Como o produto é feito — muda conforme o tipo escolhido.">
-            <Stack spacing={2}>
-                {isEarring ? (
-                  <>
-                    <Stack spacing={0.75}>
-                      <Typography fontWeight={700}>Insumo do brinco</Typography>
-                      <Divider />
-                    </Stack>
-                    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: '2fr 1fr' } }}>
-                      <SearchSelectField
-                        label="Pingente"
-                        value={form.pingenteSupplyId}
-                        options={(metadata?.supplies ?? []).map((item) => ({ id: item.id, name: item.name }))}
-                        onChange={(value) => updateForm('pingenteSupplyId', value)}
-                        helperText="Buscado no cadastro de Insumos."
-                        placeholder="Digite o nome do pingente"
-                        minQueryLength={0}
-                      />
-                      <CurrencyField
-                        label="Custo do pingente"
-                        value={Number(form.pingenteCost)}
-                        onValueChange={(value) => updateForm('pingenteCost', value)}
-                        helperText="Pode variar por compra. Não baixa estoque."
-                        fullWidth
-                      />
-                    </Box>
-                  </>
-                ) : null}
-
-                {isBotton ? (
-                  <>
-                    <Stack spacing={0.75}>
-                      <Typography fontWeight={700}>Insumo do botton</Typography>
-                      <Divider />
-                    </Stack>
-                    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, minmax(0, 1fr))' } }}>
-                      <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
-                        <SearchSelectField
-                          label="Tamanho de botton"
-                          value={form.bottonSizeId}
-                          options={(metadata?.bottonSizes ?? []).map((item) => ({ id: item.id, name: item.name }))}
-                          onChange={(value) => updateForm('bottonSizeId', value)}
-                          helperText="Cadastro próprio em Tam. de Botton."
-                          placeholder="Digite o nome do tamanho"
-                          minQueryLength={0}
-                        />
-                      </Box>
-                      <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
-                        <TextField
-                          label="Qtd. consumida por unidade"
-                          type="number"
-                          value={form.bottonSizeQuantity}
-                          onChange={(event) => updateForm('bottonSizeQuantity', Number(event.target.value))}
-                          helperText="Quantas peças cada botton usa."
-                          fullWidth
-                        />
-                      </Box>
-                      <CurrencyField label="Custo do tamanho" value={selectedBottonSize?.costPerUnit ?? 0} onValueChange={() => undefined} helperText="Do cadastro de Tam. de Botton." fullWidth disabled />
-                      <TextField label="Estoque atual do tamanho" value={selectedBottonSize ? `${selectedBottonSize.stockQuantity}` : '—'} helperText="Somente leitura." fullWidth disabled />
-                      <Alert severity="info" sx={{ gridColumn: '1 / -1' }}>
-                        A cada entrada em estoque deste botton, o estoque do tamanho selecionado é baixado na mesma proporção (qtd. por unidade × entrada), limitado a zero — nunca fica negativo.
-                      </Alert>
-                    </Box>
-                  </>
-                ) : null}
-
-                {isPrint3D ? (
-                <>
-                <Stack spacing={0.75}>
-                  <Typography fontWeight={700}>Equipamentos e produção</Typography>
-                  <Divider />
-                </Stack>
-
-                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' } }}>
-                  <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
-                    <TextField select label="Impressora" value={form.printerProfileId} onChange={(event) => updateForm('printerProfileId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction}>
-                      <MenuItem value="">Sem impressora</MenuItem>
-                      {(metadata?.printers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
-                    </TextField>
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 56 }}>
+                    {index > 0 && !isFromOutsourcedProduction ? (
+                      <IconButton onClick={() => removeFilament(index)} color="error" aria-label="Remover filamento">
+                        <DeleteOutlineRoundedIcon />
+                      </IconButton>
+                    ) : null}
                   </Box>
-                  <TextField label="Itens por placa" type="number" value={form.itemsPerPlate} onChange={(event) => updateForm('itemsPerPlate', Number(event.target.value))} helperText="1 quando o custo já for unitário." fullWidth disabled={isFromOutsourcedProduction} />
-                  <CurrencyField label="Tarifa kWh" value={form.tariffPerKwh} onValueChange={(value) => updateForm('tariffPerKwh', value)} fullWidth disabled={isFromOutsourcedProduction} />
                 </Box>
-
-                <Stack spacing={1.25}>
-                  <Typography variant="body2" fontWeight={600}>Filamentos</Typography>
-                  {form.filaments.map((item, index) => (
-                    <Box key={index} sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr 96px', sm: 'minmax(0, 1fr) 110px 44px' }, alignItems: 'start' }}>
-                      <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
-                        <SearchSelectField
-                          label="Filamento"
-                          value={item.filamentProfileId}
-                          options={(metadata?.filaments ?? []).map((f) => ({ id: f.id, name: f.name }))}
-                          onChange={(value) => updateFilament(index, 'filamentProfileId', value)}
-                          placeholder="Digite o nome do filamento"
-                          minQueryLength={0}
-                          helperText={undefined}
-                          disabled={isFromOutsourcedProduction}
-                        />
-                      </Box>
-                      <TextField
-                        label="Peso (g)"
-                        type="number"
-                        value={item.weightGrams}
-                        onChange={(event) => updateFilament(index, 'weightGrams', Number(event.target.value))}
-                        fullWidth
-                        disabled={isFromOutsourcedProduction}
-                      />
-                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 56 }}>
-                        {index > 0 && !isFromOutsourcedProduction ? (
-                          <IconButton onClick={() => removeFilament(index)} color="error" aria-label="Remover filamento">
-                            <DeleteOutlineRoundedIcon />
-                          </IconButton>
-                        ) : null}
-                      </Box>
-                    </Box>
-                  ))}
-                  {!isFromOutsourcedProduction ? (
-                    <Button size="small" startIcon={<AddRoundedIcon />} onClick={addFilament} sx={{ alignSelf: 'flex-start' }}>
-                      Adicionar filamento
-                    </Button>
-                  ) : null}
-                  {form.filaments.length > 0 ? (
-                    <Typography variant="caption" color="text.secondary">
-                      Peso total: {form.filaments.reduce((sum, f) => sum + (Number(f.weightGrams) || 0), 0).toFixed(0)} g
-                    </Typography>
-                  ) : null}
-                </Stack>
-
-                <div>
-                  <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>Tempo de impressão</Typography>
-                  <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                    <TextField label="Horas" type="number" value={duration.hours} onChange={(event) => updateDurationPart('hours', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
-                    <TextField label="Min" type="number" value={duration.minutes} onChange={(event) => updateDurationPart('minutes', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
-                    <TextField label="Seg" type="number" value={duration.seconds} onChange={(event) => updateDurationPart('seconds', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
-                  </Box>
-                </div>
-
-                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-                  <TextField label="Altura (cm)" type="number" value={form.heightCentimeters} onChange={(event) => updateForm('heightCentimeters', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
-                  <TextField label="Comprimento (m)" type="number" value={form.lengthMetersUsed} onChange={(event) => updateForm('lengthMetersUsed', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
-                </Box>
-                </>
-                ) : null}
-            </Stack>
-          </PageSection>
-
-          <PageSection title="3 · Precificação" subtitle="Margens e preço final de venda.">
-            <Stack spacing={2}>
-                <Stack spacing={0.5}>
-                  <FormControlLabel
-                    control={<Checkbox checked={form.generateProductionExpenseOnStockEntry} onChange={(event) => updateForm('generateProductionExpenseOnStockEntry', event.target.checked)} disabled={isFromOutsourcedProduction} />}
-                    label="Gerar despesa de produção quando o produto entrar em estoque"
-                  />
-                  <FormControlLabel
-                    control={<Checkbox checked={isBudgetMode ? true : form.isBudget} onChange={(event) => updateForm('isBudget', event.target.checked)} disabled={isBudgetMode || isProjectDraftMode} />}
-                    label={isProjectDraftMode ? 'Produto final sempre salvo como produto disponível ao concluir o projeto' : isBudgetMode ? 'Cadastro fixo como orçamento nesta tela' : 'Salvar como orçamento'}
-                  />
-                </Stack>
-                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' } }}>
-                  <TextField label="Acabamento (%)" type="number" value={form.finishingPercentage} onChange={(event) => updateForm('finishingPercentage', Number(event.target.value))} fullWidth />
-                  <TextField label="Comissão (%)" type="number" value={form.commissionPercentage} onChange={(event) => updateForm('commissionPercentage', Number(event.target.value))} fullWidth />
-                  <CurrencyField label="Custo adicional" value={form.additionalCost} onValueChange={(value) => updateForm('additionalCost', value)} fullWidth disabled={isFromOutsourcedProduction} />
-                  <CurrencyField label="Mão de obra" value={form.laborCost} onValueChange={(value) => updateForm('laborCost', value)} helperText="Somado ao custo." fullWidth disabled={isFromOutsourcedProduction} />
-                  <TextField label="Markup desejado" type="number" value={form.desiredMarkup} onChange={(event) => updateForm('desiredMarkup', Number(event.target.value))} helperText="Mínimo 2 (200%)." fullWidth />
-                  <CurrencyField label="Preço final de venda" value={form.salePrice === '' ? 0 : Number(form.salePrice)} onValueChange={(value) => updateForm('salePrice', String(value))} helperText={`Mín: ${formatCurrency(minimumAllowedSalePrice)}`} fullWidth />
-                  <CurrencyField label="Preço p/ venda comissionada" value={effectiveCommissionedSalePrice} onValueChange={() => undefined} helperText="A partir do preço final + comissão." fullWidth disabled />
-                  <CurrencyField label="Lucro estimado" value={estimatedProfit} onValueChange={() => undefined} helperText="Preço final menos custo." fullWidth disabled />
-                </Box>
-
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments || hasMissingPingente || hasMissingBottonSize} title={hasMissingPrinterWithFilaments ? 'Selecione uma impressora quando há filamentos' : undefined}>
-                  {saveMutation.isLoading ? 'Salvando...' : isProjectDraftMode ? 'Concluir projeto e salvar produto' : isEditing ? 'Atualizar produto' : 'Cadastrar produto'}
+              ))}
+              {!isFromOutsourcedProduction ? (
+                <Button size="small" startIcon={<AddRoundedIcon />} onClick={addFilament} sx={{ alignSelf: 'flex-start' }}>
+                  Adicionar filamento
                 </Button>
-                <Button variant="outlined" onClick={() => navigate(backTarget, { state: { preserveState: true } })}>
-                  Cancelar
-                </Button>
-              </Stack>
+              ) : null}
+              {form.filaments.length > 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                  Peso total: {form.filaments.reduce((sum, f) => sum + (Number(f.weightGrams) || 0), 0).toFixed(0)} g
+                </Typography>
+              ) : null}
             </Stack>
-          </PageSection>
-          </Stack>
 
-          <Stack spacing={{ xs: 2, md: 3 }} sx={{ position: { lg: 'sticky' }, top: { lg: 16 } }}>
-            <PageSection title="Resumo de custo" subtitle={dirty ? 'Calculado com os dados atuais do formulário.' : 'Calculado com os dados salvos. Edite o formulário para recalcular.'}>
-              {pricing ? (
-                <Stack spacing={1.2}>
-                  {isPrint3D && form.printerProfileId === '' && form.filaments.length > 0 ? (
-                    <Alert severity="warning">
-                      <strong>Aviso:</strong> Nenhuma impressora selecionada. Custo calculado apenas com material (filamento). Quando uma impressora for selecionada, serão inclusos custos de energia, manutenção e falhas.
-                    </Alert>
-                  ) : null}
-                  {isEditing && product && pricing.totalCost !== product.costPrice ? (
-                    <Alert severity="info">
-                      <strong>Divergência de custo:</strong> Persistido {formatCurrency(product.costPrice)} → Recalculado {formatCurrency(pricing.totalCost)}{form.printerProfileId === '' && product.printerProfileId ? ' (impressora foi adicionada após criação)' : ''}
-                      {!dirty ? ' • Clique em "Salvar" para atualizar.' : ''}
-                    </Alert>
-                  ) : null}
-                  {isEditing && product ? (
-                    <Typography fontWeight={600}>Custo persistido: {formatCurrency(product.costPrice)}</Typography>
-                  ) : null}
-                  <Typography fontWeight={600}>Custo calculado: {formatCurrency(pricing.totalCost)}</Typography>
-                  <Typography fontWeight={600}>Preço sugerido: {formatCurrency(pricing.suggestedPrice)}</Typography>
-                  {Number(form.commissionPercentage) > 0 ? (
-                    <Typography fontWeight={600}>Sugerido + comissão ({Number(form.commissionPercentage).toFixed(0)}%): {formatCurrency(pricing.suggestedPriceWithCommission)}</Typography>
-                  ) : null}
-                  <Divider />
-                  <Typography variant="body2" color="text.secondary">Material{isEarring ? ' (pingente)' : isBotton ? ' (tamanho de botton)' : ''}: {formatCurrency(pricing.materialCost)}</Typography>
-                  {isPrint3D ? (
-                    <>
-                      <Typography variant="body2" color="text.secondary">Energia: {formatCurrency(pricing.energyCost)}</Typography>
-                      <Typography variant="body2" color="text.secondary">Manutenção: {formatCurrency(pricing.maintenanceCost)}</Typography>
-                      <Typography variant="body2" color="text.secondary">Falhas: {formatCurrency(pricing.failureCost)}</Typography>
-                    </>
-                  ) : null}
-                  <Typography variant="body2" color="text.secondary">Acabamento: {formatCurrency(pricing.finishingCost)}</Typography>
-                  {!isPrint3D ? (
-                    <Typography variant="caption" color="text.secondary">
-                      {isEarring ? 'Brincos não têm custo de impressão (energia, manutenção e falhas).' : 'Bottons não têm custo de impressão. O estoque do tamanho é baixado a cada entrada.'}
-                    </Typography>
-                  ) : null}
-                  {pricing.additionalCosts > 0 ? <Typography variant="body2" color="text.secondary">Custo adicional: {formatCurrency(pricing.additionalCosts)}</Typography> : null}
-                  {pricing.laborCost > 0 ? <Typography variant="body2" color="text.secondary">Mão de obra: {formatCurrency(pricing.laborCost)}</Typography> : null}
-                  {pricing.marketplaceAdjustedPrice > pricing.suggestedPrice ? (
-                    <Typography variant="body2" color="text.secondary">Com marketplace: {formatCurrency(pricing.marketplaceAdjustedPrice)}</Typography>
-                  ) : null}
-                </Stack>
-              ) : (
-                <Typography color="text.secondary">Selecione uma categoria para visualizar o preview.</Typography>
-              )}
-            </PageSection>
+            <div>
+              <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>Tempo de impressão</Typography>
+              <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                <TextField label="Horas" type="number" value={duration.hours} onChange={(event) => updateDurationPart('hours', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+                <TextField label="Min" type="number" value={duration.minutes} onChange={(event) => updateDurationPart('minutes', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+                <TextField label="Seg" type="number" value={duration.seconds} onChange={(event) => updateDurationPart('seconds', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+              </Box>
+            </div>
 
-            <PageSection title="Projeção de produção" subtitle="Arraste para simular um lote inteiro do produto.">
-              {projection ? (
-                <Stack spacing={2}>
-                  <div>
-                    <Stack direction="row" alignItems="baseline" spacing={1}>
-                      <Typography variant="h4" color="primary.dark">{projN}</Typography>
-                      <Typography color="text.secondary" fontWeight={700}>unidades</Typography>
-                    </Stack>
-                    <Slider
-                      value={projN}
-                      onChange={(_event, value) => setProjectionQty(Array.isArray(value) ? value[0] : value)}
-                      min={1}
-                      max={60}
-                      step={1}
-                      valueLabelDisplay="auto"
-                      marks={[{ value: 6 }, { value: 12 }, { value: 24 }, { value: 48 }]}
-                    />
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      {[6, 12, 24].map((qty) => (
-                        <Chip key={qty} label={`${qty}x`} size="small" onClick={() => setProjectionQty(qty)} color={projN === qty ? 'primary' : 'default'} />
-                      ))}
-                      {isPrint3D ? <Chip label={`1 placa (${projItemsPerPlate})`} size="small" onClick={() => setProjectionQty(projItemsPerPlate)} /> : null}
-                    </Stack>
-                  </div>
-
-                  <Divider />
-
-                  <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-                    <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Custo de produção</Typography><Typography fontWeight={700}>{formatCurrency(projection.cost)}</Typography></div>
-                    <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Receita ({formatCurrency(effectiveSalePrice)}/un)</Typography><Typography fontWeight={700}>{formatCurrency(projection.revenue)}</Typography></div>
-                    <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Lucro</Typography><Typography fontWeight={700} color={projection.profit >= 0 ? 'success.main' : 'error.main'}>{formatCurrency(projection.profit)}</Typography></div>
-                    <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Margem</Typography><Typography fontWeight={700}>{projection.margin.toFixed(1)}%</Typography></div>
-                  </Box>
-
-                  {projection.revenue > 0 ? (
-                    <div>
-                      <Box sx={{ display: 'flex', height: 12, borderRadius: 999, overflow: 'hidden' }}>
-                        <Box sx={{ width: `${Math.min(100, Math.max(0, (projection.cost / projection.revenue) * 100))}%`, bgcolor: 'primary.main', flexShrink: 0 }} />
-                        <Box sx={{ flex: 1, bgcolor: 'success.main' }} />
-                      </Box>
-                      <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
-                        <Typography variant="caption" color="primary.dark" fontWeight={700}>Custo {Math.round((projection.cost / projection.revenue) * 100)}%</Typography>
-                        <Typography variant="caption" color="success.main" fontWeight={700}>Lucro {Math.round((projection.profit / projection.revenue) * 100)}%</Typography>
-                      </Stack>
-                    </div>
-                  ) : null}
-
-                  <Divider />
-
-                  <Stack spacing={0.75}>
-                    {isPrint3D ? (
-                      <>
-                        <Typography variant="body2" color="text.secondary">Placas necessárias: {projPlates} ({projItemsPerPlate} por placa)</Typography>
-                        <Typography variant="body2" color="text.secondary">Tempo de impressão: {formatMinutes(projPrintMinutes)}</Typography>
-                        <Typography variant="body2" color="text.secondary">Filamento: {projFilamentGrams.toFixed(0)} g — {formatCurrency(projection.material)}</Typography>
-                        <Typography variant="body2" color="text.secondary">Energia: {formatCurrency(projection.energy)} · Falhas: {formatCurrency(projection.failure)}</Typography>
-                      </>
-                    ) : null}
-                    {isEarring ? (
-                      <Typography variant="body2" color="text.secondary">Pingentes: {projN} un — {formatCurrency(projection.material)}</Typography>
-                    ) : null}
-                    {isBotton ? (
-                      <>
-                        <Typography variant="body2" color="text.secondary">Consome {projBottonConsumed.toFixed(0)} peça(s) do tamanho — {formatCurrency(projection.material)}</Typography>
-                        {selectedBottonSize ? (
-                          <Typography variant="body2" color={selectedBottonSize.stockQuantity >= projBottonConsumed ? 'success.main' : 'error.main'} fontWeight={700}>
-                            Estoque do tamanho: {selectedBottonSize.stockQuantity} — {selectedBottonSize.stockQuantity >= projBottonConsumed ? 'suficiente para o lote' : `faltam ${(projBottonConsumed - selectedBottonSize.stockQuantity).toFixed(0)}`}
-                          </Typography>
-                        ) : null}
-                      </>
-                    ) : null}
-                    <Typography variant="body2" color="text.secondary">Mão de obra + acabamento: {formatCurrency(projection.finishingLabor)}</Typography>
-                  </Stack>
-                </Stack>
-              ) : (
-                <Typography color="text.secondary">Selecione uma categoria e informe o preço para ver a projeção.</Typography>
-              )}
-            </PageSection>
-
-            {isEditing ? (
-              <PageSection title="Histórico de custo e preço" subtitle="Linha do tempo das alterações salvas para este produto.">
-                <Stack spacing={1.2}>
-                  {priceHistory.map((item, index) => (
-                    <Stack key={`${item.changedAtUtc}-${item.action}-${index}`} spacing={0.35} sx={{ p: 1.4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.62)' }}>
-                      <Typography fontWeight={700}>{new Date(item.changedAtUtc).toLocaleString('pt-BR')} • {item.action}</Typography>
-                      <Typography color="text.secondary">Por: {item.changedBy}</Typography>
-                      <Typography color="text.secondary">Custo: {formatCurrency(item.costPrice ?? 0)}</Typography>
-                      <Typography color="text.secondary">Preço: {formatCurrency(item.salePrice ?? 0)}</Typography>
-                      <Typography color="text.secondary">Estoque no momento: {item.currentStock ?? 0}</Typography>
-                    </Stack>
-                  ))}
-                  {priceHistory.length === 0 ? <Typography color="text.secondary">Sem histórico de alteração para este produto.</Typography> : null}
-                </Stack>
-              </PageSection>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+              <TextField label="Altura (cm)" type="number" value={form.heightCentimeters} onChange={(event) => updateForm('heightCentimeters', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+              <TextField label="Comprimento (m)" type="number" value={form.lengthMetersUsed} onChange={(event) => updateForm('lengthMetersUsed', Number(event.target.value))} fullWidth disabled={isFromOutsourcedProduction} />
+            </Box>
+            </>
             ) : null}
+        </Stack>
+      </PageSection>
+
+      <ProductPaintingSection
+        painting={{ ...painting, heightCm: painting.heightOverridden ? painting.heightCm : productHeightCm }}
+        onChange={updatePainting}
+        overview={paintingOverview}
+        productHeightCm={productHeightCm}
+        suppliers={metadata?.suppliers ?? []}
+        calculation={painting.enabled ? paintingCalculation : null}
+        isCalculating={isPaintingCalculating}
+        calculationError={painting.enabled && paintingError ? getErrorMessage(paintingError, 'Não foi possível calcular a pintura com os dados informados.') : null}
+        expanded={paintingExpanded}
+        onToggleExpanded={() => setPaintingExpanded((current) => !current)}
+        showOutdatedBanner={showOutdatedBanner}
+        showKeptNote={showKeptNote}
+        storedAtLabel={storedAtLabel}
+        onKeepStored={() => setPaintingBannerDismissed(true)}
+        onOpenRecalculation={openRecalculation}
+      />
+
+      <PageSection title="4 · Precificação" subtitle="Margens e preço final de venda.">
+        <Stack spacing={2}>
+            <Stack spacing={0.5}>
+              <FormControlLabel
+                control={<Checkbox checked={form.generateProductionExpenseOnStockEntry} onChange={(event) => updateForm('generateProductionExpenseOnStockEntry', event.target.checked)} disabled={isFromOutsourcedProduction} />}
+                label="Gerar despesa de produção quando o produto entrar em estoque"
+              />
+              <FormControlLabel
+                control={<Checkbox checked={isBudgetMode ? true : form.isBudget} onChange={(event) => updateForm('isBudget', event.target.checked)} disabled={isBudgetMode || isProjectDraftMode} />}
+                label={isProjectDraftMode ? 'Produto final sempre salvo como produto disponível ao concluir o projeto' : isBudgetMode ? 'Cadastro fixo como orçamento nesta tela' : 'Salvar como orçamento'}
+              />
+            </Stack>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' } }}>
+              <TextField label="Acabamento (%)" type="number" value={form.finishingPercentage} onChange={(event) => updateForm('finishingPercentage', Number(event.target.value))} fullWidth />
+              <TextField label="Comissão (%)" type="number" value={form.commissionPercentage} onChange={(event) => updateForm('commissionPercentage', Number(event.target.value))} fullWidth />
+              <CurrencyField label="Custo adicional" value={form.additionalCost} onValueChange={(value) => updateForm('additionalCost', value)} fullWidth disabled={isFromOutsourcedProduction} />
+              <CurrencyField label="Mão de obra" value={form.laborCost} onValueChange={(value) => updateForm('laborCost', value)} helperText="Somado ao custo." fullWidth disabled={isFromOutsourcedProduction} />
+              <TextField label="Markup desejado" type="number" value={form.desiredMarkup} onChange={(event) => updateForm('desiredMarkup', Number(event.target.value))} helperText="Mínimo 2 (200%)." fullWidth />
+              <CurrencyField label="Preço final de venda" value={form.salePrice === '' ? 0 : Number(form.salePrice)} onValueChange={(value) => updateForm('salePrice', String(value))} helperText={`Mín: ${formatCurrency(minimumAllowedSalePrice)}`} fullWidth />
+              <CurrencyField label="Preço p/ venda comissionada" value={effectiveCommissionedSalePrice} onValueChange={() => undefined} helperText="A partir do preço final + comissão." fullWidth disabled sx={{ '& .MuiInputBase-root': { bgcolor: 'rgba(71,51,40,0.06)' } }} />
+              <CurrencyField label="Lucro estimado" value={estimatedProfit} onValueChange={() => undefined} helperText="Preço final menos custo." fullWidth InputProps={{ readOnly: true }} sx={{ '& .MuiInputBase-root': { bgcolor: estimatedProfit >= 0 ? '#eaf4e3' : 'rgba(211,47,47,0.08)', fontWeight: 700, color: estimatedProfit >= 0 ? '#3f6a2c' : 'error.main' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: estimatedProfit >= 0 ? 'rgba(79,122,58,0.35)' : undefined } }} />
+            </Box>
+
+        </Stack>
+      </PageSection>
+
+      <ProductCostSummarySection
+        pricing={pricing}
+        itemsPerPlate={Number(form.itemsPerPlate) || 1}
+        commissionPercentage={Number(form.commissionPercentage)}
+        desiredMarkup={Number(form.desiredMarkup)}
+        materialLabel={materialLabel}
+        isPrint3D={isPrint3D}
+        persistedCost={isEditing && product ? product.costPrice : undefined}
+        showDivergence={Boolean(isEditing && product && pricing && pricing.totalCost !== product.costPrice)}
+        missingPrinterWarning={isPrint3D && form.printerProfileId === '' && form.filaments.length > 0}
+        paintingApplicationNote={paintingApplicationNote}
+        dirty={dirty}
+      />
+
+      <ProductProjectionSection
+        pricing={pricing}
+        unitCost={pricing?.totalCost ?? 0}
+        salePrice={effectiveSalePrice}
+        commissionPercentage={Number(form.commissionPercentage)}
+        itemsPerPlate={Number(form.itemsPerPlate) || 1}
+        isPrint3D={isPrint3D}
+        isEarring={isEarring}
+        isBotton={isBotton}
+        filamentGramsPerPlate={form.filaments.reduce((sum, item) => sum + (Number(item.weightGrams) || 0), 0)}
+        printMinutesPerPlate={Number(form.estimatedPrintTimeMinutes) || 0}
+        bottonQuantityPerUnit={Number(form.bottonSizeQuantity || 1)}
+        bottonStock={selectedBottonSize?.stockQuantity}
+        onApplyPrice={(price) => updateForm('salePrice', String(price))}
+      />
+
+      {isEditing ? (
+        <PageSection title="Histórico de custo e preço" subtitle="Linha do tempo das alterações salvas para este produto.">
+          <Stack spacing={1.2}>
+            {priceHistory.map((item, index) => (
+              <Stack key={`${item.changedAtUtc}-${item.action}-${index}`} spacing={0.35} sx={{ p: 1.4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.62)' }}>
+                <Typography fontWeight={700}>{new Date(item.changedAtUtc).toLocaleString('pt-BR')} • {item.action}</Typography>
+                <Typography color="text.secondary">Por: {item.changedBy}</Typography>
+                <Typography color="text.secondary">Custo: {formatCurrency(item.costPrice ?? 0)}</Typography>
+                <Typography color="text.secondary">Preço: {formatCurrency(item.salePrice ?? 0)}</Typography>
+                <Typography color="text.secondary">Estoque no momento: {item.currentStock ?? 0}</Typography>
+              </Stack>
+            ))}
+            {priceHistory.length === 0 ? <Typography color="text.secondary">Sem histórico de alteração para este produto.</Typography> : null}
           </Stack>
-      </Box>
+        </PageSection>
+      ) : null}
+
+      <PaintingRecalculationDialog
+        open={recalculationOpen}
+        isLoading={recalculationLoading}
+        error={recalculationError}
+        data={recalculation}
+        onCancel={() => setRecalculationOpen(false)}
+        onApply={applyRecalculation}
+      />
     </Stack>
   );
 }

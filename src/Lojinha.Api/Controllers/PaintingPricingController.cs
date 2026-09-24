@@ -19,6 +19,10 @@ public sealed class PaintingPricingController(IPaintingPricingService paintingPr
     public Task<ActionResult<PaintingPricingResultDto>> Calculate([FromBody] PaintingPricingCalculationRequest request, CancellationToken cancellationToken)
         => Execute(() => paintingPricingService.CalculateAsync(request, cancellationToken));
 
+    [HttpPost("product-preview")]
+    public Task<ActionResult<ProductPaintingCalculationDto?>> PreviewProductPainting([FromBody] ProductPaintingRequest request, CancellationToken cancellationToken)
+        => Execute(() => paintingPricingService.CalculateForProductAsync(request, cancellationToken));
+
     [HttpGet("history")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<IReadOnlyList<PaintingHistoryEntryDto>>> GetHistory([FromQuery] int take = 100, CancellationToken cancellationToken = default)

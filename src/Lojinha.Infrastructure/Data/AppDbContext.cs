@@ -44,6 +44,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<PaintingPreparationService> PaintingPreparationServices => Set<PaintingPreparationService>();
     public DbSet<PaintingMaterial> PaintingMaterials => Set<PaintingMaterial>();
     public DbSet<PaintingAddOn> PaintingAddOns => Set<PaintingAddOn>();
+    public DbSet<ProductPainting> ProductPaintings => Set<ProductPainting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +98,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<PaintingPreparationService>().Property(x => x.ChargeType).HasConversion<string>();
         modelBuilder.Entity<PaintingMaterial>().Property(x => x.Category).HasConversion<string>();
         modelBuilder.Entity<PaintingAddOn>().Property(x => x.ChargeType).HasConversion<string>();
+        modelBuilder.Entity<ProductPainting>().Property(x => x.Mode).HasConversion<string>();
+        modelBuilder.Entity<ProductPainting>().Property(x => x.Execution).HasConversion<string>();
+        modelBuilder.Entity<ProductPainting>().Property(x => x.Application).HasConversion<string>();
+        modelBuilder.Entity<ProductPainting>().Property(x => x.BaseMode).HasConversion<string>();
         modelBuilder.Entity<OperationalRestockItem>().Property(x => x.Priority).HasConversion<string>();
         modelBuilder.Entity<OperationalRestockItem>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<OperationalTodoItem>().Property(x => x.Priority).HasConversion<string>();
@@ -297,6 +302,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany(x => x.Products)
             .HasForeignKey(x => x.BottonSizeId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProductPainting>().HasIndex(x => x.ProductId).IsUnique();
+        modelBuilder.Entity<ProductPainting>()
+            .HasOne(x => x.Product)
+            .WithOne(x => x.Painting)
+            .HasForeignKey<ProductPainting>(x => x.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<PaintingSizeRangeHours>()
             .HasOne(x => x.SizeRange)

@@ -47,6 +47,7 @@ public sealed class Product : AuditableEntity
     public Supplier? ProducerSupplier { get; set; }
     public decimal ProductionFeeAmount { get; set; }
     public ProductRecipe? Recipe { get; set; }
+    public ProductPainting? Painting { get; set; }
     public ICollection<SaleItem> SaleItems { get; set; } = new List<SaleItem>();
     public ICollection<ProductFilament> Filaments { get; set; } = [];
 

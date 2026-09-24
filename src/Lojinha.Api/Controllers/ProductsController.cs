@@ -1,3 +1,4 @@
+using Lojinha.Api.Contracts.PaintingPricing;
 using Lojinha.Api.Contracts.Products;
 using Lojinha.Api.Entities;
 using Lojinha.Api.Extensions;
@@ -39,6 +40,27 @@ public sealed class ProductsController(IProductService productService) : Control
     [HttpGet("{id:guid}/price-history")]
     public async Task<ActionResult<IReadOnlyList<ProductPriceHistoryEntryDto>>> GetPriceHistory(Guid id, CancellationToken cancellationToken)
         => Ok(await productService.GetPriceHistoryAsync(id, ScopedSupplierId, cancellationToken));
+
+    [HttpGet("{id:guid}/painting/recalculation")]
+    [Authorize(Roles = "Admin,Supplier")]
+    public async Task<ActionResult<ProductPaintingRecalculationDto>> RecalculatePainting(Guid id, [FromServices] IPaintingPricingService paintingPricingService, CancellationToken cancellationToken)
+    {
+        var product = await productService.GetByIdAsync(id, ScopedSupplierId, cancellationToken);
+        if (product is null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var recalculation = await paintingPricingService.RecalculateForProductAsync(id, cancellationToken);
+            return recalculation is null ? NotFound() : Ok(recalculation);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
 
     [HttpPost("pricing-preview")]
     [Authorize(Roles = "Admin,Supplier")]
