@@ -649,3 +649,9 @@ Fonte: testes de servico presentes no repositorio.
   - A pintura é sempre um **acréscimo ao preço de venda sugerido**. `BuildProductCalculation` devolve `IncorporatedCost = 0` sempre; `IncorporatePrice` (padrão) e o legado `IncorporateCost` somam o preço da pintura ao preço sugerido; `ManualAmount` soma o valor informado ao preço; `ReferenceOnly` não altera nada. Assim o custo do produto e o preço mínimo (2× custo) não mudam com a pintura.
   - Tela: opções "Somar ao preço sugerido" (padrão), "Somente referência", "Valor manual (somado ao preço)". Removida a opção "Incorporar ao custo". Enum `IncorporateCost` mantido só por compatibilidade.
   - Sem correção de dados: nenhum produto tinha sido salvo com pintura. Deploy Oracle tag `20260924-painting-price-only-v1`. HTTP 200. Limpeza concluída.
+
+- U-20260924-04 Performance do cadastro de produto (tela "travando" ao digitar):
+  - Preview de preço (`/products/pricing-preview`) disparava a cada tecla e sem `keepPreviousData` (cards 5/6 piscavam e remontavam). Agora usa `useDebouncedValue(form, 350)` + `keepPreviousData` + `staleTime`.
+  - `ProductPaintingSection`, `ProductCostSummarySection`, `ProductProjectionSection` e `ProductFormActionBar` exportados com `React.memo` (padrão `function XView` + `export const X = memo(XView)`); props estabilizadas no `ProductFormPage` (`useCallback` para handlers, `useMemo` para `paintingView` e `suppliers`). Digitar nos cards 1/2/4 não re-renderiza mais pintura/resumo/projeção.
+  - Tema: `MuiPaper` só aplica `backdropFilter: blur(16px)` e sombra em Papers não-outlined (cartões internos `variant="outlined"` ficam sem blur); barra fixa do produto sem blur. Blur empilhado era o principal custo na rolagem.
+  - Deploy Oracle tag `20260924-product-form-perf-v1`. HTTP 200. Limpeza concluída.
