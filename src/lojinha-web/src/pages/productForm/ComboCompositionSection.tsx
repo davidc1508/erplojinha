@@ -1,4 +1,5 @@
-import { Alert, Box, Button, IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, IconButton, InputAdornment, Paper, Stack, TextField, Typography } from '@mui/material';
+import { useState } from 'react';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { ProductLookupField } from '../../components/ProductLookupField';
@@ -26,6 +27,8 @@ interface Props {
 }
 
 export function ComboCompositionSection({ items, products, onChange, salePrice, onPriceChange, cost, combinedPrice, availableStock, loading, error, commissionPercentage, commissionedSalePrice, onCommissionChange }: Props) {
+  const [markupInput, setMarkupInput] = useState<string | null>(null);
+  const actualMarkup = cost > 0 ? Number((salePrice / cost).toFixed(4)) : '';
   const profit = salePrice - cost;
   const margin = salePrice > 0 ? profit / salePrice * 100 : 0;
   const parts = items.flatMap((item, index) => {
@@ -75,7 +78,18 @@ export function ComboCompositionSection({ items, products, onChange, salePrice, 
             <TextField label="Comissão (%)" type="number" value={commissionPercentage} onChange={(event) => onCommissionChange(Number(event.target.value))} inputProps={{ min: 0, max: 100 }} fullWidth />
             <CurrencyField label="Preço p/ venda comissionada" value={commissionedSalePrice} onValueChange={() => undefined} helperText="A partir do preço final + comissão." fullWidth disabled sx={{ '& .MuiInputBase-root': { bgcolor: 'rgba(71,51,40,0.06)' } }} />
             <TextField label="Margem de lucro" value={salePrice > 0 ? `${formatNumber(margin, 1)}%` : '—'} helperText="Lucro dividido pelo preço final." InputProps={{ readOnly: true }} fullWidth />
-            <TextField label="Markup" value={cost > 0 ? `${formatNumber(salePrice / cost, 2)}×` : '—'} helperText="Preço final dividido pelo custo." InputProps={{ readOnly: true }} fullWidth />
+            <TextField label="Markup" type="number" value={markupInput ?? actualMarkup}
+              onFocus={() => setMarkupInput(String(actualMarkup))} onBlur={() => setMarkupInput(null)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setMarkupInput(value);
+                const markup = Number(value);
+                if (value !== '' && Number.isFinite(markup) && markup >= 0) {
+                  onPriceChange((cost * markup).toFixed(2));
+                }
+              }}
+              inputProps={{ min: 0, step: 0.1 }} InputProps={{ endAdornment: <InputAdornment position="end">×</InputAdornment> }}
+              disabled={cost <= 0} helperText={cost > 0 ? 'Multiplica o custo total e atualiza o preço final.' : 'Selecione produtos com custo para ajustar o markup.'} fullWidth />
           </Box>
           <Button variant="outlined" onClick={() => onPriceChange('')} sx={{ alignSelf: 'flex-start' }}>Usar soma dos itens</Button>
         </Stack>
