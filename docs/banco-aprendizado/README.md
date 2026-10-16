@@ -14,7 +14,7 @@ O foco principal e contexto do produto e da arquitetura, nao historico de chat.
 ## Politica de atualizacao
 
 - Politica global: a cada demanda concluida, deve existir atualizacao da base de conhecimento do contexto fora do repositorio (memoria persistente).
-- Politica Lojinha: em toda demanda da Lojinha, este diretorio deve ser atualizado quando houver novo conhecimento e a atualizacao deve ser enviada com push ao remoto.
+- Política Lojinha: em toda demanda da Lojinha, este diretório deve ser atualizado quando houver novo conhecimento. Em 16/10/2026, o usuário revogou a proibição de git push exclusivamente para a Lojinha e autorizou a publicação das alterações dos combos. Nos demais repositórios, a proibição permanece.
 
 ## Arquivos
 

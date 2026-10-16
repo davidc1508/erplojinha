@@ -83,7 +83,7 @@ services:
           memory: 40m
 
   api:
-    image: lojinha-api-oracle:20260616-lojinha-producer-v3
+    image: lojinha-api-oracle:20261016-combos-v1
     container_name: lojinha-api
     restart: unless-stopped
     depends_on:
@@ -117,7 +117,7 @@ services:
           memory: 320m
 
   web:
-    image: lojinha-web-oracle:20260616-lojinha-producer-v5
+    image: lojinha-web-oracle:20261016-combos-v1
     container_name: lojinha-web
     restart: unless-stopped
     depends_on:
