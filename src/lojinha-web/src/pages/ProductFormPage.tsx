@@ -782,11 +782,23 @@ export function ProductFormPage() {
       </PageSection>
 
       {isCombo ? (
+        <>
         <ComboCompositionSection items={form.comboItems} products={eligibleComboProducts}
           onChange={(comboItems) => { setDirty(true); setForm((current) => ({ ...current, comboItems })); }}
           salePrice={effectiveSalePrice} onPriceChange={(price) => updateForm('salePrice', price)}
           cost={comboCost} combinedPrice={comboCombinedPrice} availableStock={comboAvailableStock}
-          loading={comboProductsLoading} error={comboProductsError} />
+          loading={comboProductsLoading} error={comboProductsError}
+          commissionPercentage={effectiveCommissionPercentage} commissionedSalePrice={effectiveCommissionedSalePrice}
+          onCommissionChange={(value) => updateForm('commissionPercentage', value)} />
+        <ProductProjectionSection isCombo unitCost={comboCost} salePrice={effectiveSalePrice}
+          commissionPercentage={effectiveCommissionPercentage} itemsPerPlate={1} isPrint3D={false} isEarring={false} isBotton={false}
+          filamentGramsPerPlate={0} printMinutesPerPlate={0} bottonQuantityPerUnit={0}
+          comboItems={form.comboItems.flatMap((item) => {
+            const component = eligibleComboProducts.find((candidate) => candidate.id === item.productId);
+            return component ? [{ name: component.name, quantity: item.quantity, stock: component.currentStock }] : [];
+          })}
+          onApplyPrice={applySimulatedPrice} />
+        </>
       ) : <>
       <PageSection title="2 · Produção e insumo" subtitle="Como o produto é feito — muda conforme o tipo escolhido.">
         <Stack spacing={2}>

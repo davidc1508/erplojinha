@@ -117,7 +117,7 @@ services:
           memory: 320m
 
   web:
-    image: lojinha-web-oracle:20261016-combos-v1
+    image: lojinha-web-oracle:20261016-combos-indicators-v1
     container_name: lojinha-web
     restart: unless-stopped
     depends_on:

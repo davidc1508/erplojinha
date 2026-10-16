@@ -7,6 +7,8 @@ import { formatCurrency, formatNumber } from '../paintingPricing/paintingPricing
 
 interface ProductProjectionSectionProps {
   pricing?: ProductPricing;
+  isCombo?: boolean;
+  comboItems?: { name: string; quantity: number; stock: number }[];
   unitCost: number;
   salePrice: number;
   commissionPercentage: number;
@@ -39,6 +41,8 @@ function clampQuantity(value: number) {
 
 function ProductProjectionSectionView({
   pricing,
+  isCombo = false,
+  comboItems = [],
   unitCost,
   salePrice,
   commissionPercentage,
@@ -55,9 +59,11 @@ function ProductProjectionSectionView({
 }: ProductProjectionSectionProps) {
   const perPlate = Math.max(1, itemsPerPlate);
   const [quantity, setQuantity] = useState(clampQuantity(perPlate));
-  const currentShare = salePrice > 0 && unitCost > 0 ? Math.min(95, Math.max(10, unitCost / salePrice * 100)) : 50;
+  const maxCostShare = 95;
+  const currentShare = salePrice > 0 && unitCost > 0 ? Math.min(maxCostShare, Math.max(isCombo ? 1 : 10, unitCost / salePrice * 100)) : 50;
   const [costShare, setCostShare] = useState(currentShare);
   const [applied, setApplied] = useState(false);
+  const [simulating, setSimulating] = useState(false);
 
   useEffect(() => {
     setQuantity(clampQuantity(perPlate));
@@ -68,27 +74,32 @@ function ProductProjectionSectionView({
     setApplied(false);
   }, [currentShare]);
 
-  if (!pricing || unitCost <= 0) {
+  useEffect(() => { setSimulating(false); }, [salePrice]);
+
+  const title = isCombo ? '5 · Projeção de custo e lucro' : '6 · Projeção de produção e lucro';
+  const subtitle = isCombo ? 'Escolha a quantidade de combos e arraste a divisa entre custo e lucro para simular o preço de venda.' : 'Escolha o lote e arraste a divisa entre custo e lucro para descobrir o preço de venda.';
+  if ((!pricing && !isCombo) || unitCost <= 0) {
     return (
-      <PageSection title="6 · Projeção de produção e lucro" subtitle="Escolha o lote e arraste a divisa entre custo e lucro para descobrir o preço de venda.">
-        <Typography color="text.secondary">Selecione uma categoria e informe os dados de produção para ver a projeção.</Typography>
+      <PageSection title={title} subtitle={subtitle}>
+        <Typography color="text.secondary">{isCombo ? 'Selecione os produtos com custo para ver a projeção do combo.' : 'Selecione uma categoria e informe os dados de produção para ver a projeção.'}</Typography>
       </PageSection>
     );
   }
 
   const plates = Math.ceil(quantity / perPlate);
-  const simulatedPrice = Math.round(unitCost / (costShare / 100) * 100) / 100;
-  const margin = 100 - costShare;
-  const belowMinimum = costShare > 50.0001;
+  const simulatedPrice = isCombo && !simulating ? salePrice : Math.round(unitCost / (costShare / 100) * 100) / 100;
+  const margin = isCombo ? (simulatedPrice > 0 ? (simulatedPrice - unitCost) / simulatedPrice * 100 : 0) : 100 - costShare;
+  const displayedCostShare = isCombo ? (simulatedPrice > 0 ? unitCost / simulatedPrice * 100 : 100) : costShare;
+  const belowMinimum = !isCombo && costShare > 50.0001;
   const commissionRate = commissionPercentage > 0 ? commissionPercentage / 100 : 0;
-  const simulatedWithCommission = commissionRate > 0 && commissionRate < 1 ? simulatedPrice / (1 - commissionRate) : simulatedPrice;
+  const simulatedWithCommission = commissionRate > 0 && commissionRate < 1 ? simulatedPrice / (1 - commissionRate) : commissionRate >= 1 ? 0 : simulatedPrice;
   const unitScale = 1 / perPlate;
-  const chips = [...plateMultipliers.map((multiplier) => ({ label: `${multiplier === 1 ? '1 placa' : `${multiplier} placas`} (${Math.min(maxQuantity, perPlate * multiplier)})`, value: Math.min(maxQuantity, perPlate * multiplier) })), { label: 'Máx. 1000', value: maxQuantity }]
+  const chips = [...plateMultipliers.map((multiplier) => ({ label: isCombo ? `${multiplier} ${multiplier === 1 ? 'combo' : 'combos'}` : `${multiplier === 1 ? '1 placa' : `${multiplier} placas`} (${Math.min(maxQuantity, perPlate * multiplier)})`, value: Math.min(maxQuantity, perPlate * multiplier) })), { label: 'Máx. 1000', value: maxQuantity }]
     .filter((chip, index, list) => list.findIndex((item) => item.value === chip.value) === index);
   const bottonConsumed = bottonQuantityPerUnit * quantity;
 
   return (
-    <PageSection title="6 · Projeção de produção e lucro" subtitle="Escolha o lote e arraste a divisa entre custo e lucro para descobrir o preço de venda.">
+    <PageSection title={title} subtitle={subtitle}>
       <Stack spacing={3}>
         <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '240px minmax(0, 1fr)' }, alignItems: 'center' }}>
           <Stack direction={{ xs: 'row', md: 'column' }} justifyContent="space-between" alignItems={{ xs: 'flex-end', md: 'flex-start' }} spacing={1}>
@@ -96,7 +107,7 @@ function ProductProjectionSectionView({
               <Typography variant="body2" color="text.secondary" fontWeight={700}>Tamanho do lote</Typography>
               <Stack direction="row" alignItems="baseline" spacing={1}>
                 <Typography variant="h3" color="primary.dark" sx={{ fontSize: { xs: '2.4rem', md: '3rem' } }}>{quantity}</Typography>
-                <Typography color="text.secondary" fontWeight={700}>unidades</Typography>
+                <Typography color="text.secondary" fontWeight={700}>{isCombo ? 'combos' : 'unidades'}</Typography>
               </Stack>
               {isPrint3D ? <Typography variant="caption" color="text.secondary">= {plates} {plates === 1 ? 'placa' : 'placas'} de {perPlate} {perPlate === 1 ? 'item' : 'itens'}</Typography> : null}
             </div>
@@ -113,21 +124,21 @@ function ProductProjectionSectionView({
         <div>
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={0.5} sx={{ mb: 1 }}>
             <Typography variant="body2" color="text.secondary" fontWeight={700}>Lucro esperado — arraste a divisa</Typography>
-            <Typography variant="body2" color="text.secondary">Preço atual do produto: <strong>{formatCurrency(salePrice)}</strong></Typography>
+            <Typography variant="body2" color="text.secondary">{isCombo ? 'Preço atual do combo:' : 'Preço atual do produto:'} <strong>{formatCurrency(salePrice)}</strong></Typography>
           </Stack>
           <Box sx={{ position: 'relative', height: 52, mx: 1.5 }}>
             <Box sx={{ display: 'flex', height: 52, borderRadius: 999, overflow: 'hidden' }}>
-              <Box sx={{ width: `${costShare}%`, bgcolor: '#a54b62', color: '#fff', display: 'flex', alignItems: 'center', pl: 2, fontWeight: 800, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden' }}>Custo {formatNumber(costShare, 0)}%</Box>
+              <Box sx={{ width: `${Math.min(100, displayedCostShare)}%`, bgcolor: '#a54b62', color: '#fff', display: 'flex', alignItems: 'center', pl: 2, fontWeight: 800, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden' }}>Custo {formatNumber(displayedCostShare, 0)}%</Box>
               <Box sx={{ flex: 1, bgcolor: '#4f7a3a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 2, fontWeight: 800, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden' }}>Lucro {formatNumber(margin, 1)}%</Box>
             </Box>
-            <Box sx={{ position: 'absolute', top: -6, bottom: -6, left: '50%', borderLeft: '2px dashed rgba(71,51,40,0.55)', pointerEvents: 'none' }} />
+            <Box sx={{ position: 'absolute', top: -6, bottom: -6, display: isCombo ? 'none' : undefined, left: '50%', borderLeft: '2px dashed rgba(71,51,40,0.55)', pointerEvents: 'none' }} />
             <Box sx={{ position: 'absolute', top: -6, bottom: -6, left: `${currentShare}%`, borderLeft: '2px solid #473328', pointerEvents: 'none' }} />
             <Slider
               value={costShare}
               min={0}
               max={100}
               step={0.5}
-              onChange={(_, value) => { setCostShare(Math.min(95, Math.max(10, Array.isArray(value) ? value[0] : value))); setApplied(false); }}
+              onChange={(_, value) => { setCostShare(Math.min(maxCostShare, Math.max(isCombo ? 1 : 10, Array.isArray(value) ? value[0] : value))); setApplied(false); setSimulating(true); }}
               track={false}
               aria-label="Divisa entre custo e lucro"
               disabled={disabled}
@@ -139,7 +150,7 @@ function ProductProjectionSectionView({
             />
           </Box>
           <Box sx={{ position: 'relative', height: 40, mx: 1.5, mt: 0.75 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>markup mínimo 2×</Typography>
+            {!isCombo ? <Typography variant="caption" color="text.secondary" sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>markup mínimo 2×</Typography> : null}
             <Typography variant="caption" fontWeight={700} sx={{ position: 'absolute', left: `${currentShare}%`, top: Math.abs(currentShare - 50) < 25 ? 18 : 0, transform: 'translateX(-10px)', whiteSpace: 'nowrap' }}>▲ preço atual</Typography>
           </Box>
         </div>
@@ -149,29 +160,36 @@ function ProductProjectionSectionView({
             <Typography variant="body2" color="text.secondary" fontWeight={700}>Preço de venda para {formatNumber(margin, 1)}% de lucro</Typography>
             <Stack direction="row" spacing={1} alignItems="baseline">
               <Typography variant="h4">{formatCurrency(simulatedPrice)}</Typography>
-              <Typography color="text.secondary" fontWeight={700}>/ unidade</Typography>
+              <Typography color="text.secondary" fontWeight={700}>{isCombo ? '/ combo' : '/ unidade'}</Typography>
             </Stack>
             <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', mt: 1 }}>
               <div><Typography variant="caption" color="text.secondary">Com comissão</Typography><Typography fontWeight={800}>{formatCurrency(simulatedWithCommission)}</Typography></div>
               <div><Typography variant="caption" color="text.secondary">Markup</Typography><Typography fontWeight={800}>{formatNumber(simulatedPrice / unitCost, 2)}×</Typography></div>
-              <div><Typography variant="caption" color="text.secondary">Lucro/un</Typography><Typography fontWeight={800} sx={{ color: '#3f6a2c' }}>{formatCurrency(simulatedPrice - unitCost)}</Typography></div>
+              <div><Typography variant="caption" color="text.secondary">{isCombo ? 'Lucro/combo' : 'Lucro/un'}</Typography><Typography fontWeight={800} sx={{ color: simulatedPrice >= unitCost ? '#3f6a2c' : 'error.main' }}>{formatCurrency(simulatedPrice - unitCost)}</Typography></div>
             </Box>
             {belowMinimum ? <Alert severity="warning" sx={{ mt: 1.5 }}>Abaixo do markup mínimo (2×). O cadastro não aceita preço menor que {formatCurrency(unitCost * 2)}.</Alert> : null}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} sx={{ mt: 2 }}>
               <Button variant="contained" onClick={() => { onApplyPrice(simulatedPrice); setApplied(true); }} disabled={disabled || belowMinimum}>Usar como preço final</Button>
-              <Button onClick={() => { setCostShare(currentShare); setApplied(false); }}>Voltar ao preço atual</Button>
+              <Button onClick={() => { setCostShare(currentShare); setApplied(false); setSimulating(false); }}>Voltar ao preço atual</Button>
               {applied ? <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: '#3f6a2c' }}><CheckRoundedIcon fontSize="small" /><Typography variant="body2" fontWeight={700}>Aplicado em “Preço final de venda”</Typography></Stack> : null}
             </Stack>
           </Paper>
           <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
             <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 4 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>Custo do lote</Typography><Typography variant="h6">{formatCurrency(unitCost * quantity)}</Typography></Paper>
             <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 4 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>Receita do lote</Typography><Typography variant="h6">{formatCurrency(simulatedPrice * quantity)}</Typography></Paper>
-            <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 4, bgcolor: '#eef5e9', borderColor: 'rgba(79,122,58,0.2)' }}><Typography variant="body2" fontWeight={700} sx={{ color: '#4f7a3a' }}>Lucro do lote</Typography><Typography variant="h6" sx={{ color: '#3f6a2c' }}>{formatCurrency((simulatedPrice - unitCost) * quantity)}</Typography></Paper>
+            <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 4, bgcolor: simulatedPrice >= unitCost ? '#eef5e9' : 'rgba(211,47,47,0.08)', borderColor: simulatedPrice >= unitCost ? 'rgba(79,122,58,0.2)' : 'error.main' }}><Typography variant="body2" fontWeight={700} sx={{ color: simulatedPrice >= unitCost ? '#4f7a3a' : 'error.main' }}>Lucro do lote</Typography><Typography variant="h6" sx={{ color: simulatedPrice >= unitCost ? '#3f6a2c' : 'error.main' }}>{formatCurrency((simulatedPrice - unitCost) * quantity)}</Typography></Paper>
             <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 4 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>Margem</Typography><Typography variant="h6">{formatNumber(margin, 1)}%</Typography></Paper>
           </Box>
         </Box>
 
-        <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(5, minmax(0, 1fr))' }, p: 2, borderRadius: 4, bgcolor: 'rgba(251,243,239,0.9)' }}>
+        {isCombo ? <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(auto-fit, minmax(180px, 1fr))' }, p: 2, borderRadius: 4, bgcolor: 'rgba(251,243,239,0.9)' }}>
+          {comboItems.map((item, index) => <div key={index}>
+            <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>{item.name}</Typography>
+            <Typography fontWeight={700}>{formatNumber(item.quantity * quantity, 0)} un no lote</Typography>
+            <Typography variant="caption" color={item.stock >= item.quantity * quantity ? 'success.main' : 'error.main'}>Estoque {item.stock} · {item.stock >= item.quantity * quantity ? 'suficiente' : `faltam ${formatNumber(item.quantity * quantity - item.stock, 0)}`}</Typography>
+          </div>)}
+        </Box> : null}
+        {pricing && !isCombo ? <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(5, minmax(0, 1fr))' }, p: 2, borderRadius: 4, bgcolor: 'rgba(251,243,239,0.9)' }}>
           {isPrint3D ? (
             <>
               <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Placas necessárias</Typography><Typography fontWeight={700}>{plates} ({perPlate} por placa)</Typography></div>
@@ -190,7 +208,7 @@ function ProductProjectionSectionView({
           ) : null}
           <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Mão de obra + acabamento</Typography><Typography fontWeight={700}>{formatCurrency((pricing.finishingCost + pricing.laborCost) * unitScale * quantity)}</Typography></div>
           {(pricing.paintingCost ?? 0) > 0 ? <div><Typography variant="caption" color="text.secondary" fontWeight={700}>Pintura</Typography><Typography fontWeight={700}>{formatCurrency(pricing.paintingCost * quantity)}</Typography></div> : null}
-        </Box>
+        </Box> : null}
       </Stack>
     </PageSection>
   );
