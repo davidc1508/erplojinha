@@ -6,7 +6,7 @@ export type InventoryItemType = 'Product' | 'Supply';
 export type InventoryMovementType = 'Entry' | 'Exit' | 'Sale' | 'Adjustment';
 export type FairStatus = 'Awaiting' | 'Open' | 'Finalized' | 'Cancelled';
 export type ProductLifecycleStatus = 'Disponivel' | 'EmProducao' | 'Orcamento';
-export type ProductType = 'Impressao3D' | 'Brinco' | 'Botton';
+export type ProductType = 'Impressao3D' | 'Brinco' | 'Botton' | 'Combo';
 export type OperationalItemPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type RestockTaskStatus = 'Open' | 'InProgress' | 'Completed' | 'Cancelled';
 
@@ -119,7 +119,18 @@ export interface Product {
   bottonSizeStockQuantity: number;
   bottonSizeCostPerUnit: number;
   laborCost: number;
+  comboItems?: ProductComboItem[];
   painting?: ProductPainting | null;
+}
+
+export interface ProductComboItem {
+  productId: string;
+  name: string;
+  sku: string;
+  quantity: number;
+  costPrice: number;
+  salePrice: number;
+  currentStock: number;
 }
 
 export interface OutsourcedProductionFilamentItem {

@@ -31,7 +31,8 @@ import { PaintedBadge } from './productForm/ProductPaintingSection';
 const productTypeLabel: Record<string, string> = {
   Impressao3D: 'Impressão 3D',
   Brinco: 'Brinco',
-  Botton: 'Botton'
+  Botton: 'Botton',
+  Combo: 'Combo'
 };
 
 function BandCell({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
@@ -198,6 +199,21 @@ export function ProductDetailsPage() {
         <BandCell label="Última venda" value={lastSaleDate ? formatUtcDate(lastSaleDate) : 'Sem vendas'} />
       </Box>
 
+      {product.productType === 'Combo' ? (
+        <Paper sx={{ p: { xs: 2, md: 3 } }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>Composição do combo</Typography>
+          <Stack spacing={1.5}>
+            {(product.comboItems ?? []).map((item) => (
+              <Box key={item.productId} sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'space-between' }}>
+                <Button onClick={() => navigate(`/produtos/${item.productId}`)}>{item.quantity} × {item.name}</Button>
+                <Typography>Custo: {formatCurrency(item.costPrice * item.quantity)} • Preço: {formatCurrency(item.salePrice * item.quantity)}</Typography>
+              </Box>
+            ))}
+            <Typography color="text.secondary">O estoque e a reposição são movimentados nos produtos da composição.</Typography>
+          </Stack>
+        </Paper>
+      ) : null}
+
       <Paper sx={{ p: { xs: 2, md: 3 }, overflow: 'hidden' }}>
         <Tabs value={tab} onChange={(_event, value) => setTab(value)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2.5, borderBottom: '1px solid rgba(217,107,135,0.18)' }}>
           <Tab label="Visão geral" />
@@ -223,7 +239,14 @@ export function ProductDetailsPage() {
             </Box>
             <Box>
               <Typography variant="h6" sx={{ mb: 1 }}>Composição de custo</Typography>
-              <Stack spacing={1}>
+              {product.productType === 'Combo' ? (
+                <Stack spacing={1}>
+                  <Stack direction="row" justifyContent="space-between"><Typography>Custo total do combo</Typography><Typography fontWeight={700}>{formatCurrency(product.costPrice)}</Typography></Stack>
+                  <Stack direction="row" justifyContent="space-between"><Typography>Preço final</Typography><Typography fontWeight={700}>{formatCurrency(product.salePrice)}</Typography></Stack>
+                  <Stack direction="row" justifyContent="space-between"><Typography>Lucro total do combo</Typography><Typography fontWeight={700}>{formatCurrency(product.salePrice - product.costPrice)}</Typography></Stack>
+                  <Stack direction="row" justifyContent="space-between"><Typography>Margem estimada</Typography><Typography fontWeight={700}>{(product.profitMargin * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%</Typography></Stack>
+                </Stack>
+              ) : <Stack spacing={1}>
                 <Stack direction="row" justifyContent="space-between"><Typography color="text.secondary">Custo de composição</Typography><Typography>{formatCurrency(pricing?.compositionCost ?? 0)}</Typography></Stack>
                 <Stack direction="row" justifyContent="space-between"><Typography color="text.secondary">Material</Typography><Typography>{formatCurrency(pricing?.materialCost ?? 0)}</Typography></Stack>
                 {product.productType === 'Brinco' ? (
@@ -246,7 +269,7 @@ export function ProductDetailsPage() {
                 <Stack direction="row" justifyContent="space-between"><Typography fontWeight={700}>Preço final</Typography><Typography fontWeight={700}>{formatCurrency(product.salePrice)}</Typography></Stack>
                 <Stack direction="row" justifyContent="space-between"><Typography fontWeight={700}>Margem estimada</Typography><Typography fontWeight={700} sx={{ color: '#4e7a34' }}>{(pricing?.estimatedMargin ?? 0).toFixed(2)}%</Typography></Stack>
                 <Typography color="text.secondary" fontSize={12}>Última movimentação de estoque: {lastMovementDate ? formatUtcDate(lastMovementDate) : 'sem movimentação'}</Typography>
-              </Stack>
+              </Stack>}
             </Box>
           </Box>
         ) : null}

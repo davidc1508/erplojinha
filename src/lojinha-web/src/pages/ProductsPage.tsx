@@ -47,7 +47,8 @@ function formatCurrency(value: number) {
 const PRODUCT_TYPE_META: Record<ProductType, { label: string; color: string; background: string }> = {
   Impressao3D: { label: 'Impressão 3D', color: '#2f7d70', background: 'rgba(123, 207, 192, 0.22)' },
   Brinco: { label: 'Brinco', color: '#9a6b1f', background: 'rgba(225, 166, 87, 0.22)' },
-  Botton: { label: 'Botton', color: '#a54b62', background: 'rgba(217, 107, 135, 0.18)' }
+  Botton: { label: 'Botton', color: '#a54b62', background: 'rgba(217, 107, 135, 0.18)' },
+  Combo: { label: 'Combo', color: '#77519b', background: 'rgba(174, 143, 207, 0.20)' }
 };
 
 function TypeChip({ type }: { type: ProductType }) {
@@ -62,6 +63,9 @@ function TypeChip({ type }: { type: ProductType }) {
 }
 
 function getProductTypeCaption(product: Product) {
+  if (product.productType === 'Combo') {
+    return (product.comboItems ?? []).map((item) => `${item.quantity} × ${item.name}`).join(' • ');
+  }
   if (product.productType === 'Brinco') {
     return `Pingente: ${product.pingenteSupply ?? 'não definido'}`;
   }
@@ -255,7 +259,7 @@ export function ProductsPage() {
     const priced = products.filter((product) => product.salePrice > 0);
     return {
       active: products.length,
-      stockValue: products.reduce((sum, product) => sum + product.currentStock * product.costPrice, 0),
+      stockValue: products.filter((product) => product.productType !== 'Combo').reduce((sum, product) => sum + product.currentStock * product.costPrice, 0),
       avgMargin: priced.length > 0 ? priced.reduce((sum, product) => sum + getMarginPercentage(product), 0) / priced.length : 0,
       withoutPrice: products.filter((product) => product.salePrice <= 0).length
     };
@@ -361,6 +365,7 @@ export function ProductsPage() {
               <MenuItem value="Impressao3D">Impressão 3D</MenuItem>
               <MenuItem value="Brinco">Brinco</MenuItem>
               <MenuItem value="Botton">Botton</MenuItem>
+              <MenuItem value="Combo">Combo</MenuItem>
             </TextField>
           </Stack>
           {!isReseller ? (

@@ -22,6 +22,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<FairSupplier> FairSuppliers => Set<FairSupplier>();
     public DbSet<Sale> Sales => Set<Sale>();
     public DbSet<SaleItem> SaleItems => Set<SaleItem>();
+    public DbSet<ProductComboItem> ProductComboItems => Set<ProductComboItem>();
+    public DbSet<SaleItemComponent> SaleItemComponents => Set<SaleItemComponent>();
     public DbSet<FinancialEntry> FinancialEntries => Set<FinancialEntry>();
     public DbSet<OperationalRestockItem> OperationalRestockItems => Set<OperationalRestockItem>();
     public DbSet<OperationalTodoItem> OperationalTodoItems => Set<OperationalTodoItem>();
@@ -109,6 +111,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<ProjectStep>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<ProjectStepAttempt>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<AuditLog>().Property(x => x.Action).HasConversion<string>();
+
+        modelBuilder.Entity<ProductComboItem>().HasIndex(x => new { x.ComboId, x.ProductId }).IsUnique();
+        modelBuilder.Entity<ProductComboItem>().HasOne(x => x.Combo).WithMany(x => x.ComboItems)
+            .HasForeignKey(x => x.ComboId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ProductComboItem>().HasOne(x => x.Product).WithMany(x => x.UsedInCombos)
+            .HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SaleItemComponent>().HasOne(x => x.SaleItem).WithMany(x => x.Components)
+            .HasForeignKey(x => x.SaleItemId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SaleItemComponent>().HasOne(x => x.Product).WithMany(x => x.SoldAsComponent)
+            .HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Product>()
             .HasOne(x => x.Recipe)

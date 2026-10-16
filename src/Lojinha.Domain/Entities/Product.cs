@@ -49,6 +49,9 @@ public sealed class Product : AuditableEntity
     public ProductRecipe? Recipe { get; set; }
     public ProductPainting? Painting { get; set; }
     public ICollection<SaleItem> SaleItems { get; set; } = new List<SaleItem>();
+    public ICollection<ProductComboItem> ComboItems { get; set; } = [];
+    public ICollection<ProductComboItem> UsedInCombos { get; set; } = [];
+    public ICollection<SaleItemComponent> SoldAsComponent { get; set; } = [];
     public ICollection<ProductFilament> Filaments { get; set; } = [];
 
     public void DecreaseStock(decimal quantity)

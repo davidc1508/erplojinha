@@ -8,6 +8,7 @@ public sealed class ProductRepository(AppDbContext dbContext) : Repository<Produ
 {
     public Task<List<Product>> GetAllDetailedAsync(CancellationToken cancellationToken = default)
         => DbSet
+            .Include(x => x.ComboItems).ThenInclude(x => x.Product)
             .Include(x => x.Category)
             .Include(x => x.Supplier)
             .Include(x => x.ProducerSupplier)
@@ -27,6 +28,9 @@ public sealed class ProductRepository(AppDbContext dbContext) : Repository<Produ
 
     public Task<Product?> GetDetailedByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => DbSet
+            .Include(x => x.ComboItems).ThenInclude(x => x.Product)
+            .Include(x => x.UsedInCombos)
+            .Include(x => x.SoldAsComponent)
             .Include(x => x.Category)
             .Include(x => x.Supplier)
             .Include(x => x.ProducerSupplier)

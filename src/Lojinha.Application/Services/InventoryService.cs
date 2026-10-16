@@ -64,6 +64,11 @@ public sealed class InventoryService(
                 throw new InvalidOperationException("Fornecedor so pode movimentar o estoque dos proprios produtos.");
             }
 
+            if (product.ProductType == ProductType.Combo)
+            {
+                throw new InvalidOperationException("Movimente o estoque dos produtos que compõem o combo.");
+            }
+
             await ApplyStockAsync(product, product.CurrentStock, request, cancellationToken);
             product.CurrentStock = ComputeNewStock(product.CurrentStock, request);
             productRepository.Update(product);

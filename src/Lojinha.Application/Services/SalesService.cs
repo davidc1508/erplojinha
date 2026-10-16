@@ -173,9 +173,11 @@ public sealed class SalesService(
             SoldAtUtc = soldAtUtc
         };
 
+        var stockItems = new List<SaleItem>();
         foreach (var item in request.Items)
         {
             var product = products[item.ProductId];
+            var unitCost = ComboCalculator.Cost(product);
             var selectedSupplierId = isReseller ? product.SupplierId : item.SupplierId ?? product.SupplierId;
             var selectedSupplier = selectedSupplierId.HasValue && suppliers.TryGetValue(selectedSupplierId.Value, out var supplier)
                 ? supplier
@@ -189,7 +191,7 @@ public sealed class SalesService(
                 lojinhaGainPercentage = 100m;
             }
             var totalPrice = decimal.Round(item.Quantity * unitPrice, 2);
-            var totalCost = decimal.Round(product.CostPrice * item.Quantity, 2);
+            var totalCost = decimal.Round(unitCost * item.Quantity, 2);
             var baseProfit = totalPrice - totalCost;
             var lojinhaGainAmount = selectedSupplierId.HasValue
                 ? decimal.Round(baseProfit * (lojinhaGainPercentage / 100m), 2)
@@ -209,7 +211,7 @@ public sealed class SalesService(
                 commissionAmount = Math.Min(totalPrice, ownerTransferTotal);
             }
 
-            sale.Items.Add(new SaleItem
+            var saleItem = new SaleItem
             {
                 ProductId = product.Id,
                 Product = product,
@@ -217,7 +219,7 @@ public sealed class SalesService(
                 Supplier = selectedSupplier,
                 Quantity = item.Quantity,
                 UnitPrice = unitPrice,
-                CostPrice = product.CostPrice,
+                CostPrice = unitCost,
                 TotalPrice = totalPrice,
                 LojinhaGainPercentage = lojinhaGainPercentage,
                 LojinhaGainAmount = lojinhaGainAmount,
@@ -225,19 +227,45 @@ public sealed class SalesService(
                 CommissionSellerSupplierId = !isReseller ? item.CommissionSellerSupplierId : null,
                 CommissionSellerSupplier = commissionSellerSupplier,
                 CommissionAmount = commissionAmount
-            });
+            };
+            sale.Items.Add(saleItem);
 
-            product.DecreaseStock(item.Quantity);
-            productRepository.Update(product);
+            if (product.ProductType == ProductType.Combo)
+            {
+                if (product.ComboItems.Count < 2 || product.ComboItems.Any(component => component.Product is null || component.Product.ProductType == ProductType.Combo))
+                    throw new InvalidOperationException("O combo precisa de pelo menos dois produtos válidos para ser vendido.");
+                foreach (var component in product.ComboItems)
+                {
+                    var componentProduct = component.Product!;
+                    var quantity = component.Quantity * item.Quantity;
+                    saleItem.Components.Add(new SaleItemComponent
+                    {
+                        ProductId = componentProduct.Id,
+                        Product = componentProduct,
+                        SupplierId = componentProduct.SupplierId,
+                        Quantity = quantity,
+                        CostPrice = componentProduct.CostPrice
+                    });
+                    stockItems.Add(new SaleItem { ProductId = componentProduct.Id, Product = componentProduct,
+                        SupplierId = componentProduct.SupplierId, Quantity = quantity, CostPrice = componentProduct.CostPrice });
+                }
+            }
+            else stockItems.Add(saleItem);
+        }
 
+        foreach (var stockItem in stockItems)
+        {
+            var stockProduct = stockItem.Product!;
+            stockProduct.DecreaseStock(stockItem.Quantity);
+            productRepository.Update(stockProduct);
             await inventoryRepository.AddAsync(new InventoryMovement
             {
                 ItemType = InventoryItemType.Product,
-                ItemId = product.Id,
+                ItemId = stockProduct.Id,
                 Type = InventoryMovementType.Sale,
-                Quantity = item.Quantity,
-                UnitCost = product.CostPrice,
-                Notes = $"Venda de {product.Name}",
+                Quantity = stockItem.Quantity,
+                UnitCost = stockItem.CostPrice,
+                Notes = $"Venda de {stockProduct.Name}",
                 ReferenceId = sale.Id,
                 OccurredAtUtc = sale.SoldAtUtc
             }, cancellationToken);
@@ -258,11 +286,11 @@ public sealed class SalesService(
             ReferenceId = sale.Id
         }, cancellationToken);
 
-        var regularProductionItems = sale.Items
+        var regularProductionItems = stockItems
             .Where(item => item.Product is not null && !item.Product.GenerateProductionExpenseOnStockEntry && item.Product.OutsourcedProductionId is null)
             .ToList();
 
-        var outsourcedProductionItems = sale.Items
+        var outsourcedProductionItems = stockItems
             .Where(item => item.Product is not null && !item.Product.GenerateProductionExpenseOnStockEntry && item.Product.OutsourcedProductionId is not null)
             .ToList();
 
@@ -369,7 +397,7 @@ public sealed class SalesService(
 
         if (request.CreateTodoForProducedItems)
         {
-            var soldProducts = sale.Items
+            var soldProducts = stockItems
                 .GroupBy(item => new { item.ProductId, item.SupplierId })
                 .Select(group => new
                 {
@@ -394,7 +422,7 @@ public sealed class SalesService(
         }
 
         await saleRepository.SaveChangesAsync(cancellationToken);
-        var affectedSupplierIds = sale.Items.Where(item => item.SupplierId.HasValue).Select(item => item.SupplierId!.Value).Distinct().ToList();
+        var affectedSupplierIds = stockItems.Concat(sale.Items).Where(item => item.SupplierId.HasValue).Select(item => item.SupplierId!.Value).Distinct().ToList();
         await cacheInvalidationService.InvalidateProductReadModelsAsync(affectedSupplierIds, cancellationToken);
         await cacheInvalidationService.InvalidateDashboardAsync(affectedSupplierIds, isReseller ? [scopedResellerActor!] : null, cancellationToken);
         await cacheInvalidationService.InvalidateFairReadModelsAsync(fair?.Id, affectedSupplierIds, cancellationToken);
@@ -419,12 +447,19 @@ public sealed class SalesService(
             return false;
         }
 
-        var productIds = sale.Items.Select(item => item.ProductId).Distinct().ToHashSet();
+        var stockItems = sale.Items.SelectMany(item => item.Components.Count == 0
+            ? new[] { item }
+            : item.Components.Select(component => new SaleItem
+            {
+                ProductId = component.ProductId, Product = component.Product, SupplierId = component.SupplierId,
+                Quantity = component.Quantity, CostPrice = component.CostPrice
+            })).ToList();
+        var productIds = stockItems.Select(item => item.ProductId).Distinct().ToHashSet();
         var products = (await productRepository.GetAllDetailedAsync(cancellationToken))
             .Where(product => productIds.Contains(product.Id))
             .ToDictionary(product => product.Id);
 
-        foreach (var item in sale.Items)
+        foreach (var item in stockItems)
         {
             if (products.TryGetValue(item.ProductId, out var product))
             {
@@ -447,7 +482,7 @@ public sealed class SalesService(
 
         if (ShouldReverseGeneratedRestockTargets(sale.Id, relatedAuditLogs))
         {
-            var soldProducts = sale.Items
+            var soldProducts = stockItems
                 .GroupBy(item => new { item.ProductId, item.SupplierId })
                 .Select(group => new
                 {
@@ -504,7 +539,7 @@ public sealed class SalesService(
             auditRepository.Remove(auditLog);
         }
 
-        var supplierIds = sale.Items.Where(item => item.SupplierId.HasValue).Select(item => item.SupplierId!.Value).Distinct().ToList();
+        var supplierIds = stockItems.Concat(sale.Items).Where(item => item.SupplierId.HasValue).Select(item => item.SupplierId!.Value).Distinct().ToList();
         var fairId = sale.FairId;
         saleRepository.Remove(sale);
         await saleRepository.SaveChangesAsync(cancellationToken);

@@ -59,7 +59,8 @@ public enum ProductType
 {
     Impressao3D = 1,
     Brinco = 2,
-    Botton = 3
+    Botton = 3,
+    Combo = 4
 }
 
 public enum FairStatus

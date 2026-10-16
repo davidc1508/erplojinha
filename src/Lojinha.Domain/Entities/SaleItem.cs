@@ -2,6 +2,7 @@ namespace Lojinha.Api.Entities;
 
 public sealed class SaleItem : BaseEntity
 {
+    public ICollection<SaleItemComponent> Components { get; set; } = [];
     public Guid SaleId { get; set; }
     public Sale? Sale { get; set; }
     public Guid ProductId { get; set; }

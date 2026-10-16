@@ -1,4 +1,5 @@
 using Lojinha.Api.Contracts.PaintingPricing;
+using Lojinha.Api.Domain.Services;
 using System.Text.Json;
 using Lojinha.Api.Caching;
 using Lojinha.Api.Contracts.Products;
@@ -22,7 +23,7 @@ public interface IProductService
     Task<ProductDto?> ConvertBudgetToProductAsync(Guid id, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default);
 }
 
-public sealed class ProductService(
+public sealed partial class ProductService(
     IAppCache cache,
     IAppCacheInvalidationService cacheInvalidationService,
     IProductRepository productRepository,
@@ -38,6 +39,7 @@ public sealed class ProductService(
     IRepository<BottonSize> bottonSizeRepository,
     IRepository<AuditLog> auditRepository,
     IRepository<ProductFilament> productFilamentRepository,
+    IRepository<ProductComboItem> productComboItemRepository,
     IPricingService pricingService,
     IOperationalListService operationalListService,
     IPaintingPricingService paintingPricingService,
@@ -86,6 +88,11 @@ public sealed class ProductService(
 
     public async Task<ProductDto> CreateAsync(ProductRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
+        if (request.ProductType == ProductType.Combo)
+        {
+            return (await SaveComboAsync(null, request, actor, scopedSupplierId, cancellationToken))!;
+        }
+
         if (request.ProductType == ProductType.Impressao3D)
         {
             EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
@@ -191,6 +198,11 @@ public sealed class ProductService(
 
     public async Task<ProductDto?> UpdateAsync(Guid id, ProductRequest request, string actor, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
+        if (request.ProductType == ProductType.Combo)
+        {
+            return await SaveComboAsync(id, request, actor, scopedSupplierId, cancellationToken);
+        }
+
         if (request.ProductType == ProductType.Impressao3D)
         {
             EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
@@ -200,6 +212,11 @@ public sealed class ProductService(
         if (product is null || !IsProductVisible(product, scopedSupplierId))
         {
             return null;
+        }
+
+        if (product.ProductType == ProductType.Combo)
+        {
+            throw new InvalidOperationException("O tipo de um combo cadastrado não pode ser alterado.");
         }
 
         if (product.NumericIdentifier <= 0)
@@ -335,6 +352,11 @@ public sealed class ProductService(
             return false;
         }
 
+        if (product.UsedInCombos.Count > 0 || product.SoldAsComponent.Count > 0)
+        {
+            throw new InvalidOperationException("Não é possível excluir um produto utilizado em combos ou em vendas de combos.");
+        }
+
         if (product.SaleItems.Count > 0)
         {
             throw new InvalidOperationException("Nao e possivel excluir um produto que ja possui vendas registradas.");
@@ -377,6 +399,8 @@ public sealed class ProductService(
             return null;
         }
 
+        if (product.ProductType == ProductType.Combo) return ComboPricing(product);
+
         return Map(pricingService.Calculate(
             product,
             product.Recipe,
@@ -411,6 +435,14 @@ public sealed class ProductService(
 
     public async Task<PriceSuggestionDto> PreviewPriceSuggestionAsync(ProductRequest request, Guid? scopedSupplierId = null, CancellationToken cancellationToken = default)
     {
+        if (request.ProductType == ProductType.Combo)
+        {
+            var combo = new Product { ProductType = ProductType.Combo, CommissionPercentage = request.CommissionPercentage };
+            await ApplyComboItemsAsync(combo, request, scopedSupplierId, cancellationToken);
+            combo.SalePrice = request.SalePrice ?? ComboCalculator.CombinedPrice(combo);
+            return ComboPricing(combo);
+        }
+
         if (request.ProductType == ProductType.Impressao3D)
         {
             EnsurePrinterWhenFilaments(request.Filaments, request.PrinterProfileId);
@@ -497,7 +529,7 @@ public sealed class ProductService(
     {
         var products = await productRepository.GetAllDetailedAsync(cancellationToken);
 
-        foreach (var product in products)
+        foreach (var product in products.Where(product => product.ProductType != ProductType.Combo))
         {
             var recipe = product.Recipe ?? new ProductRecipe
             {
@@ -756,12 +788,12 @@ public sealed class ProductService(
             product.SupplierId,
             product.Supplier?.Name,
             product.GenerateProductionExpenseOnStockEntry,
-            product.CostPrice,
+            ComboCalculator.Cost(product),
             product.SalePrice,
             product.SuggestedPrice,
             product.Recipe?.ResellerMarkup ?? 2.7m,
-            product.ProfitMargin,
-            product.CurrentStock,
+            product.ProductType == ProductType.Combo ? ComboMargin(product) : product.ProfitMargin,
+            ComboCalculator.AvailableStock(product),
             product.ItemsPerPlate,
             product.EstimatedPrintTimeMinutes,
             product.HeightCentimeters,
@@ -794,7 +826,10 @@ public sealed class ProductService(
             product.BottonSize?.StockQuantity ?? 0m,
             product.BottonSize?.CostPerUnit ?? 0m,
             product.Recipe is null ? 0.5m : decimal.Round(product.Recipe.LaborHours * product.Recipe.LaborCostPerHour, 2),
-            product.Painting is null ? null : ProductPaintingMapper.ToDto(product.Painting, false));
+            product.Painting is null ? null : ProductPaintingMapper.ToDto(product.Painting, false),
+            product.ComboItems.Select(item => new ProductComboItemDto(item.ProductId, item.Product?.Name ?? string.Empty,
+                item.Product?.Sku ?? string.Empty, item.Quantity, item.Product?.CostPrice ?? 0m,
+                item.Product?.SalePrice ?? 0m, item.Product?.CurrentStock ?? 0m)).ToList());
 
     private static decimal StoredPaintingCost(ProductPainting? painting)
         => painting is { Enabled: true } ? painting.IncorporatedCost : 0m;

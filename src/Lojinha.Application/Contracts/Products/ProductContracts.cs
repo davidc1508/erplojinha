@@ -3,6 +3,10 @@ using Lojinha.Api.Entities;
 
 namespace Lojinha.Api.Contracts.Products;
 
+public sealed record ComboItemRequest(Guid ProductId, decimal Quantity);
+
+public sealed record ProductComboItemDto(Guid ProductId, string Name, string Sku, decimal Quantity, decimal CostPrice, decimal SalePrice, decimal CurrentStock);
+
 public sealed record FilamentItemRequest(Guid FilamentProfileId, decimal WeightGrams);
 
 public sealed record ProductFilamentDto(Guid FilamentProfileId, string FilamentName, decimal WeightGrams);
@@ -36,7 +40,8 @@ public sealed record ProductRequest(
     Guid? BottonSizeId = null,
     decimal BottonSizeQuantity = 1m,
     decimal LaborCost = 0.5m,
-    ProductPaintingRequest? Painting = null);
+    ProductPaintingRequest? Painting = null,
+    IReadOnlyList<ComboItemRequest>? ComboItems = null);
 
 public sealed record ProductDto(
     Guid Id,
@@ -84,7 +89,8 @@ public sealed record ProductDto(
     decimal BottonSizeStockQuantity = 0m,
     decimal BottonSizeCostPerUnit = 0m,
     decimal LaborCost = 0.5m,
-    ProductPaintingDto? Painting = null);
+    ProductPaintingDto? Painting = null,
+    IReadOnlyList<ProductComboItemDto>? ComboItems = null);
 
 public sealed record ProductPriceHistoryEntryDto(
     DateTime ChangedAtUtc,

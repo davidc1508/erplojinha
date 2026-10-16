@@ -1239,6 +1239,32 @@ namespace Lojinha.Api.Migrations
                     b.ToTable("Categories", "public");
                 });
 
+            modelBuilder.Entity("Lojinha.Api.Entities.ProductComboItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ComboId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ComboId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("ProductComboItems", "public");
+                });
+
             modelBuilder.Entity("Lojinha.Api.Entities.ProductFilament", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1899,6 +1925,38 @@ namespace Lojinha.Api.Migrations
                     b.ToTable("SaleItems", "public");
                 });
 
+            modelBuilder.Entity("Lojinha.Api.Entities.SaleItemComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CostPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("SaleItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SupplierId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SaleItemId");
+
+                    b.ToTable("SaleItemComponents", "public");
+                });
+
             modelBuilder.Entity("Lojinha.Api.Entities.Supplier", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2221,6 +2279,25 @@ namespace Lojinha.Api.Migrations
                     b.Navigation("Supplier");
                 });
 
+            modelBuilder.Entity("Lojinha.Api.Entities.ProductComboItem", b =>
+                {
+                    b.HasOne("Lojinha.Api.Entities.Product", "Combo")
+                        .WithMany("ComboItems")
+                        .HasForeignKey("ComboId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Lojinha.Api.Entities.Product", "Product")
+                        .WithMany("UsedInCombos")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Combo");
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("Lojinha.Api.Entities.ProductFilament", b =>
                 {
                     b.HasOne("Lojinha.Api.Entities.FilamentProfile", "FilamentProfile")
@@ -2407,6 +2484,25 @@ namespace Lojinha.Api.Migrations
                     b.Navigation("Supplier");
                 });
 
+            modelBuilder.Entity("Lojinha.Api.Entities.SaleItemComponent", b =>
+                {
+                    b.HasOne("Lojinha.Api.Entities.Product", "Product")
+                        .WithMany("SoldAsComponent")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lojinha.Api.Entities.SaleItem", "SaleItem")
+                        .WithMany("Components")
+                        .HasForeignKey("SaleItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("SaleItem");
+                });
+
             modelBuilder.Entity("Lojinha.Api.Entities.User", b =>
                 {
                     b.HasOne("Lojinha.Api.Entities.Supplier", "Supplier")
@@ -2463,6 +2559,8 @@ namespace Lojinha.Api.Migrations
 
             modelBuilder.Entity("Lojinha.Api.Entities.Product", b =>
                 {
+                    b.Navigation("ComboItems");
+
                     b.Navigation("Filaments");
 
                     b.Navigation("OutsourcedProduction");
@@ -2472,6 +2570,10 @@ namespace Lojinha.Api.Migrations
                     b.Navigation("Recipe");
 
                     b.Navigation("SaleItems");
+
+                    b.Navigation("SoldAsComponent");
+
+                    b.Navigation("UsedInCombos");
                 });
 
             modelBuilder.Entity("Lojinha.Api.Entities.ProductCategory", b =>
@@ -2504,6 +2606,11 @@ namespace Lojinha.Api.Migrations
             modelBuilder.Entity("Lojinha.Api.Entities.Sale", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Lojinha.Api.Entities.SaleItem", b =>
+                {
+                    b.Navigation("Components");
                 });
 
             modelBuilder.Entity("Lojinha.Api.Entities.Supplier", b =>

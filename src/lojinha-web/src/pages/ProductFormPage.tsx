@@ -21,6 +21,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ComboCompositionSection } from './productForm/ComboCompositionSection';
 import { CurrencyField } from '../components/CurrencyField';
 import { SearchSelectField } from '../components/SearchSelectField';
 import { useAuth } from '../hooks/useAuth';
@@ -36,6 +37,7 @@ import { ProductProjectionSection } from './productForm/ProductProjectionSection
 import { durationPartsToMinutes, minutesToDurationParts } from '../services/product';
 
 const emptyForm = {
+  comboItems: [{ productId: '', quantity: 1 }, { productId: '', quantity: 1 }],
   productType: 'Impressao3D' as ProductType,
   name: '',
   sku: '',
@@ -186,6 +188,17 @@ export function ProductFormPage() {
   const { data: bottonSizes = [] } = useQuery({ queryKey: ['botton-sizes'], queryFn: bottonSizesApi.getAll });
   const { data: paintingOverview } = useQuery({ queryKey: ['painting-pricing'], queryFn: paintingPricingApi.getOverview });
   const selectedBottonSize = bottonSizes.find((size) => size.id === form.bottonSizeId);
+  const isCombo = form.productType === 'Combo';
+  const { data: comboProducts = [], isLoading: comboProductsLoading, isError: comboProductsError } = useQuery({
+    queryKey: ['products', 'combo-components'], queryFn: () => productsApi.getAll(), enabled: isCombo
+  });
+  const eligibleComboProducts = comboProducts.filter((candidate) => candidate.id !== id && candidate.productType !== 'Combo' && candidate.lifecycleStatus !== 'Orcamento');
+  const comboCost = form.comboItems.reduce((sum, item) => sum + (eligibleComboProducts.find((candidate) => candidate.id === item.productId)?.costPrice ?? 0) * item.quantity, 0);
+  const comboCombinedPrice = form.comboItems.reduce((sum, item) => sum + (eligibleComboProducts.find((candidate) => candidate.id === item.productId)?.salePrice ?? 0) * item.quantity, 0);
+  const comboAvailableStock = form.comboItems.length === 0 ? 0 : Math.min(...form.comboItems.map((item) => item.quantity > 0 ? Math.floor((eligibleComboProducts.find((candidate) => candidate.id === item.productId)?.currentStock ?? 0) / item.quantity) : 0));
+  const hasInvalidCombo = isCombo && (comboProductsLoading || comboProductsError || form.comboItems.length < 2
+    || new Set(form.comboItems.map((item) => item.productId)).size !== form.comboItems.length
+    || form.comboItems.some((item) => !eligibleComboProducts.some((candidate) => candidate.id === item.productId) || !Number.isInteger(item.quantity) || item.quantity <= 0));
   const isEarring = form.productType === 'Brinco';
   const isBotton = form.productType === 'Botton';
   const isPrint3D = form.productType === 'Impressao3D';
@@ -206,6 +219,7 @@ export function ProductFormPage() {
     }
 
     setForm({
+      comboItems: (product.comboItems ?? []).map((item) => ({ productId: item.productId, quantity: item.quantity })),
       productType: product.productType ?? 'Impressao3D',
       name: product.name,
       sku: product.sku,
@@ -217,7 +231,7 @@ export function ProductFormPage() {
       bottonSizeId: product.bottonSizeId ?? '',
       bottonSizeQuantity: product.bottonSizeQuantity ?? 1,
       generateProductionExpenseOnStockEntry: product.generateProductionExpenseOnStockEntry,
-      currentStock: product.currentStock,
+      currentStock: product.productType === 'Combo' ? 0 : product.currentStock,
       itemsPerPlate: product.itemsPerPlate,
       estimatedPrintTimeMinutes: product.estimatedPrintTimeMinutes,
       heightCentimeters: product.heightCentimeters,
@@ -248,6 +262,7 @@ export function ProductFormPage() {
     }
 
     setForm({
+      comboItems: (cloneSource.comboItems ?? []).map((item) => ({ productId: item.productId, quantity: item.quantity })),
       productType: cloneSource.productType ?? 'Impressao3D',
       name: `${cloneSource.name} (cópia)`,
       sku: '',
@@ -292,6 +307,7 @@ export function ProductFormPage() {
     setProjectDraftFailureCost(projectDraft.failureAdditionalCost);
     setIncludeProjectFailures(false);
     setForm({
+      comboItems: [],
       productType: 'Impressao3D',
       name: projectDraft.name,
       sku: projectDraft.sku,
@@ -480,7 +496,7 @@ export function ProductFormPage() {
   const { data: pricing } = useQuery({
     queryKey: ['product-pricing-preview', pricingPayload],
     queryFn: () => productsApi.previewPricing(pricingPayload),
-    enabled: Boolean((pricingPayload.categoryId ?? '').length > 0 && (!isEditing || product)),
+    enabled: !isCombo && Boolean((pricingPayload.categoryId ?? '').length > 0 && (!isEditing || product)),
     keepPreviousData: true,
     staleTime: 30_000
   });
@@ -503,7 +519,9 @@ export function ProductFormPage() {
         costPrice: null,
         isBudget: isBudgetMode || form.isBudget,
         salePrice: form.salePrice === '' ? null : Number(form.salePrice),
-        painting: paintingPayload
+        comboItems: isCombo ? form.comboItems : [],
+        currentStock: isCombo ? 0 : form.currentStock,
+        painting: isCombo ? null : paintingPayload
       };
 
       return isProjectDraftMode
@@ -543,7 +561,7 @@ export function ProductFormPage() {
   });
 
   const effectiveSalePrice = form.salePrice === ''
-    ? (product?.salePrice ?? 0)
+    ? (isCombo ? comboCombinedPrice : product?.salePrice ?? 0)
     : Number(form.salePrice);
   const effectiveCommissionPercentage = Number(form.commissionPercentage);
   const effectiveCommissionedSalePrice = (() => {
@@ -563,12 +581,12 @@ export function ProductFormPage() {
     return Number((effectiveSalePrice / (1 - rate)).toFixed(2));
   })();
 
-  const liveCost = pricing?.totalCost ?? product?.costPrice ?? 0;
+  const liveCost = isCombo ? comboCost : pricing?.totalCost ?? product?.costPrice ?? 0;
   const estimatedProfit = effectiveSalePrice - liveCost;
   const minimumAllowedSalePrice = liveCost * 2;
-  const hasMarkupBelowMinimum = Number(form.desiredMarkup) < 2;
+  const hasMarkupBelowMinimum = !isCombo && Number(form.desiredMarkup) < 2;
   const hasMissingCategory = form.categoryId === '';
-  const hasManualPriceBelowMinimum = form.salePrice !== '' && Number(form.salePrice) < minimumAllowedSalePrice;
+  const hasManualPriceBelowMinimum = !isCombo && form.salePrice !== '' && Number(form.salePrice) < minimumAllowedSalePrice;
   const hasMissingPrinterWithFilaments = isPrint3D && form.filaments.filter(f => f.filamentProfileId).length > 0 && form.printerProfileId === '';
   const hasMissingPingente = isEarring && !form.pingenteSupplyId;
   const hasMissingBottonSize = isBotton && !form.bottonSizeId;
@@ -578,7 +596,9 @@ export function ProductFormPage() {
     if (field === 'additionalCost' && isProjectDraftMode) {
       setProjectDraftBaseAdditionalCost(Number(value) - (includeProjectFailures ? projectDraftFailureCost : 0));
     }
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => field === 'productType' && (value === 'Combo' || current.productType === 'Combo')
+      ? { ...current, productType: value as ProductType, salePrice: '', currentStock: 0 }
+      : { ...current, [field]: value });
   }
 
   const backTarget = isProjectDraftMode
@@ -625,7 +645,7 @@ export function ProductFormPage() {
   }, []);
   const pageTitle = isProjectDraftMode ? 'Pré-cadastro do produto do projeto' : isEditing ? (form.isBudget ? 'Editar orçamento' : 'Editar produto') : (isBudgetMode ? 'Novo orçamento' : 'Novo produto');
   const saveLabel = saveMutation.isLoading ? 'Salvando...' : isProjectDraftMode ? 'Concluir projeto e salvar produto' : isEditing ? 'Salvar alterações' : (isBudgetMode || form.isBudget ? 'Cadastrar orçamento' : 'Cadastrar produto');
-  const saveDisabled = hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments || hasMissingPingente || hasMissingBottonSize;
+  const saveDisabled = hasInvalidCombo || (isCombo && effectiveSalePrice < 0) || hasMissingCategory || hasMarkupBelowMinimum || hasManualPriceBelowMinimum || hasMissingPrinterWithFilaments || hasMissingPingente || hasMissingBottonSize;
   const unitMargin = effectiveSalePrice > 0 ? (estimatedProfit / effectiveSalePrice) * 100 : 0;
   const paintingDetails = paintingCalculation?.details ?? null;
   const paintedDetail = paintingDetails
@@ -656,7 +676,7 @@ export function ProductFormPage() {
         isSaving={saveMutation.isLoading}
         saveDisabled={saveDisabled}
         saveTitle={hasMissingPrinterWithFilaments ? 'Selecione uma impressora quando há filamentos' : undefined}
-        showPainted={painting.enabled}
+        showPainted={!isCombo && painting.enabled}
         paintedDetail={paintedDetail}
         onBack={goBack}
         onSave={save}
@@ -674,6 +694,7 @@ export function ProductFormPage() {
       {hasMarkupBelowMinimum ? <Alert severity="warning">O markup desejado nao pode ser menor do que 2.</Alert> : null}
       {hasManualPriceBelowMinimum ? <Alert severity="warning">O preco final nao pode ser menor do que {formatCurrency(minimumAllowedSalePrice)}.</Alert> : null}
       {hasMissingPingente ? <Alert severity="warning">Selecione o pingente utilizado no brinco.</Alert> : null}
+      {hasInvalidCombo ? <Alert severity="warning">Selecione pelo menos dois produtos diferentes, com quantidades inteiras maiores que zero.</Alert> : null}
       {hasMissingBottonSize ? <Alert severity="warning">Selecione o tamanho de botton utilizado.</Alert> : null}
 
       {isProjectDraftMode && projectDraft ? (
@@ -716,12 +737,13 @@ export function ProductFormPage() {
               label="Tipo de produto"
               value={form.productType}
               onChange={(event) => updateForm('productType', event.target.value)}
-              helperText="Define quais campos de produção aparecem abaixo. Impressão 3D mantém impressora e filamentos."
-              disabled={isFromOutsourcedProduction}
+              helperText={isCombo ? "Agrupa produtos do catálogo para vender em conjunto." : "Define quais campos de produção aparecem abaixo. Impressão 3D mantém impressora e filamentos."}
+              disabled={isFromOutsourcedProduction || isProjectDraftMode || (isEditing && product?.productType === 'Combo')}
             >
               <MenuItem value="Impressao3D">Impressão 3D</MenuItem>
               <MenuItem value="Brinco">Brinco</MenuItem>
               <MenuItem value="Botton">Botton</MenuItem>
+              {!isEditing ? <MenuItem value="Combo">Combo</MenuItem> : product?.productType === 'Combo' ? <MenuItem value="Combo">Combo</MenuItem> : null}
             </TextField>
             <TextField fullWidth label="Nome" value={form.name} onChange={(event) => updateForm('name', capitalizeFirstLetter(event.target.value))} disabled={isFromOutsourcedProduction} />
             <TextField
@@ -751,14 +773,21 @@ export function ProductFormPage() {
                 {!isSupplier ? <MenuItem value="">Lojinha Sem Nome</MenuItem> : null}
                 {(metadata?.suppliers ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
               </TextField>
-              <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction} helperText="Vem pré-selecionado como Nenhum.">
+              {!isCombo ? <TextField select label="Marketplace" value={form.marketplaceFeeId} onChange={(event) => updateForm('marketplaceFeeId', event.target.value)} fullWidth disabled={isFromOutsourcedProduction} helperText="Vem pré-selecionado como Nenhum.">
                 {form.marketplaceFeeId === '' ? <MenuItem value="">— Sem marketplace —</MenuItem> : null}
                 {(metadata?.marketplaces ?? []).map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
-              </TextField>
+              </TextField> : null}
             </Box>
         </Stack>
       </PageSection>
 
+      {isCombo ? (
+        <ComboCompositionSection items={form.comboItems} products={eligibleComboProducts}
+          onChange={(comboItems) => { setDirty(true); setForm((current) => ({ ...current, comboItems })); }}
+          salePrice={effectiveSalePrice} onPriceChange={(price) => updateForm('salePrice', price)}
+          cost={comboCost} combinedPrice={comboCombinedPrice} availableStock={comboAvailableStock}
+          loading={comboProductsLoading} error={comboProductsError} />
+      ) : <>
       <PageSection title="2 · Produção e insumo" subtitle="Como o produto é feito — muda conforme o tipo escolhido.">
         <Stack spacing={2}>
             {isEarring ? (
@@ -979,6 +1008,8 @@ export function ProductFormPage() {
         bottonStock={selectedBottonSize?.stockQuantity}
         onApplyPrice={applySimulatedPrice}
       />
+
+      </>}
 
       {isEditing ? (
         <PageSection title="Histórico de custo e preço" subtitle="Linha do tempo das alterações salvas para este produto.">

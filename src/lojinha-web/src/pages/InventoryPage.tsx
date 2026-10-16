@@ -64,7 +64,7 @@ export function InventoryPage() {
   const [form, setForm] = useState({ itemType: 'Product', itemId: '', type: 'Entry', quantity: 1, unitCost: 0, notes: '' });
 
   const managedProducts = useMemo(
-    () => isSupplier ? products.filter((p) => p.supplierId === supplierId) : products,
+    () => products.filter((p) => p.productType !== 'Combo' && (!isSupplier || p.supplierId === supplierId)),
     [isSupplier, products, supplierId]
   );
 

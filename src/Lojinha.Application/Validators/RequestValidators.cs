@@ -48,7 +48,16 @@ public sealed class ProductRequestValidator : AbstractValidator<ProductRequest>
         RuleFor(x => x.CommissionPercentage).InclusiveBetween(0, 99.99m);
         RuleFor(x => x.AdditionalCost).GreaterThanOrEqualTo(0);
         RuleFor(x => x.LaborCost).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.DesiredMarkup).GreaterThanOrEqualTo(2);
+        RuleFor(x => x.ProductType).IsInEnum();
+        RuleFor(x => x.DesiredMarkup).GreaterThanOrEqualTo(2).When(x => x.ProductType != ProductType.Combo);
+        RuleFor(x => x.ComboItems)
+            .Must(items => items is { Count: >= 2 } && items.Select(item => item.ProductId).Distinct().Count() == items.Count
+                && items.All(item => item.ProductId != Guid.Empty && item.Quantity > 0m && item.Quantity == decimal.Truncate(item.Quantity)))
+            .When(x => x.ProductType == ProductType.Combo)
+            .WithMessage("Selecione pelo menos dois produtos diferentes e informe quantidades inteiras maiores que zero.");
+        RuleFor(x => x.CurrentStock).Equal(0).When(x => x.ProductType == ProductType.Combo)
+            .WithMessage("O estoque do combo é calculado pelos produtos que o compõem.");
+        RuleFor(x => x.SalePrice).GreaterThanOrEqualTo(0).When(x => x.ProductType == ProductType.Combo && x.SalePrice.HasValue);
         RuleFor(x => x)
             .Must(x => x.ProductType != ProductType.Impressao3D
                 || !x.Filaments.Any(item => item.FilamentProfileId != Guid.Empty && item.WeightGrams > 0m)
