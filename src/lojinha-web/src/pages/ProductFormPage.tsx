@@ -489,6 +489,7 @@ export function ProductFormPage() {
       costPrice: null,
       commissionPercentage: Number(source.commissionPercentage),
       salePrice: source.salePrice === '' ? null : Number(source.salePrice),
+      comboItems: source.productType === 'Combo' ? source.comboItems : [],
       painting: debouncedPaintingPayload
     };
   }, [debouncedForm, isSupplier, session?.supplierId, debouncedPaintingPayload]);
